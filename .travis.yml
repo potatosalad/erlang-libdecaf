@@ -1,6 +1,7 @@
 language: erlang
 
-sudo: false
+sudo: required
+dist: trusty
 
 otp_release:
   - 17.5
