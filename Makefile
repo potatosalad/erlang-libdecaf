@@ -1,3 +1,3 @@
-PROJECT = ed448
+PROJECT = libdecaf
 
 include erlang.mk

@@ -5,7 +5,7 @@ _*
 *.plt
 *.swp
 *.swo
-/.ed448
+/.ed448goldilocks
 .erlang.cookie
 .erlang.mk.packages.*
 ebin
@@ -28,5 +28,7 @@ test/ct.cover.spec
 /priv/*.dll
 /priv/*.dylib
 /priv/*.so
+/test/fips202_SUITE_data/keccaktestvectors
 /tmp
 *.ez
+libdecaf.d
