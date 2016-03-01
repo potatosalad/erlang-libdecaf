@@ -24,10 +24,12 @@ doc
 logs
 test/ct.cover.spec
 /_build
+/c_src/env.mk
 /cover
 /priv/*.dll
 /priv/*.dylib
 /priv/*.so
+/test/fips180_4_SUITE_data/shabytetestvectors
 /test/fips202_SUITE_data/keccaktestvectors
 /tmp
 *.ez

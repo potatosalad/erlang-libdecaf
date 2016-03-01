@@ -8,7 +8,7 @@
 %%% @end
 %%% Created :  29 Feb 2016 by Andrew Bennett <andrew@pixid.com>
 %%%-------------------------------------------------------------------
--module(libdecaf_shake).
+-module(libdecaf_sha3).
 
 %% API
 -export([hash/2]).

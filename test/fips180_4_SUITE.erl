@@ -8,7 +8,7 @@
 %%% @end
 %%% Created :  29 Feb 2016 by Andrew Bennett <andrew@pixid.com>
 %%%-------------------------------------------------------------------
--module(fips202_SUITE).
+-module(fips180_4_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -24,7 +24,7 @@
 -export([end_per_group/2]).
 
 %% Tests.
--export([fips202/1]).
+-export([fips180_4/1]).
 
 %% Macros.
 -define(tv_ok(T, M, F, A, E),
@@ -37,13 +37,13 @@
 
 all() ->
 	[
-		{group, 'keccaktestvectors'}
+		{group, 'shabytetestvectors'}
 	].
 
 groups() ->
 	[
-		{'keccaktestvectors', [], [
-			fips202
+		{'shabytetestvectors', [], [
+			fips180_4
 		]}
 	].
 
@@ -55,11 +55,11 @@ end_per_suite(_Config) ->
 	_ = application:stop(libdecaf),
 	ok.
 
-init_per_group(G='keccaktestvectors', Config) ->
-	Folder = data_file("keccaktestvectors", Config),
+init_per_group(G='shabytetestvectors', Config) ->
+	Folder = data_file("shabytetestvectors", Config),
 	{ok, Entries} = file:list_dir(Folder),
 	Files = [filename:join([Folder, Entry]) || Entry <- Entries],
-	[{fips202_files, Files} | libdecaf_ct:start(G, Config)].
+	[{'fips180-4_files', Files} | libdecaf_ct:start(G, Config)].
 
 end_per_group(_Group, Config) ->
 	libdecaf_ct:stop(Config),
@@ -69,9 +69,9 @@ end_per_group(_Group, Config) ->
 %% Tests
 %%====================================================================
 
-fips202(Config) ->
-	Files = [File || File <- ?config(fips202_files, Config)],
-	lists:foldl(fun fips202/2, Config, Files).
+fips180_4(Config) ->
+	Files = [File || File <- ?config('fips180-4_files', Config)],
+	lists:foldl(fun fips180_4/2, Config, Files).
 
 %%%-------------------------------------------------------------------
 %%% Internal functions
@@ -90,19 +90,15 @@ data_setup(Config) ->
 		ok = libdecaf_ct:progress_stop(Progress),
 		NewC
 	end, Config, [
-		"keccaktestvectors"
+		"shabytetestvectors"
 	]).
 
 %% @private
-data_setup(F = "keccaktestvectors", Config) ->
-	BaseURL = "https://raw.githubusercontent.com/gvanas/KeccakCodePackage/1893f17c8029d0e6423f1fa4de4d15f76b188a27/TestVectors/",
+data_setup(F = "shabytetestvectors", Config) ->
+	BaseURL = "https://raw.githubusercontent.com/coruus/nist-testvectors/2841a2d486a155c8c79c1e6b2fe5a653e7276d96/csrc.nist.gov/groups/STM/cavp/documents/shs/shabytetestvectors/",
 	Files = [
-		"ShortMsgKAT_SHA3-224.txt",
-		"ShortMsgKAT_SHA3-256.txt",
-		"ShortMsgKAT_SHA3-384.txt",
-		"ShortMsgKAT_SHA3-512.txt",
-		"ShortMsgKAT_SHAKE128.txt",
-		"ShortMsgKAT_SHAKE256.txt"
+		"SHA512LongMsg.rsp",
+		"SHA512ShortMsg.rsp"
 	],
 	URLs = [BaseURL ++ File || File <- Files],
 	Directory = data_file(F, Config),
@@ -129,63 +125,58 @@ data_setup_multiple([], _Directory, []) ->
 	ok.
 
 %% @private
-fips202(File, Config) ->
-	Options = case iolist_to_binary(filename:basename(File)) of
-		<< "ShortMsgKAT_SHA3-", BitsBin:3/binary, _/binary >> ->
-			Bits = binary_to_integer(BitsBin),
-			Bytes = (Bits + 7) div 8,
-			Type = list_to_atom("sha3_" ++ integer_to_list(Bits)),
-			Arity = 1,
-			{Type, Arity, Bytes};
-		<< "ShortMsgKAT_SHAKE", BitsBin:3/binary, _/binary >> ->
-			Bits = binary_to_integer(BitsBin),
-			Bytes = 512,
-			Type = list_to_atom("shake" ++ integer_to_list(Bits)),
-			Arity = 2,
-			{Type, Arity, Bytes}
-	end,
+fips180_4(File, Config) ->
 	Vectors = fips_testvector:from_file(File),
 	io:format("~s", [filename:basename(File)]),
-	fips202(Vectors, Options, Config).
+	fips180_4_test(Vectors, Config).
 
 %% @private
-fips202([
+fips180_4_test([
+			{option, {<<"L">>, LBin}}
+			| Vectors
+		], Config) ->
+	LInt = binary_to_integer(LBin),
+	fips180_4_test(Vectors, LInt, Config);
+fips180_4_test([Vector | _Vectors], _Config) ->
+	ct:fail("Unhandled test vector: ~p~n", [Vector]).
+
+%% @private
+fips180_4_test([
 			{vector, {<<"Len">>, Len}, _},
 			{vector, {<<"Msg">>, Msg}, _},
 			{vector, {<<"MD">>, MD}, _}
 			| Vectors
-		], {Type, Arity=1, OutputByteLen}, Config) when Len rem 8 =:= 0 ->
+		], OutputByteLen, Config) when Len rem 8 =:= 0 ->
 	InputBytes = binary:part(Msg, 0, Len div 8),
-	?tv_ok(T0, libdecaf_sha3, hash, [Type, InputBytes], MD),
-	Sponge0 = libdecaf_sha3:init(Type),
-	Sponge1 = libdecaf_sha3:update(Sponge0, InputBytes),
-	?tv_ok(T1, libdecaf_sha3, final, [Sponge1], MD),
-	fips202(Vectors, {Type, Arity, OutputByteLen}, Config);
-fips202([
-			{vector, {<<"Len">>, Len}, _},
-			{vector, {<<"Msg">>, Msg}, _},
-			{vector, {<<"Squeezed">>, Squeezed}, _}
-			| Vectors
-		], {Type, Arity=2, OutputByteLen}, Config) when Len rem 8 =:= 0 ->
-	InputBytes = binary:part(Msg, 0, Len div 8),
-	?tv_ok(T0, libdecaf_sha3, hash, [Type, InputBytes, OutputByteLen], Squeezed),
-	Sponge0 = libdecaf_sha3:init(Type),
-	Sponge1 = libdecaf_sha3:update(Sponge0, InputBytes),
-	?tv_ok(T1, libdecaf_sha3, final, [Sponge1, OutputByteLen], Squeezed),
-	fips202(Vectors, {Type, Arity, OutputByteLen}, Config);
-fips202([
-			{vector, {<<"Len">>, _Len}, _},
-			{vector, {<<"Msg">>, _Msg}, _},
-			{vector, {<<"MD">>, _MD}, _}
-			| Vectors
-		], Options, Config) ->
-	fips202(Vectors, Options, Config);
-fips202([
-			{vector, {<<"Len">>, _Len}, _},
-			{vector, {<<"Msg">>, _Msg}, _},
-			{vector, {<<"Squeezed">>, _Squeezed}, _}
-			| Vectors
-		], Options, Config) ->
-	fips202(Vectors, Options, Config);
-fips202([], _Opts, _Config) ->
+	?tv_ok(T0, libdecaf_sha2, hash, [sha2_512, InputBytes, OutputByteLen], MD),
+	Context0 = libdecaf_sha2:init(sha2_512),
+	Context1 = libdecaf_sha2:update(Context0, InputBytes),
+	?tv_ok(T1, libdecaf_sha2, final, [Context1, OutputByteLen], MD),
+	fips180_4_test(Vectors, OutputByteLen, Config);
+% fips180_4_test([
+% 			{vector, {<<"Seed">>, Seed}, _}
+% 			| Vectors
+% 		], OutputByteLen, Config) ->
+% 	fips180_4_test(Vectors, Seed, OutputByteLen, Config);
+fips180_4_test([], _OutputByteLen, _Config) ->
+	ok;
+fips180_4_test(Vectors, _Opts, _Config) ->
+	ct:fail("Unhandled test vectors: ~p~n", [Vectors]),
 	ok.
+
+% %% @private
+% fips180_4_test([
+% 			{vector, {<<"COUNT">>, Count}, _},
+% 			{vector, {<<"MD">>, MD}, _}
+% 			| Vectors
+% 		], InputBytes, OutputByteLen, Config) ->
+% 	io:format("\tCOUNT = ~w", [Count]),
+% 	?tv_ok(T0, libdecaf_sha2, hash, [sha2_512, InputBytes, OutputByteLen], MD),
+% 	Context0 = libdecaf_sha2:init(sha2_512),
+% 	Context1 = libdecaf_sha2:update(Context0, InputBytes),
+% 	?tv_ok(T1, libdecaf_sha2, final, [Context1, OutputByteLen], MD),
+% 	fips180_4_test(Vectors, MD, OutputByteLen, Config);
+% fips180_4_test([], _Seed, _OutputByteLen, _Config) ->
+% 	ok;
+% fips180_4_test(Vectors, _Seed, _OutputByteLen, _Config) ->
+% 	ct:fail("Unhandled test vectors: ~p~n", [Vectors]).
