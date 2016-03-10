@@ -41,9 +41,6 @@
 -define(EdDSA_PK_BYTES,      57).
 -define(EdDSA_SK_BYTES,     114).
 -define(EdDSA_SIGN_BYTES,   114).
-% EdDSA Short
--define(EdDSA_SHORT_SECRET_BYTES, 32).
--define(EdDSA_SHORT_SK_BYTES,     89).
 % X448
 -define(X448_PRIVATE_BYTES,  56).
 -define(X448_PUBLIC_BYTES,   56).
@@ -59,42 +56,31 @@ eddsa_keypair() ->
 
 eddsa_keypair(Secret)
 		when is_binary(Secret)
-		andalso (byte_size(Secret) =:= ?EdDSA_SECRET_BYTES orelse byte_size(Secret) =:= ?EdDSA_SHORT_SECRET_BYTES) ->
+		andalso byte_size(Secret) =:= ?EdDSA_SECRET_BYTES ->
 	PK = eddsa_secret_to_pk(Secret),
 	{PK, << Secret/binary, PK/binary >>}.
 
 eddsa_secret_to_pk(Secret)
 		when is_binary(Secret)
-		andalso (byte_size(Secret) =:= ?EdDSA_SECRET_BYTES orelse byte_size(Secret) =:= ?EdDSA_SHORT_SECRET_BYTES) ->
-	libdecaf:decaf_448_eddsa_derive_public_key(Secret).
+		andalso byte_size(Secret) =:= ?EdDSA_SECRET_BYTES ->
+	libdecaf:ed448_derive_public_key(Secret).
 
 eddsa_sk_to_pk(<< _:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) ->
-	PK;
-eddsa_sk_to_pk(<< _:?EdDSA_SHORT_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) ->
 	PK.
 
 eddsa_sk_to_secret(<< Secret:?EdDSA_SECRET_BYTES/binary, _:?EdDSA_PK_BYTES/binary >>) ->
-	Secret;
-eddsa_sk_to_secret(<< Secret:?EdDSA_SHORT_SECRET_BYTES/binary, _:?EdDSA_PK_BYTES/binary >>) ->
 	Secret.
 
 % Ed448
 
 ed448_sign(M, << SK:?EdDSA_SK_BYTES/binary >>) when is_binary(M) ->
-	ed448_sign(M, SK, <<>>);
-ed448_sign(M, << SK:?EdDSA_SHORT_SK_BYTES/binary >>) when is_binary(M) ->
 	ed448_sign(M, SK, <<>>).
 
 ed448_sign(M, << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>, C)
 		when is_binary(M)
 		andalso is_binary(C)
 		andalso byte_size(C) =< 255 ->
-	libdecaf:decaf_448_eddsa_sign(Secret, PK, M, 0, C);
-ed448_sign(M, << Secret:?EdDSA_SHORT_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>, C)
-		when is_binary(M)
-		andalso is_binary(C)
-		andalso byte_size(C) =< 255 ->
-	libdecaf:decaf_448_eddsa_sign(Secret, PK, M, 0, C).
+	libdecaf:ed448_sign(Secret, PK, M, 0, C).
 
 ed448_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
 	ed448_verify(Sig, M, PK, <<>>).
@@ -103,25 +89,18 @@ ed448_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary
 		when is_binary(M)
 		andalso is_binary(C)
 		andalso byte_size(C) =< 255 ->
-	libdecaf:decaf_448_eddsa_verify(Sig, PK, M, 0, C).
+	libdecaf:ed448_verify(Sig, PK, M, 0, C).
 
 % Ed448ph
 
 ed448ph_sign(M, << SK:?EdDSA_SK_BYTES/binary >>) when is_binary(M) ->
-	ed448ph_sign(M, SK, <<>>);
-ed448ph_sign(M, << SK:?EdDSA_SHORT_SK_BYTES/binary >>) when is_binary(M) ->
 	ed448ph_sign(M, SK, <<>>).
 
 ed448ph_sign(M, << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>, C)
 		when is_binary(M)
 		andalso is_binary(C)
 		andalso byte_size(C) =< 255 ->
-	libdecaf:decaf_448_eddsa_sign(Secret, PK, M, 1, C);
-ed448ph_sign(M, << Secret:?EdDSA_SHORT_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>, C)
-		when is_binary(M)
-		andalso is_binary(C)
-		andalso byte_size(C) =< 255 ->
-	libdecaf:decaf_448_eddsa_sign(Secret, PK, M, 1, C).
+	libdecaf:ed448_sign_prehash(Secret, PK, M, C).
 
 ed448ph_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
 	ed448ph_verify(Sig, M, PK, <<>>).
@@ -130,7 +109,7 @@ ed448ph_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/bina
 		when is_binary(M)
 		andalso is_binary(C)
 		andalso byte_size(C) =< 255 ->
-	libdecaf:decaf_448_eddsa_verify(Sig, PK, M, 1, C).
+	libdecaf:ed448_verify_prehash(Sig, PK, M, C).
 
 % X448
 
@@ -139,7 +118,7 @@ curve448(Scalar) when is_integer(Scalar) ->
 curve448(Scalar)
 		when is_binary(Scalar)
 		andalso byte_size(Scalar) =:= ?X448_PRIVATE_BYTES ->
-	<< U:?X448_PUBLIC_BYTES/unsigned-little-integer-unit:8 >> = libdecaf:decaf_x448_base_scalarmul(Scalar),
+	<< U:?X448_PUBLIC_BYTES/unsigned-little-integer-unit:8 >> = libdecaf:x448_generate_key(Scalar),
 	U.
 
 curve448(Scalar, Base) when is_integer(Scalar) ->
@@ -151,20 +130,20 @@ curve448(Scalar, Base)
 		andalso byte_size(Scalar) =:= ?X448_PRIVATE_BYTES
 		andalso is_binary(Base)
 		andalso byte_size(Base) =:= ?X448_PUBLIC_BYTES ->
-	<< U:?X448_PUBLIC_BYTES/unsigned-little-integer-unit:8 >> = libdecaf:decaf_x448_direct_scalarmul(Base, Scalar),
+	<< U:?X448_PUBLIC_BYTES/unsigned-little-integer-unit:8 >> = libdecaf:x448(Base, Scalar),
 	U.
 
 x448(K)
 		when is_binary(K)
 		andalso byte_size(K) =:= ?X448_PRIVATE_BYTES ->
-	libdecaf:decaf_x448_base_scalarmul(K).
+	libdecaf:x448_generate_key(K).
 
 x448(K, U)
 		when is_binary(K)
 		andalso byte_size(K) =:= ?X448_PRIVATE_BYTES
 		andalso is_binary(U)
 		andalso byte_size(U) =:= ?X448_PUBLIC_BYTES ->
-	libdecaf:decaf_x448_direct_scalarmul(U, K).
+	libdecaf:x448(U, K).
 
 x448_keypair() ->
 	x448_keypair(crypto:strong_rand_bytes(?X448_PRIVATE_BYTES)).

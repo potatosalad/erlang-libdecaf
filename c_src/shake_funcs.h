@@ -21,16 +21,16 @@
 			ERL_NIF_TERM out;	\
 			unsigned char *buf = enif_make_new_binary(env, bytes, &out);	\
 	\
-			(void) sha3_##bits##_hash(buf, bytes, in.data, in.size);	\
+			(void) decaf_sha3_##bits##_hash(buf, bytes, in.data, in.size);	\
 	\
 			return out;	\
 		}	\
 	\
 		libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));	\
-		ErlNifResourceType *resource_type = priv_data->keccak_sponge;	\
-		void *resource = enif_alloc_resource(resource_type, sizeof(sha3_##bits##_ctx_t));	\
-		struct sha3_##bits##_ctx_s *sponge = (struct sha3_##bits##_ctx_s *)(resource);	\
-		(void) sha3_##bits##_init(sponge);	\
+		ErlNifResourceType *resource_type = priv_data->decaf_keccak_sponge;	\
+		void *resource = enif_alloc_resource(resource_type, sizeof(decaf_sha3_##bits##_ctx_t));	\
+		struct decaf_sha3_##bits##_ctx_s *sponge = (struct decaf_sha3_##bits##_ctx_s *)(resource);	\
+		(void) decaf_sha3_##bits##_init(sponge);	\
 	\
 		ERL_NIF_TERM newargv[4];	\
 	\
@@ -51,7 +51,7 @@
 		unsigned long max_per_slice;	\
 		unsigned long offset;	\
 		libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));	\
-		ErlNifResourceType *resource_type = priv_data->keccak_sponge;	\
+		ErlNifResourceType *resource_type = priv_data->decaf_keccak_sponge;	\
 		void *resource;	\
 	\
 		if (argc != 4 || !enif_inspect_binary(env, argv[0], &in)	\
@@ -61,7 +61,7 @@
 			return enif_make_badarg(env);	\
 		}	\
 	\
-		struct sha3_##bits##_ctx_s *sponge = (struct sha3_##bits##_ctx_s *)(resource);	\
+		struct decaf_sha3_##bits##_ctx_s *sponge = (struct decaf_sha3_##bits##_ctx_s *)(resource);	\
 	\
 		struct timeval start;	\
 		struct timeval stop;	\
@@ -81,7 +81,7 @@
 	\
 		while (i < in.size) {	\
 			(void) gettimeofday(&start, NULL);	\
-			(void) sha3_##bits##_update(sponge, (uint8_t *)(in.data) + i, end - i);	\
+			(void) decaf_sha3_##bits##_update(sponge, (uint8_t *)(in.data) + i, end - i);	\
 			i = end;	\
 			if (i == in.size) {	\
 				break;	\
@@ -123,8 +123,8 @@
 		ERL_NIF_TERM out;	\
 		unsigned char *buf = enif_make_new_binary(env, bytes, &out);	\
 	\
-		(void) sha3_##bits##_final(sponge, buf, bytes);	\
-		(void) sha3_##bits##_destroy(sponge);	\
+		(void) decaf_sha3_##bits##_final(sponge, buf, bytes);	\
+		(void) decaf_sha3_##bits##_destroy(sponge);	\
 	\
 		return out;	\
 	}	\
@@ -137,10 +137,10 @@
 		}	\
 	\
 		ERL_NIF_TERM out;	\
-		unsigned char *buf = enif_make_new_binary(env, sizeof(sha3_##bits##_ctx_t), &out);	\
-		struct sha3_##bits##_ctx_s *sponge = (struct sha3_##bits##_ctx_s *)(buf);	\
+		unsigned char *buf = enif_make_new_binary(env, sizeof(decaf_sha3_##bits##_ctx_t), &out);	\
+		struct decaf_sha3_##bits##_ctx_s *sponge = (struct decaf_sha3_##bits##_ctx_s *)(buf);	\
 	\
-		(void) sha3_##bits##_init(sponge);	\
+		(void) decaf_sha3_##bits##_init(sponge);	\
 	\
 		return enif_make_tuple2(env, ATOM_sha3_##bits, out);	\
 	}	\
@@ -157,7 +157,7 @@
 			|| arity != 2	\
 			|| state[0] != ATOM_sha3_##bits	\
 			|| !enif_inspect_binary(env, state[1], &state_bin)	\
-			|| state_bin.size != sizeof(sha3_##bits##_ctx_t)	\
+			|| state_bin.size != sizeof(decaf_sha3_##bits##_ctx_t)	\
 			|| !enif_inspect_binary(env, argv[1], &in)) {	\
 			return enif_make_badarg(env);	\
 		}	\
@@ -166,15 +166,15 @@
 			ERL_NIF_TERM out;	\
 			unsigned char *buf = enif_make_new_binary(env, state_bin.size, &out);	\
 			(void) memcpy(buf, state_bin.data, state_bin.size);	\
-			struct sha3_##bits##_ctx_s *sponge = (struct sha3_##bits##_ctx_s *)(buf);	\
+			struct decaf_sha3_##bits##_ctx_s *sponge = (struct decaf_sha3_##bits##_ctx_s *)(buf);	\
 		\
-			(void) sha3_##bits##_update(sponge, in.data, in.size);	\
+			(void) decaf_sha3_##bits##_update(sponge, in.data, in.size);	\
 		\
 			return enif_make_tuple2(env, ATOM_sha3_##bits, out);	\
 		}	\
 		\
 		libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));	\
-		ErlNifResourceType *resource_type = priv_data->keccak_sponge;	\
+		ErlNifResourceType *resource_type = priv_data->decaf_keccak_sponge;	\
 		void *resource = enif_alloc_resource(resource_type, state_bin.size);	\
 		(void) memcpy(resource, state_bin.data, state_bin.size);	\
 		\
@@ -197,7 +197,7 @@
 		unsigned long max_per_slice;	\
 		unsigned long offset;	\
 		libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));	\
-		ErlNifResourceType *resource_type = priv_data->keccak_sponge;	\
+		ErlNifResourceType *resource_type = priv_data->decaf_keccak_sponge;	\
 		void *resource;	\
 		\
 		if (argc != 4 || !enif_inspect_binary(env, argv[0], &in)	\
@@ -207,7 +207,7 @@
 			return enif_make_badarg(env);	\
 		}	\
 		\
-		struct sha3_##bits##_ctx_s *sponge = (struct sha3_##bits##_ctx_s *)(resource);	\
+		struct decaf_sha3_##bits##_ctx_s *sponge = (struct decaf_sha3_##bits##_ctx_s *)(resource);	\
 		\
 		struct timeval start;	\
 		struct timeval stop;	\
@@ -227,7 +227,7 @@
 		\
 		while (i < in.size) {	\
 			(void) gettimeofday(&start, NULL);	\
-			(void) sha3_##bits##_update(sponge, (uint8_t *)(in.data) + i, end - i);	\
+			(void) decaf_sha3_##bits##_update(sponge, (uint8_t *)(in.data) + i, end - i);	\
 			i = end;	\
 			if (i == in.size) {	\
 				break;	\
@@ -267,8 +267,8 @@
 		}	\
 		\
 		ERL_NIF_TERM out;	\
-		unsigned char *buf = enif_make_new_binary(env, sizeof(sha3_##bits##_ctx_t), &out);	\
-		(void) memcpy(buf, resource, sizeof(sha3_##bits##_ctx_t));	\
+		unsigned char *buf = enif_make_new_binary(env, sizeof(decaf_sha3_##bits##_ctx_t), &out);	\
+		(void) memcpy(buf, resource, sizeof(decaf_sha3_##bits##_ctx_t));	\
 		\
 		return enif_make_tuple2(env, ATOM_sha3_##bits, out);	\
 	}	\
@@ -284,20 +284,20 @@
 			|| arity != 2	\
 			|| state[0] != ATOM_sha3_##bits	\
 			|| !enif_inspect_binary(env, state[1], &state_bin)	\
-			|| state_bin.size != sizeof(sha3_##bits##_ctx_t)) {	\
+			|| state_bin.size != sizeof(decaf_sha3_##bits##_ctx_t)) {	\
 			return enif_make_badarg(env);	\
 		}	\
 		\
 		libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));	\
-		ErlNifResourceType *resource_type = priv_data->keccak_sponge;	\
+		ErlNifResourceType *resource_type = priv_data->decaf_keccak_sponge;	\
 		void *resource = enif_alloc_resource(resource_type, state_bin.size);	\
 		(void) memcpy(resource, state_bin.data, state_bin.size);	\
-		struct sha3_##bits##_ctx_s *sponge = (struct sha3_##bits##_ctx_s *)(resource);	\
+		struct decaf_sha3_##bits##_ctx_s *sponge = (struct decaf_sha3_##bits##_ctx_s *)(resource);	\
 		ERL_NIF_TERM out;	\
 		unsigned char *buf = enif_make_new_binary(env, bytes, &out);	\
 		\
-		(void) sha3_##bits##_final(sponge, buf, bytes);	\
-		(void) sha3_##bits##_destroy(sponge);	\
+		(void) decaf_sha3_##bits##_final(sponge, buf, bytes);	\
+		(void) decaf_sha3_##bits##_destroy(sponge);	\
 		(void) enif_release_resource(resource);	\
 		\
 		return out;	\
@@ -319,16 +319,16 @@
 			ERL_NIF_TERM out;	\
 			unsigned char *buf = enif_make_new_binary(env, outlen, &out);	\
 	\
-			(void) shake##bits##_hash(buf, outlen, in.data, in.size);	\
+			(void) decaf_shake##bits##_hash(buf, outlen, in.data, in.size);	\
 	\
 			return out;	\
 		}	\
 	\
 		libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));	\
-		ErlNifResourceType *resource_type = priv_data->keccak_sponge;	\
-		void *resource = enif_alloc_resource(resource_type, sizeof(shake##bits##_ctx_t));	\
-		struct shake##bits##_ctx_s *sponge = (struct shake##bits##_ctx_s *)(resource);	\
-		(void) shake##bits##_init(sponge);	\
+		ErlNifResourceType *resource_type = priv_data->decaf_keccak_sponge;	\
+		void *resource = enif_alloc_resource(resource_type, sizeof(decaf_shake##bits##_ctx_t));	\
+		struct decaf_shake##bits##_ctx_s *sponge = (struct decaf_shake##bits##_ctx_s *)(resource);	\
+		(void) decaf_shake##bits##_init(sponge);	\
 	\
 		ERL_NIF_TERM newargv[5];	\
 	\
@@ -351,7 +351,7 @@
 		unsigned long max_per_slice;	\
 		unsigned long offset;	\
 		libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));	\
-		ErlNifResourceType *resource_type = priv_data->keccak_sponge;	\
+		ErlNifResourceType *resource_type = priv_data->decaf_keccak_sponge;	\
 		void *resource;	\
 	\
 		if (argc != 5 || !enif_inspect_binary(env, argv[0], &in)	\
@@ -362,7 +362,7 @@
 			return enif_make_badarg(env);	\
 		}	\
 	\
-		struct shake##bits##_ctx_s *sponge = (struct shake##bits##_ctx_s *)(resource);	\
+		struct decaf_shake##bits##_ctx_s *sponge = (struct decaf_shake##bits##_ctx_s *)(resource);	\
 	\
 		struct timeval start;	\
 		struct timeval stop;	\
@@ -382,7 +382,7 @@
 	\
 		while (i < in.size) {	\
 			(void) gettimeofday(&start, NULL);	\
-			(void) shake##bits##_update(sponge, (uint8_t *)(in.data) + i, end - i);	\
+			(void) decaf_shake##bits##_update(sponge, (uint8_t *)(in.data) + i, end - i);	\
 			i = end;	\
 			if (i == in.size) {	\
 				break;	\
@@ -425,8 +425,8 @@
 		ERL_NIF_TERM out;	\
 		unsigned char *buf = enif_make_new_binary(env, outlen, &out);	\
 	\
-		(void) shake##bits##_final(sponge, buf, outlen);	\
-		(void) shake##bits##_destroy(sponge);	\
+		(void) decaf_shake##bits##_final(sponge, buf, outlen);	\
+		(void) decaf_shake##bits##_destroy(sponge);	\
 	\
 		return out;	\
 	}	\
@@ -439,10 +439,10 @@
 		}	\
 	\
 		ERL_NIF_TERM out;	\
-		unsigned char *buf = enif_make_new_binary(env, sizeof(shake##bits##_ctx_t), &out);	\
-		struct shake##bits##_ctx_s *sponge = (struct shake##bits##_ctx_s *)(buf);	\
+		unsigned char *buf = enif_make_new_binary(env, sizeof(decaf_shake##bits##_ctx_t), &out);	\
+		struct decaf_shake##bits##_ctx_s *sponge = (struct decaf_shake##bits##_ctx_s *)(buf);	\
 	\
-		(void) shake##bits##_init(sponge);	\
+		(void) decaf_shake##bits##_init(sponge);	\
 	\
 		return enif_make_tuple2(env, ATOM_shake##bits, out);	\
 	}	\
@@ -459,7 +459,7 @@
 			|| arity != 2	\
 			|| state[0] != ATOM_shake##bits	\
 			|| !enif_inspect_binary(env, state[1], &state_bin)	\
-			|| state_bin.size != sizeof(shake##bits##_ctx_t)	\
+			|| state_bin.size != sizeof(decaf_shake##bits##_ctx_t)	\
 			|| !enif_inspect_binary(env, argv[1], &in)) {	\
 			return enif_make_badarg(env);	\
 		}	\
@@ -468,15 +468,15 @@
 			ERL_NIF_TERM out;	\
 			unsigned char *buf = enif_make_new_binary(env, state_bin.size, &out);	\
 			(void) memcpy(buf, state_bin.data, state_bin.size);	\
-			struct shake##bits##_ctx_s *sponge = (struct shake##bits##_ctx_s *)(buf);	\
+			struct decaf_shake##bits##_ctx_s *sponge = (struct decaf_shake##bits##_ctx_s *)(buf);	\
 		\
-			(void) shake##bits##_update(sponge, in.data, in.size);	\
+			(void) decaf_shake##bits##_update(sponge, in.data, in.size);	\
 		\
 			return enif_make_tuple2(env, ATOM_shake##bits, out);	\
 		}	\
 		\
 		libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));	\
-		ErlNifResourceType *resource_type = priv_data->keccak_sponge;	\
+		ErlNifResourceType *resource_type = priv_data->decaf_keccak_sponge;	\
 		void *resource = enif_alloc_resource(resource_type, state_bin.size);	\
 		(void) memcpy(resource, state_bin.data, state_bin.size);	\
 		\
@@ -499,7 +499,7 @@
 		unsigned long max_per_slice;	\
 		unsigned long offset;	\
 		libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));	\
-		ErlNifResourceType *resource_type = priv_data->keccak_sponge;	\
+		ErlNifResourceType *resource_type = priv_data->decaf_keccak_sponge;	\
 		void *resource;	\
 		\
 		if (argc != 4 || !enif_inspect_binary(env, argv[0], &in)	\
@@ -509,7 +509,7 @@
 			return enif_make_badarg(env);	\
 		}	\
 		\
-		struct shake##bits##_ctx_s *sponge = (struct shake##bits##_ctx_s *)(resource);	\
+		struct decaf_shake##bits##_ctx_s *sponge = (struct decaf_shake##bits##_ctx_s *)(resource);	\
 		\
 		struct timeval start;	\
 		struct timeval stop;	\
@@ -529,7 +529,7 @@
 		\
 		while (i < in.size) {	\
 			(void) gettimeofday(&start, NULL);	\
-			(void) shake##bits##_update(sponge, (uint8_t *)(in.data) + i, end - i);	\
+			(void) decaf_shake##bits##_update(sponge, (uint8_t *)(in.data) + i, end - i);	\
 			i = end;	\
 			if (i == in.size) {	\
 				break;	\
@@ -569,8 +569,8 @@
 		}	\
 		\
 		ERL_NIF_TERM out;	\
-		unsigned char *buf = enif_make_new_binary(env, sizeof(shake##bits##_ctx_t), &out);	\
-		(void) memcpy(buf, resource, sizeof(shake##bits##_ctx_t));	\
+		unsigned char *buf = enif_make_new_binary(env, sizeof(decaf_shake##bits##_ctx_t), &out);	\
+		(void) memcpy(buf, resource, sizeof(decaf_shake##bits##_ctx_t));	\
 		\
 		return enif_make_tuple2(env, ATOM_shake##bits, out);	\
 	}	\
@@ -587,21 +587,21 @@
 			|| arity != 2	\
 			|| state[0] != ATOM_shake##bits	\
 			|| !enif_inspect_binary(env, state[1], &state_bin)	\
-			|| state_bin.size != sizeof(shake##bits##_ctx_t)	\
+			|| state_bin.size != sizeof(decaf_shake##bits##_ctx_t)	\
 			|| !enif_get_ulong(env, argv[1], &outlen)) {	\
 			return enif_make_badarg(env);	\
 		}	\
 		\
 		libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));	\
-		ErlNifResourceType *resource_type = priv_data->keccak_sponge;	\
+		ErlNifResourceType *resource_type = priv_data->decaf_keccak_sponge;	\
 		void *resource = enif_alloc_resource(resource_type, state_bin.size);	\
 		(void) memcpy(resource, state_bin.data, state_bin.size);	\
-		struct shake##bits##_ctx_s *sponge = (struct shake##bits##_ctx_s *)(resource);	\
+		struct decaf_shake##bits##_ctx_s *sponge = (struct decaf_shake##bits##_ctx_s *)(resource);	\
 		ERL_NIF_TERM out;	\
 		unsigned char *buf = enif_make_new_binary(env, outlen, &out);	\
 		\
-		(void) shake##bits##_final(sponge, buf, outlen);	\
-		(void) shake##bits##_destroy(sponge);	\
+		(void) decaf_shake##bits##_final(sponge, buf, outlen);	\
+		(void) decaf_shake##bits##_destroy(sponge);	\
 		(void) enif_release_resource(resource);	\
 		\
 		return out;	\

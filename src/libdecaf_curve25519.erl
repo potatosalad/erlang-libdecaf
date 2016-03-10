@@ -59,7 +59,7 @@ eddsa_keypair(Secret)
 eddsa_secret_to_pk(Secret)
 		when is_binary(Secret)
 		andalso byte_size(Secret) =:= ?EdDSA_SECRET_BYTES ->
-	libdecaf:decaf_255_eddsa_derive_public_key(Secret).
+	libdecaf:ed25519_derive_public_key(Secret).
 
 eddsa_sk_to_pk(<< _:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) ->
 	PK.
@@ -70,18 +70,18 @@ eddsa_sk_to_secret(<< Secret:?EdDSA_SECRET_BYTES/binary, _:?EdDSA_PK_BYTES/binar
 % Ed25519
 
 ed25519_sign(M, << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
-	libdecaf:decaf_255_eddsa_sign(Secret, PK, M, 0).
+	libdecaf:ed25519_sign(Secret, PK, M, 0).
 
 ed25519_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
-	libdecaf:decaf_255_eddsa_verify(Sig, PK, M, 0).
+	libdecaf:ed25519_verify(Sig, PK, M, 0).
 
 % Ed25519ph
 
 ed25519ph_sign(M, << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
-	libdecaf:decaf_255_eddsa_sign(Secret, PK, M, 1).
+	libdecaf:ed25519_sign_prehash(Secret, PK, M).
 
 ed25519ph_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
-	libdecaf:decaf_255_eddsa_verify(Sig, PK, M, 1).
+	libdecaf:ed25519_verify_prehash(Sig, PK, M).
 
 % X25519
 
@@ -90,7 +90,7 @@ curve25519(Scalar) when is_integer(Scalar) ->
 curve25519(Scalar)
 		when is_binary(Scalar)
 		andalso byte_size(Scalar) =:= ?X25519_PRIVATE_BYTES ->
-	<< U:?X25519_PUBLIC_BYTES/unsigned-little-integer-unit:8 >> = libdecaf:decaf_x25519_base_scalarmul(Scalar),
+	<< U:?X25519_PUBLIC_BYTES/unsigned-little-integer-unit:8 >> = libdecaf:x25519_generate_key(Scalar),
 	U.
 
 curve25519(Scalar, Base) when is_integer(Scalar) ->
@@ -102,20 +102,20 @@ curve25519(Scalar, Base)
 		andalso byte_size(Scalar) =:= ?X25519_PRIVATE_BYTES
 		andalso is_binary(Base)
 		andalso byte_size(Base) =:= ?X25519_PUBLIC_BYTES ->
-	<< U:?X25519_PUBLIC_BYTES/unsigned-little-integer-unit:8 >> = libdecaf:decaf_x25519_direct_scalarmul(Base, Scalar),
+	<< U:?X25519_PUBLIC_BYTES/unsigned-little-integer-unit:8 >> = libdecaf:x25519(Base, Scalar),
 	U.
 
 x25519(K)
 		when is_binary(K)
 		andalso byte_size(K) =:= ?X25519_PRIVATE_BYTES ->
-	libdecaf:decaf_x25519_base_scalarmul(K).
+	libdecaf:x25519_generate_key(K).
 
 x25519(K, U)
 		when is_binary(K)
 		andalso byte_size(K) =:= ?X25519_PRIVATE_BYTES
 		andalso is_binary(U)
 		andalso byte_size(U) =:= ?X25519_PUBLIC_BYTES ->
-	libdecaf:decaf_x25519_direct_scalarmul(U, K).
+	libdecaf:x25519(U, K).
 
 x25519_keypair() ->
 	x25519_keypair(crypto:strong_rand_bytes(?X25519_PRIVATE_BYTES)).

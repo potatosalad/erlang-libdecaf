@@ -23,16 +23,16 @@ libdecaf_sha2_512_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 		ERL_NIF_TERM out;
 		unsigned char *buf = enif_make_new_binary(env, outlen, &out);
 
-		(void) sha512_hash(buf, outlen, in.data, in.size);
+		(void) decaf_sha512_hash(buf, outlen, in.data, in.size);
 
 		return out;
 	}
 
 	libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));
-	ErlNifResourceType *resource_type = priv_data->sha2_512_ctx;
-	void *resource = enif_alloc_resource(resource_type, sizeof(sha512_ctx_t));
-	struct sha512_ctx_s *ctx = (struct sha512_ctx_s *)(resource);
-	(void) sha512_init(ctx);
+	ErlNifResourceType *resource_type = priv_data->decaf_sha2_512_ctx;
+	void *resource = enif_alloc_resource(resource_type, sizeof(decaf_sha512_ctx_t));
+	struct decaf_sha512_ctx_s *ctx = (struct decaf_sha512_ctx_s *)(resource);
+	(void) decaf_sha512_init(ctx);
 
 	ERL_NIF_TERM newargv[5];
 
@@ -55,7 +55,7 @@ libdecaf_sha2_512_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	unsigned long max_per_slice;
 	unsigned long offset;
 	libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));
-	ErlNifResourceType *resource_type = priv_data->sha2_512_ctx;
+	ErlNifResourceType *resource_type = priv_data->decaf_sha2_512_ctx;
 	void *resource;
 
 	if (argc != 5 || !enif_inspect_binary(env, argv[0], &in)
@@ -66,7 +66,7 @@ libdecaf_sha2_512_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 		return enif_make_badarg(env);
 	}
 
-	struct sha512_ctx_s *ctx = (struct sha512_ctx_s *)(resource);
+	struct decaf_sha512_ctx_s *ctx = (struct decaf_sha512_ctx_s *)(resource);
 
 	struct timeval start;
 	struct timeval stop;
@@ -86,7 +86,7 @@ libdecaf_sha2_512_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
 	while (i < in.size) {
 		(void) gettimeofday(&start, NULL);
-		(void) sha512_update(ctx, (uint8_t *)(in.data) + i, end - i);
+		(void) decaf_sha512_update(ctx, (uint8_t *)(in.data) + i, end - i);
 		i = end;
 		if (i == in.size) {
 			break;
@@ -129,8 +129,8 @@ libdecaf_sha2_512_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	ERL_NIF_TERM out;
 	unsigned char *buf = enif_make_new_binary(env, outlen, &out);
 
-	(void) sha512_final(ctx, buf, outlen);
-	(void) sha512_destroy(ctx);
+	(void) decaf_sha512_final(ctx, buf, outlen);
+	(void) decaf_sha512_destroy(ctx);
 
 	return out;
 }
@@ -143,10 +143,10 @@ libdecaf_sha2_512_init_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	}
 
 	ERL_NIF_TERM out;
-	unsigned char *buf = enif_make_new_binary(env, sizeof(sha512_ctx_t), &out);
-	struct sha512_ctx_s *ctx = (struct sha512_ctx_s *)(buf);
+	unsigned char *buf = enif_make_new_binary(env, sizeof(decaf_sha512_ctx_t), &out);
+	struct decaf_sha512_ctx_s *ctx = (struct decaf_sha512_ctx_s *)(buf);
 
-	(void) sha512_init(ctx);
+	(void) decaf_sha512_init(ctx);
 
 	return enif_make_tuple2(env, ATOM_sha2_512, out);
 }
@@ -163,7 +163,7 @@ libdecaf_sha2_512_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 		|| arity != 2
 		|| state[0] != ATOM_sha2_512
 		|| !enif_inspect_binary(env, state[1], &state_bin)
-		|| state_bin.size != sizeof(sha512_ctx_t)
+		|| state_bin.size != sizeof(decaf_sha512_ctx_t)
 		|| !enif_inspect_binary(env, argv[1], &in)) {
 		return enif_make_badarg(env);
 	}
@@ -172,15 +172,15 @@ libdecaf_sha2_512_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 		ERL_NIF_TERM out;
 		unsigned char *buf = enif_make_new_binary(env, state_bin.size, &out);
 		(void) memcpy(buf, state_bin.data, state_bin.size);
-		struct sha512_ctx_s *ctx = (struct sha512_ctx_s *)(buf);
+		struct decaf_sha512_ctx_s *ctx = (struct decaf_sha512_ctx_s *)(buf);
 
-		(void) sha512_update(ctx, in.data, in.size);
+		(void) decaf_sha512_update(ctx, in.data, in.size);
 
 		return enif_make_tuple2(env, ATOM_sha2_512, out);
 	}
 
 	libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));
-	ErlNifResourceType *resource_type = priv_data->sha2_512_ctx;
+	ErlNifResourceType *resource_type = priv_data->decaf_sha2_512_ctx;
 	void *resource = enif_alloc_resource(resource_type, state_bin.size);
 	(void) memcpy(resource, state_bin.data, state_bin.size);
 
@@ -203,7 +203,7 @@ libdecaf_sha2_512_update_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	unsigned long max_per_slice;
 	unsigned long offset;
 	libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));
-	ErlNifResourceType *resource_type = priv_data->sha2_512_ctx;
+	ErlNifResourceType *resource_type = priv_data->decaf_sha2_512_ctx;
 	void *resource;
 
 	if (argc != 4 || !enif_inspect_binary(env, argv[0], &in)
@@ -213,7 +213,7 @@ libdecaf_sha2_512_update_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 		return enif_make_badarg(env);
 	}
 
-	struct sha512_ctx_s *ctx = (struct sha512_ctx_s *)(resource);
+	struct decaf_sha512_ctx_s *ctx = (struct decaf_sha512_ctx_s *)(resource);
 
 	struct timeval start;
 	struct timeval stop;
@@ -233,7 +233,7 @@ libdecaf_sha2_512_update_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
 	while (i < in.size) {
 		(void) gettimeofday(&start, NULL);
-		(void) sha512_update(ctx, (uint8_t *)(in.data) + i, end - i);
+		(void) decaf_sha512_update(ctx, (uint8_t *)(in.data) + i, end - i);
 		i = end;
 		if (i == in.size) {
 			break;
@@ -273,8 +273,8 @@ libdecaf_sha2_512_update_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	}
 
 	ERL_NIF_TERM out;
-	unsigned char *buf = enif_make_new_binary(env, sizeof(sha512_ctx_t), &out);
-	(void) memcpy(buf, resource, sizeof(sha512_ctx_t));
+	unsigned char *buf = enif_make_new_binary(env, sizeof(decaf_sha512_ctx_t), &out);
+	(void) memcpy(buf, resource, sizeof(decaf_sha512_ctx_t));
 
 	return enif_make_tuple2(env, ATOM_sha2_512, out);
 }
@@ -291,22 +291,22 @@ libdecaf_sha2_512_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 		|| arity != 2
 		|| state[0] != ATOM_sha2_512
 		|| !enif_inspect_binary(env, state[1], &state_bin)
-		|| state_bin.size != sizeof(sha512_ctx_t)
+		|| state_bin.size != sizeof(decaf_sha512_ctx_t)
 		|| !enif_get_ulong(env, argv[1], &outlen)
 		|| outlen > 64) {
 		return enif_make_badarg(env);
 	}
 
 	libdecaf_priv_data_t *priv_data = (libdecaf_priv_data_t *)(enif_priv_data(env));
-	ErlNifResourceType *resource_type = priv_data->sha2_512_ctx;
+	ErlNifResourceType *resource_type = priv_data->decaf_sha2_512_ctx;
 	void *resource = enif_alloc_resource(resource_type, state_bin.size);
 	(void) memcpy(resource, state_bin.data, state_bin.size);
-	struct sha512_ctx_s *ctx = (struct sha512_ctx_s *)(resource);
+	struct decaf_sha512_ctx_s *ctx = (struct decaf_sha512_ctx_s *)(resource);
 	ERL_NIF_TERM out;
 	unsigned char *buf = enif_make_new_binary(env, outlen, &out);
 
-	(void) sha512_final(ctx, buf, outlen);
-	(void) sha512_destroy(ctx);
+	(void) decaf_sha512_final(ctx, buf, outlen);
+	(void) decaf_sha512_destroy(ctx);
 	(void) enif_release_resource(resource);
 
 	return out;

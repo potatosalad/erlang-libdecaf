@@ -7,14 +7,14 @@
  * Erlang NIF functions
  */
 
-/* decaf/decaf_255.h */
-#include "decaf_255_funcs.h"
-/* decaf/decaf_448.h */
-#include "decaf_448_funcs.h"
-/* decaf/eddsa_255.h */
-#include "eddsa_255_funcs.h"
-/* decaf/eddsa_448.h */
-#include "eddsa_448_funcs.h"
+/* decaf/ed255.h */
+#include "ed255_funcs.h"
+/* decaf/ed448.h */
+#include "ed448_funcs.h"
+/* decaf/point_255.h */
+#include "point_255_funcs.h"
+/* decaf/point_448.h */
+#include "point_448_funcs.h"
 /* decaf/sha512.h */
 #include "sha512_funcs.h"
 /* decaf/shake.h */
@@ -47,8 +47,8 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
 	#undef ATOM
 
 	data->version = libdecaf_priv_data_version;
-	data->keccak_sponge = enif_open_resource_type(env, NULL, "libdecaf_keccak_sponge", NULL, ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER, NULL);
-	data->sha2_512_ctx = enif_open_resource_type(env, NULL, "libdecaf_sha2_512_ctx", NULL, ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER, NULL);
+	data->decaf_keccak_sponge = enif_open_resource_type(env, NULL, "decaf_keccak_sponge", NULL, ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER, NULL);
+	data->decaf_sha2_512_ctx = enif_open_resource_type(env, NULL, "decaf_sha2_512_ctx", NULL, ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER, NULL);
 
 	*priv_data = (void *)(data);
 

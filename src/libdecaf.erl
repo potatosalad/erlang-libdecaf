@@ -12,20 +12,24 @@
 
 %% API
 -export([start/0]).
-% decaf/decaf_255.h
--export([decaf_x25519_base_scalarmul/1]).
--export([decaf_x25519_direct_scalarmul/2]).
-% decaf/decaf_448.h
--export([decaf_x448_base_scalarmul/1]).
--export([decaf_x448_direct_scalarmul/2]).
-% decaf/eddsa_255.h
--export([decaf_255_eddsa_derive_public_key/1]).
--export([decaf_255_eddsa_sign/4]).
--export([decaf_255_eddsa_verify/4]).
-% decaf/eddsa_448.h
--export([decaf_448_eddsa_derive_public_key/1]).
--export([decaf_448_eddsa_sign/5]).
--export([decaf_448_eddsa_verify/5]).
+% decaf/point_255.h
+-export([x25519_generate_key/1]).
+-export([x25519/2]).
+% decaf/point_448.h
+-export([x448_generate_key/1]).
+-export([x448/2]).
+% decaf/ed255.h
+-export([ed25519_derive_public_key/1]).
+-export([ed25519_sign/4]).
+-export([ed25519_sign_prehash/3]).
+-export([ed25519_verify/4]).
+-export([ed25519_verify_prehash/3]).
+% decaf/ed448.h
+-export([ed448_derive_public_key/1]).
+-export([ed448_sign/5]).
+-export([ed448_sign_prehash/4]).
+-export([ed448_verify/5]).
+-export([ed448_verify_prehash/4]).
 % decaf/sha512.h
 -export([sha2_512/2]).
 -export([sha2_512_init/0]).
@@ -69,49 +73,61 @@ start() ->
 	application:ensure_all_started(?MODULE).
 
 %%%===================================================================
-%%% decaf/decaf_255.h
+%%% decaf/ed255.h
 %%%===================================================================
 
-decaf_x25519_base_scalarmul(_Scalar) ->
+ed25519_derive_public_key(_Privkey) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-decaf_x25519_direct_scalarmul(_Base, _Scalar) ->
+ed25519_sign(_Privkey, _Pubkey, _Message, _Prehashed) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-%%%===================================================================
-%%% decaf/decaf_448.h
-%%%===================================================================
-
-decaf_x448_base_scalarmul(_Scalar) ->
+ed25519_sign_prehash(_Privkey, _Pubkey, _Message) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-decaf_x448_direct_scalarmul(_Base, _Scalar) ->
+ed25519_verify(_Signature, _Pubkey, _Message, _Prehashed) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-%%%===================================================================
-%%% decaf/eddsa_255.h
-%%%===================================================================
-
-decaf_255_eddsa_derive_public_key(_Privkey) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
-
-decaf_255_eddsa_sign(_Privkey, _Pubkey, _Message, _Prehashed) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
-
-decaf_255_eddsa_verify(_Signature, _Pubkey, _Message, _Prehashed) ->
+ed25519_verify_prehash(_Signature, _Pubkey, _Message) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
 %%%===================================================================
-%%% decaf/eddsa_448.h
+%%% decaf/ed448.h
 %%%===================================================================
 
-decaf_448_eddsa_derive_public_key(_Privkey) ->
+ed448_derive_public_key(_Privkey) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-decaf_448_eddsa_sign(_Privkey, _Pubkey, _Message, _Prehashed, _Context) ->
+ed448_sign(_Privkey, _Pubkey, _Message, _Prehashed, _Context) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-decaf_448_eddsa_verify(_Signature, _Pubkey, _Message, _Prehashed, _Context) ->
+ed448_sign_prehash(_Privkey, _Pubkey, _Message, _Context) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed448_verify(_Signature, _Pubkey, _Message, _Prehashed, _Context) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed448_verify_prehash(_Signature, _Pubkey, _Message, _Context) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+%%%===================================================================
+%%% decaf/point_255.h
+%%%===================================================================
+
+x25519_generate_key(_Scalar) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+x25519(_Base, _Scalar) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+%%%===================================================================
+%%% decaf/point_448.h
+%%%===================================================================
+
+x448_generate_key(_Scalar) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+x448(_Base, _Scalar) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
 %%%===================================================================

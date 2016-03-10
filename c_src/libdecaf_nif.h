@@ -8,10 +8,11 @@
 #include <sys/time.h>
 #include <erl_nif.h>
 #include <string.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #ifndef timersub
-#define	timersub(tvp, uvp, vvp)					\
+#define	timersub(tvp, uvp, vvp)						\
 	do								\
 	{								\
 		(vvp)->tv_sec = (tvp)->tv_sec - (uvp)->tv_sec;		\
@@ -44,27 +45,31 @@ ERL_NIF_TERM	ATOM_shake256;
 #define NIF_FUN(function, arity)	\
 	static ERL_NIF_TERM	libdecaf_ ##function## _ ##arity (ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
-/* decaf/decaf_255.h */
-NIF_FUN(decaf_x25519_base_scalarmul,		1);
-NIF_FUN(decaf_x25519_direct_scalarmul,		2);
-/* decaf/decaf_448.h */
-NIF_FUN(decaf_x448_base_scalarmul,		1);
-NIF_FUN(decaf_x448_direct_scalarmul,		2);
-/* decaf/eddsa_255.h */
-NIF_FUN(decaf_255_eddsa_derive_public_key,	1);
-NIF_FUN(decaf_255_eddsa_sign,			4);
-NIF_FUN(decaf_255_eddsa_verify,			4);
-/* decaf/eddsa_448.h */
-NIF_FUN(decaf_448_eddsa_derive_public_key,	1);
-NIF_FUN(decaf_448_eddsa_sign,			5);
-NIF_FUN(decaf_448_eddsa_verify,			5);
+/* decaf/ed255.h */
+NIF_FUN(ed25519_derive_public_key,	1);
+NIF_FUN(ed25519_sign,			4);
+NIF_FUN(ed25519_sign_prehash,		3);
+NIF_FUN(ed25519_verify,			4);
+NIF_FUN(ed25519_verify_prehash,		3);
+/* decaf/ed448.h */
+NIF_FUN(ed448_derive_public_key,	1);
+NIF_FUN(ed448_sign,			5);
+NIF_FUN(ed448_sign_prehash,		4);
+NIF_FUN(ed448_verify,			5);
+NIF_FUN(ed448_verify_prehash,		4);
+/* decaf/point_255.h */
+NIF_FUN(x25519_generate_key,		1);
+NIF_FUN(x25519,				2);
+/* decaf/point_448.h */
+NIF_FUN(x448_generate_key,		1);
+NIF_FUN(x448,				2);
 /* decaf/sha512.h */
-NIF_FUN(sha2_512,				2);
-NIF_FUN(sha2_512,				5);	/* private */
-NIF_FUN(sha2_512_init,				0);
-NIF_FUN(sha2_512_update,			2);
-NIF_FUN(sha2_512_update,			4);	/* private */
-NIF_FUN(sha2_512_final,				2);
+NIF_FUN(sha2_512,			2);
+NIF_FUN(sha2_512,			5);	/* private */
+NIF_FUN(sha2_512_init,			0);
+NIF_FUN(sha2_512_update,		2);
+NIF_FUN(sha2_512_update,		4);	/* private */
+NIF_FUN(sha2_512_final,			2);
 /* decaf/shake.h */
 #define SHA3_NIF_DEF(bits)	\
 	static ERL_NIF_TERM	libdecaf_sha3_##bits##_nif_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);	\
@@ -113,25 +118,29 @@ SHAKE_NIF_DEF(256);
 	{"shake" #bits "_final", 2, libdecaf_shake##bits##_final_nif_2}
 
 static ErlNifFunc	libdecaf_nif_funcs[] = {
-	/* decaf/decaf_255.h */
-	NIF_FUNC(decaf_x25519_base_scalarmul,		1),
-	NIF_FUNC(decaf_x25519_direct_scalarmul,		2),
-	/* decaf/decaf_448.h */
-	NIF_FUNC(decaf_x448_base_scalarmul,		1),
-	NIF_FUNC(decaf_x448_direct_scalarmul,		2),
-	/* decaf/eddsa_255.h */
-	NIF_FUNC(decaf_255_eddsa_derive_public_key,	1),
-	NIF_FUNC(decaf_255_eddsa_sign,			4),
-	NIF_FUNC(decaf_255_eddsa_verify,		4),
-	/* decaf/eddsa_448.h */
-	NIF_FUNC(decaf_448_eddsa_derive_public_key,	1),
-	NIF_FUNC(decaf_448_eddsa_sign,			5),
-	NIF_FUNC(decaf_448_eddsa_verify,		5),
+	/* decaf/ed255.h */
+	NIF_FUNC(ed25519_derive_public_key,	1),
+	NIF_FUNC(ed25519_sign,			4),
+	NIF_FUNC(ed25519_sign_prehash,		3),
+	NIF_FUNC(ed25519_verify,		4),
+	NIF_FUNC(ed25519_verify_prehash,	3),
+	/* decaf/ed448.h */
+	NIF_FUNC(ed448_derive_public_key,	1),
+	NIF_FUNC(ed448_sign,			5),
+	NIF_FUNC(ed448_sign_prehash,		4),
+	NIF_FUNC(ed448_verify,			5),
+	NIF_FUNC(ed448_verify_prehash,		4),
+	/* decaf/point_255.h */
+	NIF_FUNC(x25519_generate_key,		1),
+	NIF_FUNC(x25519,			2),
+	/* decaf/point_448.h */
+	NIF_FUNC(x448_generate_key,		1),
+	NIF_FUNC(x448,				2),
 	/* decaf/sha512.h */
-	NIF_FUNC(sha2_512,				2),
-	NIF_FUNC(sha2_512_init,				0),
-	NIF_FUNC(sha2_512_update,			2),
-	NIF_FUNC(sha2_512_final,			2),
+	NIF_FUNC(sha2_512,			2),
+	NIF_FUNC(sha2_512_init,			0),
+	NIF_FUNC(sha2_512_update,		2),
+	NIF_FUNC(sha2_512_final,		2),
 	/* decaf/shake.h */
 	SHA3_NIF_FUN(224),
 	SHA3_NIF_FUN(256),
@@ -150,8 +159,8 @@ static ErlNifFunc	libdecaf_nif_funcs[] = {
 
 typedef struct libdecaf_priv_data_0_s {
 	uint8_t			version;
-	ErlNifResourceType	*keccak_sponge;
-	ErlNifResourceType	*sha2_512_ctx;
+	ErlNifResourceType	*decaf_keccak_sponge;
+	ErlNifResourceType	*decaf_sha2_512_ctx;
 } libdecaf_priv_data_0_t;
 
 #define libdecaf_priv_data_version	0

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.0.2 (2016-03-10)
+
+* Upstream version [f29b338f3788f052441478bb03b5d9e6fdd3eb28](https://github.com/potatosalad/ed448goldilocks/tree/f29b338f3788f052441478bb03b5d9e6fdd3eb28)
+
+* Library Support
+  * ECDH
+    * `libdecaf:x25519_generate_key/1`
+    * `libdecaf:x25519/2`
+    * `libdecaf:x448_generate_key/1`
+    * `libdecaf:x448/2`
+  * EdDSA
+    * `libdecaf:ed25519_derive_public_key/1`
+    * `libdecaf:ed25519_sign/4`
+    * `libdecaf:ed25519_sign_prehash/3`
+    * `libdecaf:ed25519_verify/4`
+    * `libdecaf:ed25519_verify_prehash/3`
+    * `libdecaf:ed448_derive_public_key/1`
+    * `libdecaf:ed448_sign/5`
+    * `libdecaf:ed448_sign_prehash/4`
+    * `libdecaf:ed448_verify/5`
+    * `libdecaf:ed448_verify_prehash/4`
+
+* Fixes
+  * Include `stdint.h` to hopefully fix build issues on Linux.
+
 ## 0.0.1 (2016-03-01)
 
 * Initial Release

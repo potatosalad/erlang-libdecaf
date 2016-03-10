@@ -37,7 +37,7 @@ Add `libdecaf` to your project's dependencies in `mix.exs`
 ```elixir
 defp deps do
   [
-    {:libdecaf, "~> 0.0.1"}
+    {:libdecaf, "~> 0.0.2"}
   ]
 end
 ```

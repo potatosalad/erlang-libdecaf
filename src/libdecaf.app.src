@@ -1,8 +1,8 @@
 %% -*- mode: erlang; tab-width: 4; indent-tabs-mode: 1; st-rulers: [70] -*-
 %% vim: ts=4 sw=4 ft=erlang noet
 {application, libdecaf, [
-	{description, "libdecaf NIF"},
-	{vsn, "0.0.1"},
+	{description, "libdecaf NIF for ECDH (X25519, X448), EdDSA (Ed25519, Ed25519ph, Ed448, Ed448ph), curve25519, curve448"
+	{vsn, "0.0.2"},
 	{id, "git"},
 	{registered, []},
 	{applications, [
