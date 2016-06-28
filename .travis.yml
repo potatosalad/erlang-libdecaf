@@ -19,7 +19,7 @@ cache:
 
 before_install:
   - if [ -e "docker-otp-${OTP_VERSION}/image.tar" ]; then docker load -i "docker-otp-${OTP_VERSION}/image.tar"; fi
-  - docker build -t docker-otp-${OTP_VERSION} -f Dockerfile --build-arg OTP_VERSION=${OTP_VERSION} .
+  - docker build -t docker-otp-${OTP_VERSION} -f priv/Dockerfile --build-arg OTP_VERSION=${OTP_VERSION} priv
   - mkdir -p "docker-otp-${OTP_VERSION}"; docker save -o "docker-otp-${OTP_VERSION}/image.tar" docker-otp-${OTP_VERSION}
 
 script:
