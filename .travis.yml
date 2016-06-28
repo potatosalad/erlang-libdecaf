@@ -18,9 +18,13 @@ cache:
     - docker-otp-19.0
 
 before_install:
-  - if [ -e "docker-otp-${OTP_VERSION}/image.tar" ]; then docker load -i "docker-otp-${OTP_VERSION}/image.tar"; fi
-  - docker build -t docker-otp-${OTP_VERSION} -f priv/Dockerfile --build-arg OTP_VERSION=${OTP_VERSION} priv
-  - mkdir -p "docker-otp-${OTP_VERSION}"; docker save -o "docker-otp-${OTP_VERSION}/image.tar" docker-otp-${OTP_VERSION}
+  -
+    if [ -e "docker-otp-${OTP_VERSION}/image.tar" ]; then
+      docker load -i "docker-otp-${OTP_VERSION}/image.tar";
+    else
+      docker build -t docker-otp-${OTP_VERSION} -f priv/Dockerfile --build-arg OTP_VERSION=${OTP_VERSION} priv;
+      mkdir -p "docker-otp-${OTP_VERSION}"; docker save -o "docker-otp-${OTP_VERSION}/image.tar" docker-otp-${OTP_VERSION};
+    fi
 
 script:
   - docker run -v `pwd`:/build/libdecaf docker-otp-${OTP_VERSION} sh -c 'cd libdecaf && CC=clang-3.8 CXX=clang++-3.8 ARCHFLAGS=-Wgcc-compat make tests'
