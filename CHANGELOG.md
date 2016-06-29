@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.3 (2016-03-10)
+
+* Upstream version [features-20160629](https://github.com/potatosalad/ed448goldilocks/tree/features-20160629)
+
+* Fixes
+  * Support for modern versions of FreeBSD, NetBSD, and DragonflyBSD.
+
 ## 0.0.2 (2016-03-10)
 
 * Upstream version [f29b338f3788f052441478bb03b5d9e6fdd3eb28](https://github.com/potatosalad/ed448goldilocks/tree/f29b338f3788f052441478bb03b5d9e6fdd3eb28)
