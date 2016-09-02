@@ -75,7 +75,7 @@ libdecaf_ed448_sign_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 	}
 
 	decaf_ed448_prehash_ctx_t hash;
-	(void) decaf_ed448_prehash_init(hash, context.data, context.size);
+	(void) decaf_ed448_prehash_init(hash);
 	(void) decaf_ed448_prehash_update(hash, message.data, message.size);
 
 	ERL_NIF_TERM out;
@@ -135,7 +135,7 @@ libdecaf_ed448_verify_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM arg
 	}
 
 	decaf_ed448_prehash_ctx_t hash;
-	(void) decaf_ed448_prehash_init(hash, context.data, context.size);
+	(void) decaf_ed448_prehash_init(hash);
 	(void) decaf_ed448_prehash_update(hash, message.data, message.size);
 
 	if (decaf_ed448_verify_prehash(signature.data, pubkey.data, hash, context.data, context.size) == DECAF_SUCCESS) {

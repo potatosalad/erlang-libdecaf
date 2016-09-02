@@ -36,6 +36,7 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
 	#define ATOM(Id, Value) { Id = enif_make_atom(env, Value); }
 		ATOM(ATOM_error, "error");
 		ATOM(ATOM_false, "false");
+		ATOM(ATOM_no_context, "no_context");
 		ATOM(ATOM_true, "true");
 		ATOM(ATOM_sha2_512, "sha2_512");
 		ATOM(ATOM_sha3_224, "sha3_224");

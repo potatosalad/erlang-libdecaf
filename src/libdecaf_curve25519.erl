@@ -20,9 +20,16 @@
 % Ed25519
 -export([ed25519_sign/2]).
 -export([ed25519_verify/3]).
+% Ed25519ctx
+-export([ed25519ctx_sign/2]).
+-export([ed25519ctx_sign/3]).
+-export([ed25519ctx_verify/3]).
+-export([ed25519ctx_verify/4]).
 % Ed25519ph
 -export([ed25519ph_sign/2]).
+-export([ed25519ph_sign/3]).
 -export([ed25519ph_verify/3]).
+-export([ed25519ph_verify/4]).
 % X25519
 -export([curve25519/1]).
 -export([curve25519/2]).
@@ -70,18 +77,50 @@ eddsa_sk_to_secret(<< Secret:?EdDSA_SECRET_BYTES/binary, _:?EdDSA_PK_BYTES/binar
 % Ed25519
 
 ed25519_sign(M, << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
-	libdecaf:ed25519_sign(Secret, PK, M, 0).
+	libdecaf:ed25519_sign(Secret, PK, M, 0, no_context).
 
 ed25519_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
-	libdecaf:ed25519_verify(Sig, PK, M, 0).
+	libdecaf:ed25519_verify(Sig, PK, M, 0, no_context).
+
+% Ed25519ctx
+
+ed25519ctx_sign(M, << SK:?EdDSA_SK_BYTES/binary >>) when is_binary(M) ->
+	ed25519ctx_sign(M, SK, <<>>).
+
+ed25519ctx_sign(M, << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>, C)
+		when is_binary(M)
+		andalso is_binary(C)
+		andalso byte_size(C) =< 255 ->
+	libdecaf:ed25519_sign(Secret, PK, M, 0, C).
+
+ed25519ctx_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
+	ed25519ctx_verify(Sig, M, PK, <<>>).
+
+ed25519ctx_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary >>, C)
+		when is_binary(M)
+		andalso is_binary(C)
+		andalso byte_size(C) =< 255 ->
+	libdecaf:ed25519_verify(Sig, PK, M, 0, C).
 
 % Ed25519ph
 
-ed25519ph_sign(M, << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
-	libdecaf:ed25519_sign_prehash(Secret, PK, M).
+ed25519ph_sign(M, << SK:?EdDSA_SK_BYTES/binary >>) when is_binary(M) ->
+	ed25519ph_sign(M, SK, <<>>).
+
+ed25519ph_sign(M, << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>, C)
+		when is_binary(M)
+		andalso is_binary(C)
+		andalso byte_size(C) =< 255 ->
+	libdecaf:ed25519_sign_prehash(Secret, PK, M, C).
 
 ed25519ph_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
-	libdecaf:ed25519_verify_prehash(Sig, PK, M).
+	ed25519ph_verify(Sig, M, PK, <<>>).
+
+ed25519ph_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary >>, C)
+		when is_binary(M)
+		andalso is_binary(C)
+		andalso byte_size(C) =< 255 ->
+	libdecaf:ed25519_verify_prehash(Sig, PK, M, C).
 
 % X25519
 

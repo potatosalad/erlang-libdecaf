@@ -29,6 +29,7 @@
 
 ERL_NIF_TERM	ATOM_error;
 ERL_NIF_TERM	ATOM_false;
+ERL_NIF_TERM	ATOM_no_context;
 ERL_NIF_TERM	ATOM_true;
 ERL_NIF_TERM	ATOM_sha2_512;
 ERL_NIF_TERM	ATOM_sha3_224;
@@ -47,10 +48,10 @@ ERL_NIF_TERM	ATOM_shake256;
 
 /* decaf/ed255.h */
 NIF_FUN(ed25519_derive_public_key,	1);
-NIF_FUN(ed25519_sign,			4);
-NIF_FUN(ed25519_sign_prehash,		3);
-NIF_FUN(ed25519_verify,			4);
-NIF_FUN(ed25519_verify_prehash,		3);
+NIF_FUN(ed25519_sign,			5);
+NIF_FUN(ed25519_sign_prehash,		4);
+NIF_FUN(ed25519_verify,			5);
+NIF_FUN(ed25519_verify_prehash,		4);
 /* decaf/ed448.h */
 NIF_FUN(ed448_derive_public_key,	1);
 NIF_FUN(ed448_sign,			5);
@@ -120,10 +121,10 @@ SHAKE_NIF_DEF(256);
 static ErlNifFunc	libdecaf_nif_funcs[] = {
 	/* decaf/ed255.h */
 	NIF_FUNC(ed25519_derive_public_key,	1),
-	NIF_FUNC(ed25519_sign,			4),
-	NIF_FUNC(ed25519_sign_prehash,		3),
-	NIF_FUNC(ed25519_verify,		4),
-	NIF_FUNC(ed25519_verify_prehash,	3),
+	NIF_FUNC(ed25519_sign,			5),
+	NIF_FUNC(ed25519_sign_prehash,		4),
+	NIF_FUNC(ed25519_verify,		5),
+	NIF_FUNC(ed25519_verify_prehash,	4),
 	/* decaf/ed448.h */
 	NIF_FUNC(ed448_derive_public_key,	1),
 	NIF_FUNC(ed448_sign,			5),

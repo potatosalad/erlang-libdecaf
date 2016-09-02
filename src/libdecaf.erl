@@ -20,10 +20,10 @@
 -export([x448/2]).
 % decaf/ed255.h
 -export([ed25519_derive_public_key/1]).
--export([ed25519_sign/4]).
--export([ed25519_sign_prehash/3]).
--export([ed25519_verify/4]).
--export([ed25519_verify_prehash/3]).
+-export([ed25519_sign/5]).
+-export([ed25519_sign_prehash/4]).
+-export([ed25519_verify/5]).
+-export([ed25519_verify_prehash/4]).
 % decaf/ed448.h
 -export([ed448_derive_public_key/1]).
 -export([ed448_sign/5]).
@@ -79,16 +79,16 @@ start() ->
 ed25519_derive_public_key(_Privkey) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-ed25519_sign(_Privkey, _Pubkey, _Message, _Prehashed) ->
+ed25519_sign(_Privkey, _Pubkey, _Message, _Prehashed, _Context) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-ed25519_sign_prehash(_Privkey, _Pubkey, _Message) ->
+ed25519_sign_prehash(_Privkey, _Pubkey, _Message, _Context) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-ed25519_verify(_Signature, _Pubkey, _Message, _Prehashed) ->
+ed25519_verify(_Signature, _Pubkey, _Message, _Prehashed, _Context) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-ed25519_verify_prehash(_Signature, _Pubkey, _Message) ->
+ed25519_verify_prehash(_Signature, _Pubkey, _Message, _Context) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
 %%%===================================================================

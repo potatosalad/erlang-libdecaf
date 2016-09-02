@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.4 (2016-09-02)
+
+* Upstream version [features-20160902](https://github.com/potatosalad/ed448goldilocks/tree/features-20160902) which adds support for Ed25519ctx according to [draft 08 of EdDSA](https://tools.ietf.org/html/draft-irtf-cfrg-eddsa-08#section-5.1).
+
+* Library Support
+  * EdDSA
+    * `libdecaf_curve25519:ed25519ctx_sign/3`
+    * `libdecaf_curve25519:ed25519ctx_verify/4`
+
 ## 0.0.3 (2016-03-10)
 
 * Upstream version [features-20160629](https://github.com/potatosalad/ed448goldilocks/tree/features-20160629)

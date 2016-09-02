@@ -24,6 +24,7 @@
 -export([curve25519/1]).
 -export([curve448/1]).
 -export([ed25519/1]).
+-export([ed25519ctx/1]).
 -export([ed25519ph/1]).
 -export([ed448/1]).
 -export([ed448ph/1]).
@@ -50,6 +51,7 @@ groups() ->
 		{'curve25519', [parallel], [
 			curve25519,
 			ed25519,
+			ed25519ctx,
 			ed25519ph,
 			x25519
 		]},
@@ -223,6 +225,76 @@ init_per_group(G='curve25519', Config) ->
 					"3dca179c138ac17ad9bef1177331a704") % SIGNATURE
 			}
 		]},
+		{ed25519ctx, [
+			{ % foo
+				hexstr2bin(
+					"0305334e381af78f141cb666f6199f57"
+					"bc3495335a256a95bd2a55bf546663f6"), % SECRET KEY
+				hexstr2bin(
+					"dfc9425e4f968f7f0c29f0259cf5f9ae"
+					"d6851c2bb4ad8bfb860cfee0ab248292"), % PUBLIC KEY
+				hexstr2bin(
+					"f726936d19c800494e3fdaff20b276a8"), % MESSAGE
+				hexstr2bin(
+					"666f6f"), % CONTEXT
+				hexstr2bin(
+					"55a4cc2f70a54e04288c5f4cd1e45a7b"
+					"b520b36292911876cada7323198dd87a"
+					"8b36950b95130022907a7fb7c4e9b2d5"
+					"f6cca685a587b4b21f4b888e4e7edb0d") % SIGNATURE
+			},
+			{ % bar
+				hexstr2bin(
+					"0305334e381af78f141cb666f6199f57"
+					"bc3495335a256a95bd2a55bf546663f6"), % SECRET KEY
+				hexstr2bin(
+					"dfc9425e4f968f7f0c29f0259cf5f9ae"
+					"d6851c2bb4ad8bfb860cfee0ab248292"), % PUBLIC KEY
+				hexstr2bin(
+					"f726936d19c800494e3fdaff20b276a8"), % MESSAGE
+				hexstr2bin(
+					"626172"), % CONTEXT
+				hexstr2bin(
+					"fc60d5872fc46b3aa69f8b5b4351d580"
+					"8f92bcc044606db097abab6dbcb1aee3"
+					"216c48e8b3b66431b5b186d1d28f8ee1"
+					"5a5ca2df6668346291c2043d4eb3e90d") % SIGNATURE
+			},
+			{ % foo2
+				hexstr2bin(
+					"0305334e381af78f141cb666f6199f57"
+					"bc3495335a256a95bd2a55bf546663f6"), % SECRET KEY
+				hexstr2bin(
+					"dfc9425e4f968f7f0c29f0259cf5f9ae"
+					"d6851c2bb4ad8bfb860cfee0ab248292"), % PUBLIC KEY
+				hexstr2bin(
+					"508e9e6882b979fea900f62adceaca35"), % MESSAGE
+				hexstr2bin(
+					"666f6f"), % CONTEXT
+				hexstr2bin(
+					"8b70c1cc8310e1de20ac53ce28ae6e72"
+					"07f33c3295e03bb5c0732a1d20dc6490"
+					"8922a8b052cf99b7c4fe107a5abb5b2c"
+					"4085ae75890d02df26269d8945f84b0b") % SIGNATURE
+			},
+			{ % foo3
+				hexstr2bin(
+					"ab9c2853ce297ddab85c993b3ae14bca"
+					"d39b2c682beabc27d6d4eb20711d6560"), % SECRET KEY
+				hexstr2bin(
+					"0f1d1274943b91415889152e893d80e9"
+					"3275a1fc0b65fd71b4b0dda10ad7d772"), % PUBLIC KEY
+				hexstr2bin(
+					"f726936d19c800494e3fdaff20b276a8"), % MESSAGE
+				hexstr2bin(
+					"666f6f"), % CONTEXT
+				hexstr2bin(
+					"21655b5f1aa965996b3f97b3c849eafb"
+					"a922a0a62992f73b3d1b73106a84ad85"
+					"e9b86a7b6005ea868337ff2d20a7f5fb"
+					"d4cd10b0be49a68da2b2e0dc0ad8960f") % SIGNATURE
+			}
+		]},
 		{ed25519ph, [
 			{ % TEST abc
 				hexstr2bin(
@@ -233,10 +305,10 @@ init_per_group(G='curve25519', Config) ->
 					"c35467ef2efd4d64ebf819683467e2bf"), % PUBLIC KEY
 				hexstr2bin("616263"), % MESSAGE
 				hexstr2bin(
-					"dc2a4459e7369633a52b1bf277839a00"
-					"201009a3efbf3ecb69bea2186c26b589"
-					"09351fc9ac90b3ecfdfbc7c66431e030"
-					"3dca179c138ac17ad9bef1177331a704") % SIGNATURE
+					"98a70222f0b8121aa9d30f813d683f80"
+					"9e462b469c7ff87639499bb94e6dae41"
+					"31f85042463c2a355a2003d062adf5aa"
+					"a10b8c61e636062aaad11c2a26083406") % SIGNATURE
 			}
 		]},
 		{x25519, [
@@ -588,14 +660,14 @@ init_per_group(G='curve448', Config) ->
 					"d5ed3d5d01c0f53880"), % PUBLIC KEY
 				hexstr2bin("616263"), % MESSAGE
 				hexstr2bin(
-					"963cf799d20fdf51c460310c1cf65d0e"
-					"83c4ef5aa73332ba5b4c1e7635ff9e9b"
-					"6a12b16436fa3681b92575e7eba40ee2"
-					"79c487ad724b6d1080e1860e63dbdd58"
-					"9f5125505b4de024264625e61b097956"
-					"8703f9d9e2bbf5523a1886ee6da1ecb2"
-					"0552bb506eb35a042658ec534bfc1c2c"
-					"1a00") % SIGNATURE
+					"822f6901f7480f3d5f562c592994d969"
+					"3602875614483256505600bbc281ae38"
+					"1f54d6bce2ea911574932f52a4e6cadd"
+					"78769375ec3ffd1b801a0d9b3f4030cd"
+					"433964b6457ea39476511214f97469b5"
+					"7dd32dbc560a9a94d00bff07620464a3"
+					"ad203df7dc7ce360c3cd3696d9d9fab9"
+					"0f00") % SIGNATURE
 			},
 			{ % TEST abc (with context)
 				hexstr2bin(
@@ -611,14 +683,14 @@ init_per_group(G='curve448', Config) ->
 				hexstr2bin("616263"), % MESSAGE
 				hexstr2bin("666f6f"), % CONTEXT
 				hexstr2bin(
-					"86a6bf52f9e8f84f451b2f392a8d1c3a"
-					"414425fac0068f74aeead53b0e6b53d4"
-					"555cea1726da4a65202880d407267087"
-					"9e8e6fa4d9694c060054f2065dc206a6"
-					"e615d0d8c99b95209b696c8125c5fbb9"
-					"bc82a0f7ed3d99c4c11c47798ef0f7eb"
-					"97b3b72ab4ac86eaf8b43449e8ac30ff"
-					"3f00") % SIGNATURE
+					"c32299d46ec8ff02b54540982814dce9"
+					"a05812f81962b649d528095916a2aa48"
+					"1065b1580423ef927ecf0af5888f90da"
+					"0f6a9a85ad5dc3f280d91224ba9911a3"
+					"653d00e484e2ce232521481c8658df30"
+					"4bb7745a73514cdb9bf3e15784ab7128"
+					"4f8d0704a608c54a6b62d97beb511d13"
+					"2100") % SIGNATURE
 			}
 		]},
 		{x448, [
@@ -651,6 +723,10 @@ curve448(Config) ->
 ed25519(Config) ->
 	Vectors = ?config(ed25519, Config),
 	lists:foreach(fun ed25519_vector/1, Vectors).
+
+ed25519ctx(Config) ->
+	Vectors = ?config(ed25519ctx, Config),
+	lists:foreach(fun ed25519ctx_vector/1, Vectors).
 
 ed25519ph(Config) ->
 	Vectors = ?config(ed25519ph, Config),
@@ -690,6 +766,13 @@ ed25519_vector({Secret, PK, Message, Signature}) ->
 	?tv_ok(T0, libdecaf_curve25519, eddsa_secret_to_pk, [Secret], PK),
 	?tv_ok(T1, libdecaf_curve25519, ed25519_sign, [Message, SK], Signature),
 	?tv_ok(T2, libdecaf_curve25519, ed25519_verify, [Signature, Message, PK], true).
+
+%% @private
+ed25519ctx_vector({Secret, PK, Message, Context, Signature}) ->
+	SK = << Secret/binary, PK/binary >>,
+	?tv_ok(T0, libdecaf_curve25519, eddsa_secret_to_pk, [Secret], PK),
+	?tv_ok(T1, libdecaf_curve25519, ed25519ctx_sign, [Message, SK, Context], Signature),
+	?tv_ok(T2, libdecaf_curve25519, ed25519ctx_verify, [Signature, Message, PK, Context], true).
 
 %% @private
 ed25519ph_vector({Secret, PK, Message, Signature}) ->
