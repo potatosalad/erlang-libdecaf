@@ -36,4 +36,4 @@ docker-setup::
 docker-test::
 	$(gen_verbose) docker run \
 		-v "$(shell pwd)":"/build/libdecaf" "docker-otp-${DOCKER_OTP_VERSION}" \
-		sh -c 'cd libdecaf && make tests'
+		sh -c 'cd libdecaf && CC=clang-7 CXX=clang++-7 ARCHFLAGS=-Wgcc-compat make tests'
