@@ -1,12 +1,12 @@
 %% -*- mode: erlang; tab-width: 4; indent-tabs-mode: 1; st-rulers: [70] -*-
 %% vim: ts=4 sw=4 ft=erlang noet
 %%%-------------------------------------------------------------------
-%%% @author Andrew Bennett <andrew@pixid.com>
-%%% @copyright 2015-2016, Andrew Bennett
+%%% @author Andrew Bennett <potatosaladx@gmail.com>
+%%% @copyright 2015-2018, Andrew Bennett
 %%% @doc
 %%%
 %%% @end
-%%% Created :  29 Feb 2016 by Andrew Bennett <andrew@pixid.com>
+%%% Created :  29 Feb 2016 by Andrew Bennett <potatosaladx@gmail.com>
 %%%-------------------------------------------------------------------
 -module(libdecaf_sha2).
 
@@ -19,6 +19,13 @@
 -export([final/2]).
 
 %% Macros
+-define(WRAP_STATE(T, R),
+	case R of
+		NewState when is_reference(NewState) ->
+			{T, NewState};
+		Other ->
+			Other
+	end).
 -define(SHA2_512_OUTPUT_BYTES, 64).
 
 %%%===================================================================
@@ -36,21 +43,21 @@ hash(Type, In, Outlen) ->
 	erlang:error({badarg, [Type, In, Outlen]}).
 
 init(sha2_512) ->
-	libdecaf:sha2_512_init();
+	?WRAP_STATE(sha2_512, libdecaf:sha2_512_init());
 init(Type) ->
 	erlang:error({badarg, [Type]}).
 
-update(State={sha2_512, _}, In) ->
-	libdecaf:sha2_512_update(State, In);
+update({sha2_512, State}, In) ->
+	?WRAP_STATE(sha2_512, libdecaf:sha2_512_update(State, In));
 update(State, In) ->
 	erlang:error({badarg, [State, In]}).
 
-final(State={sha2_512, _}) ->
+final({sha2_512, State}) ->
 	libdecaf:sha2_512_final(State, ?SHA2_512_OUTPUT_BYTES);
 final(State) ->
 	erlang:error({badarg, [State]}).
 
-final(State={sha2_512, _}, Outlen) ->
+final({sha2_512, State}, Outlen) ->
 	libdecaf:sha2_512_final(State, Outlen);
 final(State, Outlen) ->
 	erlang:error({badarg, [State, Outlen]}).

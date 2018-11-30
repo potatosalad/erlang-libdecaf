@@ -1,12 +1,12 @@
 %% -*- mode: erlang; tab-width: 4; indent-tabs-mode: 1; st-rulers: [70] -*-
 %% vim: ts=4 sw=4 ft=erlang noet
 %%%-------------------------------------------------------------------
-%%% @author Andrew Bennett <andrew@pixid.com>
+%%% @author Andrew Bennett <potatosaladx@gmail.com>
 %%% @copyright 2014-2016, Andrew Bennett
 %%% @doc
 %%%
 %%% @end
-%%% Created :  29 Feb 2016 by Andrew Bennett <andrew@pixid.com>
+%%% Created :  29 Feb 2016 by Andrew Bennett <potatosaladx@gmail.com>
 %%%-------------------------------------------------------------------
 -module(fips202_SUITE).
 
@@ -95,7 +95,7 @@ data_setup(Config) ->
 
 %% @private
 data_setup(F = "keccaktestvectors", Config) ->
-	BaseURL = "https://raw.githubusercontent.com/gvanas/KeccakCodePackage/1893f17c8029d0e6423f1fa4de4d15f76b188a27/TestVectors/",
+	BaseURL = "https://raw.githubusercontent.com/XKCP/XKCP/3eab79e98e873d0c78f7eec0346cc6510368fa7d/tests/TestVectors/",
 	Files = [
 		"ShortMsgKAT_SHA3-224.txt",
 		"ShortMsgKAT_SHA3-256.txt",
