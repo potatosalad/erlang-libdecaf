@@ -1,6 +1,6 @@
 PROJECT = libdecaf
 PROJECT_DESCRIPTION = libdecaf NIF for ECDH (X25519, X448), EdDSA (Ed25519, Ed25519ph, Ed448, Ed448ph), curve25519, curve448, spongerng
-PROJECT_VERSION = 0.0.4
+PROJECT_VERSION = 1.0.0
 
 include erlang.mk
 
@@ -36,4 +36,5 @@ docker-setup::
 docker-test::
 	$(gen_verbose) docker run \
 		-v "$(shell pwd)":"/build/libdecaf" "docker-otp-${DOCKER_OTP_VERSION}" \
-		sh -c 'cd libdecaf && CC=clang-7 CXX=clang++-7 ARCHFLAGS=-Wgcc-compat make tests'
+		sh -c 'cd libdecaf \
+		&& CC=clang-7 CXX=clang++-7 ARCHFLAGS=-Wgcc-compat make tests'

@@ -222,7 +222,6 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"spongerng_init_from_buffer", 2, libdecaf_nif_spongerng_init_from_buffer_2, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"spongerng_init_from_file", 3, libdecaf_nif_spongerng_init_from_file_3, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"spongerng_init_from_dev_urandom", 0, libdecaf_nif_spongerng_init_from_dev_urandom_0, ERL_NIF_DIRTY_JOB_IO_BOUND},
-    {"spongerng_dump", 1, libdecaf_nif_spongerng_dump_1, 0},
     {"spongerng_next", 2, libdecaf_nif_spongerng_next_2, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"spongerng_stir", 2, libdecaf_nif_spongerng_stir_2, ERL_NIF_DIRTY_JOB_CPU_BOUND}};
 

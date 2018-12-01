@@ -64,7 +64,6 @@
 -export([spongerng_init_from_buffer/2]).
 -export([spongerng_init_from_file/3]).
 -export([spongerng_init_from_dev_urandom/0]).
--export([spongerng_dump/1]).
 -export([spongerng_next/2]).
 -export([spongerng_stir/2]).
 
@@ -235,9 +234,6 @@ spongerng_init_from_file(_File, _Inlen, _Deterministic) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
 spongerng_init_from_dev_urandom() ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
-
-spongerng_dump(_State) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
 spongerng_next(_State, _Outlen) ->

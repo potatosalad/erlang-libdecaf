@@ -78,7 +78,6 @@
 -export([spongerng_init_from_buffer/2]).
 -export([spongerng_init_from_file/3]).
 -export([spongerng_init_from_dev_urandom/0]).
--export([spongerng_dump/1]).
 -export([spongerng_next/2]).
 -export([spongerng_stir/2]).
 %% Internal API
@@ -295,9 +294,6 @@ spongerng_init_from_file(File, Inlen, Deterministic) ->
 
 spongerng_init_from_dev_urandom() ->
 	libdecaf_nif:spongerng_init_from_dev_urandom().
-
-spongerng_dump(State) ->
-	libdecaf_nif:spongerng_dump(State).
 
 spongerng_next(State, Outlen) ->
 	libdecaf_nif:spongerng_next(State, Outlen).

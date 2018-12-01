@@ -116,25 +116,6 @@ libdecaf_nif_spongerng_init_from_dev_urandom_0(ErlNifEnv *env, int argc, const E
     return out_term;
 }
 
-/* libdecaf_nif:spongerng_dump/1 */
-
-static ERL_NIF_TERM
-libdecaf_nif_spongerng_dump_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    decaf_keccak_prng_s *ctx = NULL;
-    unsigned char *outbuf = NULL;
-    ERL_NIF_TERM out_term;
-
-    if (argc != 1 || !libdecaf_nif_get_spongerng_ctx(env, argv[0], &ctx)) {
-        return enif_make_badarg(env);
-    }
-
-    outbuf = enif_make_new_binary(env, sizeof(decaf_keccak_prng_s), &out_term);
-    (void)memcpy(outbuf, ctx, sizeof(decaf_keccak_prng_s));
-
-    return out_term;
-}
-
 /* libdecaf_nif:spongerng_next/2 */
 
 static ERL_NIF_TERM

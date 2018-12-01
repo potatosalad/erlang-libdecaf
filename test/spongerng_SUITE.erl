@@ -59,8 +59,8 @@ end_per_suite(_Config) ->
 	ok.
 
 init_per_group(G='spongerng_init_from_buffer', Config) ->
-	EmptySponge = libdecaf:spongerng_init_from_buffer(<<>>, true),
-	SeedSponge = libdecaf:spongerng_init_from_buffer(<<
+	EmptySponge = libdecaf_spongerng:init_from_buffer(<<>>, true),
+	SeedSponge = libdecaf_spongerng:init_from_buffer(<<
 		"To be, or not to be, that is the question:\n"
 		"Whether 'tis nobler in the mind to suffer\n"
 		"The slings and arrows of outrageous fortune,\n"
@@ -132,7 +132,7 @@ init_per_group(G='spongerng_init_from_buffer', Config) ->
 	];
 init_per_group(G='spongerng_init_from_file', Config) ->
 	DataDir = ?config(data_dir, Config),
-	SeedSponge = libdecaf:spongerng_init_from_file(filename:join(DataDir, "seed.txt"), 1406, true),
+	SeedSponge = libdecaf_spongerng:init_from_file(filename:join(DataDir, "seed.txt"), 1406, true),
 	[
 		{spongerng_seed_deterministic, [
 			{SeedSponge, [
@@ -188,25 +188,25 @@ spongerng_seed_deterministic(Config) ->
 %%%-------------------------------------------------------------------
 
 %% @private
-spongerng_deterministic({Sponge, Vectors}) when is_reference(Sponge) andalso is_list(Vectors) ->
+spongerng_deterministic({Sponge = {spongerng, _}, Vectors}) when is_list(Vectors) ->
 	_ = lists:foldl(fun spongerng_deterministic_vector/2, Sponge, Vectors),
 	ok.
 
 %% @private
 spongerng_deterministic_vector({next, Outlen, Output}, Sponge0) ->
-	case libdecaf:spongerng_next(Sponge0, Outlen) of
-		{Sponge1, Output} when is_reference(Sponge1) ->
+	case libdecaf_spongerng:next(Sponge0, Outlen) of
+		{Sponge1 = {spongerng, _}, Output} ->
 			Sponge1;
-		{Sponge1, Badout} when is_reference(Sponge1) ->
+		{Sponge1 = {spongerng, _}, Badout} ->
 			ct:fail({
-				{libdecaf, spongerng_next, [Sponge0, Outlen]},
+				{libdecaf, next, [Sponge0, Outlen]},
 				{expected, {Sponge1, hex:bin_to_hex(Output)}},
 				{got, {Sponge1, hex:bin_to_hex(Badout)}}
 			})
 	end;
 spongerng_deterministic_vector({stir, Input}, Sponge0) ->
-	case libdecaf:spongerng_stir(Sponge0, Input) of
-		Sponge1 when is_reference(Sponge1) ->
+	case libdecaf_spongerng:stir(Sponge0, Input) of
+		Sponge1 = {spongerng, _} ->
 			Sponge1
 	end.
 

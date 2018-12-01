@@ -6,30 +6,29 @@
 
 See [&ldquo;Decaf: Eliminating cofactors through point compression&rdquo;](https://eprint.iacr.org/2015/673.pdf) by [Mike Hamburg](https://shiftleft.org/) for more information.
 
-*Work In Progress* - not yet ready for production.
-
 The timeslice reductions allow the NIF to perform certain operations on very large inputs without blocking the scheduler or requiring the Erlang VM to support dirty schedulers.  See the [bitwise](https://github.com/vinoski/bitwise) project from which the strategy was derived.
 
-Tested against the [draft-irtf-cfrg-eddsa](https://tools.ietf.org/html/draft-irtf-cfrg-eddsa), [FIPS 180-4](http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf), [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf), and [RFC 7748](https://tools.ietf.org/html/rfc7748) test vectors.
+Tested against the [RFC 8032](https://tools.ietf.org/html/rfc8032), [FIPS 180-4](http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf), [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf), and [RFC 7748](https://tools.ietf.org/html/rfc7748) test vectors.
 
 ## Algorithm Support
 
-| Algorithm | Group | Purpose      | Definition |
-| --------- | ----- | ------------ | ---------- |
-| [Ed25519](#ed25519)     | [EdDSA](#eddsa) | Signature    | [draft-irtf-cfrg-eddsa](https://tools.ietf.org/html/draft-irtf-cfrg-eddsa#section-5.1) |
-| [Ed25519ctx](#ed25519ctx) | [EdDSA](#eddsa) | Signature    | [draft-irtf-cfrg-eddsa](https://tools.ietf.org/html/draft-irtf-cfrg-eddsa#section-5.1) |
-| [Ed25519ph](#ed25519ph) | [EdDSA](#eddsa) | Signature    | [draft-irtf-cfrg-eddsa](https://tools.ietf.org/html/draft-irtf-cfrg-eddsa#section-5.1) |
-| [Ed448](#ed448)         | [EdDSA](#eddsa) | Signature    | [draft-irtf-cfrg-eddsa](https://tools.ietf.org/html/draft-irtf-cfrg-eddsa#section-5.2) |
-| [Ed448ph](#ed448ph)     | [EdDSA](#eddsa) | Signature    | [draft-irtf-cfrg-eddsa](https://tools.ietf.org/html/draft-irtf-cfrg-eddsa#section-5.2) |
-| [SHA2-512](#sha-2)      | [SHA-2](#sha-2) | Hash         | [FIPS 180-4](http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf) |
-| [SHA3-224](#sha-3)      | [SHA-3](#sha-3) | Hash         | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [SHA3-256](#sha-3)      | [SHA-3](#sha-3) | Hash         | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [SHA3-384](#sha-3)      | [SHA-3](#sha-3) | Hash         | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [SHA3-512](#sha-3)      | [SHA-3](#sha-3) | Hash         | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [SHAKE128](#sha-3)      | [SHA-3](#sha-3) | Hash         | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [SHAKE256](#sha-3)      | [SHA-3](#sha-3) | Hash         | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [X25519](#x25519)       | [ECDH](#ecdh)   | Key Exchange | [RFC 7748](https://tools.ietf.org/html/rfc7748#section-5) |
-| [X448](#x448)           | [ECDH](#ecdh)   | Key Exchange | [RFC 7748](https://tools.ietf.org/html/rfc7748#section-5) |
+| Algorithm                 | Group             | Purpose       | Definition |
+| ------------------------- | ----------------- | ------------- | ---------- |
+| [Ed25519](#ed25519)       | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.1) |
+| [Ed25519ctx](#ed25519ctx) | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.1) |
+| [Ed25519ph](#ed25519ph)   | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.1) |
+| [Ed448](#ed448)           | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.2) |
+| [Ed448ph](#ed448ph)       | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.2) |
+| [SPONGERNG](#spongerng)   | [KECCAK](#keccak) | Pseudo-Random | [`decaf/spongerng.h`](https://sourceforge.net/p/ed448goldilocks/code/ci/v1.0/tree/src/public_include/decaf/spongerng.h#l26) |
+| [SHA2-512](#sha-2)        | [SHA-2](#sha-2)   | Hash          | [FIPS 180-4](http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf) |
+| [SHA3-224](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
+| [SHA3-256](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
+| [SHA3-384](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
+| [SHA3-512](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
+| [SHAKE128](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
+| [SHAKE256](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
+| [X25519](#x25519)         | [ECDH](#ecdh)     | Key Exchange  | [RFC 7748](https://tools.ietf.org/html/rfc7748#section-5) |
+| [X448](#x448)             | [ECDH](#ecdh)     | Key Exchange  | [RFC 7748](https://tools.ietf.org/html/rfc7748#section-5) |
 
 ## Installation
 
@@ -38,7 +37,7 @@ Add `libdecaf` to your project's dependencies in `mix.exs`
 ```elixir
 defp deps do
   [
-    {:libdecaf, "~> 0.0.4"}
+    {:libdecaf, "~> 1.0"}
   ]
 end
 ```
@@ -182,6 +181,69 @@ libdecaf_curve448:ed448ph_verify(SigEd448phC, M, PK448, C).
 % true
 ```
 
+### KECCAK
+
+##### SPONGERNG (`spongerng`)
+
+#### `libdecaf_spongerng:init_from_buffer/2`
+
+This function allows you to specify an initial seed buffer and whether the PRNG will be deterministic or not.
+
+```erlang
+%% Deterministic
+libdecaf_spongerng:init_from_buffer(<<>>, true).
+% {spongerng, #Ref<0.0.0.1>}
+%% Non-deterministic
+libdecaf_spongerng:init_from_buffer(<<>>, false).
+% {spongerng, #Ref<0.0.0.2>}
+```
+
+#### `libdecaf_spongerng:init_from_file/3`
+
+This function allows you specify an initial seed file up to the given length and whether the PRNG will be deterministic or not.
+
+```erlang
+%% Deterministic
+libdecaf_spongerng:init_from_file("seed.txt", 16, true).
+% {spongerng, #Ref<0.0.0.3>}
+%% Non-deterministic
+libdecaf_spongerng:init_from_file("seed.txt", 16, false).
+% {spongerng, #Ref<0.0.0.4>}
+```
+
+#### `libdecaf_spongerng:init_from_dev_urandom/0`
+
+This function reads an initial seed from `/dev/urandom` and is only allowed to be non-deterministic.
+
+```erlang
+%% Non-deterministic
+libdecaf_spongerng:init_from_dev_urandom().
+% {spongerng, #Ref<0.0.0.5>}
+```
+
+#### `libdecaf_spongerng:next/2`
+
+This function returns the next length of bytes from the sponge and returns the new sponge state.
+
+```erlang
+Sponge0 = libdecaf_spongerng:init_from_buffer(<<>>, true),
+{Sponge1, Output} = libdecaf_spongerng:next(Sponge0, 8).
+% {{spongerng, #Ref<0.0.0.6>}, <<99,190,253,62,125,162,80,150>>}
+```
+
+#### `libdecaf_spongerng:stir/2`
+
+This function modifies the sponge state (stirs the pot) with the given input.
+
+```erlang
+Sponge0 = libdecaf_spongerng:init_from_buffer(<<>>, true),
+Sponge1 = libdecaf_spongerng:stir(Sponge0, <<"test">>),
+{Sponge2, Output} = libdecaf_spongerng:next(Sponge1, 8).
+% {{spongerng, #Ref<0.0.0.7>}, <<168,214,5,0,60,110,186,33>>}
+```
+
+#### `libdecaf_sha3:hash/2`
+
 ### SHA-2
 
 #### `libdecaf_sha2:hash/2`
@@ -207,7 +269,7 @@ This function can be used for the following algorithms:
 
 ```erlang
 Context0 = libdecaf_sha2:init(sha2_512).
-% {sha2_512, <<8,201,188,243,103,230,9,106,59,167,202,132,133,174,103,187,43,248,148,254,114,243,110,60,241,54,29,95,58,245,79,165,209,130,230,173,127,82,14,81,31,108,62,43,140,104,5,155,107,189,65,251,171,217,131,31,121,33,126,19,25,205,224,91,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>}
+% {sha2_512, #Ref<0.0.0.1>}
 ```
 
 #### `libdecaf_sha2:update/2`
@@ -222,7 +284,7 @@ The examples below use the `Context0` for each algorithm from the examples above
 
 ```erlang
 Context1 = libdecaf_sha2:update(Context0, <<"test">>).
-% {sha2_512, <<8,201,188,243,103,230,9,106,59,167,202,132,133,174,103,187,43,248,148,254,114,243,110,60,241,54,29,95,58,245,79,165,209,130,230,173,127,82,14,81,31,108,62,43,140,104,5,155,107,189,65,251,171,217,131,31,121,33,126,19,25,205,224,91,116,101,115,116,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0>>}
+% {sha2_512, #Ref<0.0.0.2>}
 ```
 
 #### `libdecaf_sha2:final/2`
@@ -297,42 +359,42 @@ This function can be used for the following algorithms:
 
 ```erlang
 Sponge0 = libdecaf_sha3:init(sha3_224).
-% {sha3_224, <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65,144,0,6,128,28,0>>}
+% {sha3_224, #Ref<0.0.0.3>}
 ```
 
 ##### SHA3-256 (`sha3_256`)
 
 ```erlang
 Sponge0 = libdecaf_sha3:init(sha3_256).
-% {sha3_256, <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65,136,0,6,128,32,0>>}
+% {sha3_256, #Ref<0.0.0.4>}
 ```
 
 ##### SHA3-384 (`sha3_384`)
 
 ```erlang
 Sponge0 = libdecaf_sha3:init(sha3_384).
-% {sha3_384, <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65,104,0,6,128,48,0>>}
+% {sha3_384, #Ref<0.0.0.5>}
 ```
 
 ##### SHA3-512 (`sha3_512`)
 
 ```erlang
 Sponge0 = libdecaf_sha3:init(sha3_512).
-% {sha3_512, <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65,72,0,6,128,64,0>>}
+% {sha3_512, #Ref<0.0.0.6>}
 ```
 
 ##### SHAKE128 (`shake128`)
 
 ```erlang
 Sponge0 = libdecaf_sha3:init(shake128).
-% {shake128, <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65,168,0,31,128,255,0>>}
+% {shake128, #Ref<0.0.0.7>}
 ```
 
 ##### SHAKE256 (`shake256`)
 
 ```erlang
 Sponge0 = libdecaf_sha3:init(shake256).
-% {shake256, <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65,136,0,31,128,255,0>>}
+% {shake256, #Ref<0.0.0.8>}
 ```
 
 #### `libdecaf_sha3:update/2`
@@ -352,42 +414,42 @@ The examples below use the `Sponge0` for each algorithm from the examples above 
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_224, <<116,101,115,116,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,65,144,0,6,128,28,0>>}
+% {sha3_224, #Ref<0.0.0.9>}
 ```
 
 ##### SHA3-256 (`sha3_256`)
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_256, <<116,101,115,116,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,65,136,0,6,128,32,0>>}
+% {sha3_256, #Ref<0.0.0.10>}
 ```
 
 ##### SHA3-384 (`sha3_384`)
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_384, <<116,101,115,116,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,65,104,0,6,128,48,0>>}
+% {sha3_384, #Ref<0.0.0.11>}
 ```
 
 ##### SHA3-512 (`sha3_512`)
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_512, <<116,101,115,116,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,65,72,0,6,128,64,0>>}
+% {sha3_512, #Ref<0.0.0.12>}
 ```
 
 ##### SHAKE128 (`shake128`)
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {shake128, <<116,101,115,116,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,65,168,0,31,128,255,0>>}
+% {shake128, #Ref<0.0.0.13>}
 ```
 
 ##### SHAKE256 (`shake256`)
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {shake256, <<116,101,115,116,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,65,136,0,31,128,255,0>>}
+% {shake256, #Ref<0.0.0.14>}
 ```
 
 #### `libdecaf_sha3:final/2`
@@ -411,21 +473,21 @@ Out = libdecaf_sha3:final(Sponge1).
 ##### SHA3-256 (`sha3_256`)
 
 ```erlang
-Out = libdecaf_sha3:update(Sponge1).
+Out = libdecaf_sha3:final(Sponge1).
 % <<54,240,40,88,11,176,44,200,39,42,154,2,15,66,0,227,70,226,118,174,102,78,69,238,128,116,85,116,226,245,171,128>>
 ```
 
 ##### SHA3-384 (`sha3_384`)
 
 ```erlang
-Out = libdecaf_sha3:update(Sponge1).
+Out = libdecaf_sha3:final(Sponge1).
 % <<229,22,218,187,35,182,227,0,38,134,53,67,40,39,128,163,174,13,204,240,85,81,207,2,149,23,141,127,240,241,180,30,236,185,219,63,242,25,0,124,78,9,114,96,213,134,33,189>>
 ```
 
 ##### SHA3-512 (`sha3_512`)
 
 ```erlang
-Out = libdecaf_sha3:update(Sponge1).
+Out = libdecaf_sha3:final(Sponge1).
 % <<158,206,8,110,155,172,73,31,172,92,29,16,70,202,17,215,55,185,42,43,46,189,147,240,5,215,183,16,17,12,10,103,130,136,22,110,127,190,121,104,131,164,242,233,179,202,159,72,79,82,29,12,228,100,52,92,193,174,201,103,121,20,156,20>>
 ```
 

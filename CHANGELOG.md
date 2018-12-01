@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0 (2018-11-30)
+
+* Upstream update to [`ed448goldilocks` version 1.0](https://sourceforge.net/p/ed448goldilocks/code/ci/v1.0/tree/)
+* Library Support
+  * SPONGERNG
+    * `libdecaf_spongerng:init_from_buffer/2`
+    * `libdecaf_spongerng:init_from_file/3`
+    * `libdecaf_spongerng:init_from_dev_urandom/0`
+    * `libdecaf_spongerng:next/2`
+    * `libdecaf_spongerng:stir/2`
+  * Verious improvements to the build system (more appropriate usage of dirty schedulers and time slices).
+
 ## 0.0.4 (2016-09-02)
 
 * Upstream version [features-20160902](https://github.com/potatosalad/ed448goldilocks/tree/features-20160902) which adds support for Ed25519ctx according to [draft 08 of EdDSA](https://tools.ietf.org/html/draft-irtf-cfrg-eddsa-08#section-5.1).
