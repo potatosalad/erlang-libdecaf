@@ -19,7 +19,7 @@ Tested against the [RFC 8032](https://tools.ietf.org/html/rfc8032), [FIPS 180-4]
 | [Ed25519ph](#ed25519ph)   | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.1) |
 | [Ed448](#ed448)           | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.2) |
 | [Ed448ph](#ed448ph)       | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.2) |
-| [SPONGERNG](#spongerng)   | [KECCAK](#keccak) | Pseudo-Random | [`decaf/spongerng.h`](https://sourceforge.net/p/ed448goldilocks/code/ci/v1.0/tree/src/public_include/decaf/spongerng.h#l26) |
+| [SPONGERNG](#spongerng)   | [KECCAK](#keccak) | Pseudo-Random | [`decaf/spongerng.h`](https://sourceforge.net/p/ed448goldilocks/code/ci/v1.0/tree/src/public_include/decaf/spongerng.h) |
 | [SHA2-512](#sha-2)        | [SHA-2](#sha-2)   | Hash          | [FIPS 180-4](http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf) |
 | [SHA3-224](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
 | [SHA3-256](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
