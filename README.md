@@ -183,7 +183,7 @@ libdecaf_curve448:ed448ph_verify(SigEd448phC, M, PK448, C).
 
 ### KECCAK
 
-##### SPONGERNG (`spongerng`)
+##### SPONGERNG
 
 #### `libdecaf_spongerng:init_from_buffer/2`
 
