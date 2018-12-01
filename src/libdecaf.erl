@@ -18,12 +18,16 @@
 -export([ed25519_sign_prehash/4]).
 -export([ed25519_verify/5]).
 -export([ed25519_verify_prehash/4]).
+-export([ed25519_convert_public_key_to_x25519/1]).
+-export([ed25519_convert_private_key_to_x25519/1]).
 %% decaf/ed448.h
 -export([ed448_derive_public_key/1]).
 -export([ed448_sign/5]).
 -export([ed448_sign_prehash/4]).
 -export([ed448_verify/5]).
 -export([ed448_verify_prehash/4]).
+-export([ed448_convert_public_key_to_x448/1]).
+-export([ed448_convert_private_key_to_x448/1]).
 %% decaf/point_255.h
 -export([x25519_derive_public_key/1]).
 -export([x25519_generate_key/1]).
@@ -109,6 +113,12 @@ ed25519_verify(Signature, Pubkey, Message, Prehashed, Context) ->
 ed25519_verify_prehash(Signature, Pubkey, Message, Context) ->
 	libdecaf_nif:ed25519_verify_prehash(Signature, Pubkey, Message, Context).
 
+ed25519_convert_public_key_to_x25519(Pubkey) ->
+	libdecaf_nif:ed25519_convert_public_key_to_x25519(Pubkey).
+
+ed25519_convert_private_key_to_x25519(Privkey) ->
+	libdecaf_nif:ed25519_convert_private_key_to_x25519(Privkey).
+
 %%%===================================================================
 %%% decaf/ed448.h
 %%%===================================================================
@@ -127,6 +137,12 @@ ed448_verify(Signature, Pubkey, Message, Prehashed, Context) ->
 
 ed448_verify_prehash(Signature, Pubkey, Message, Context) ->
 	libdecaf_nif:ed448_verify_prehash(Signature, Pubkey, Message, Context).
+
+ed448_convert_public_key_to_x448(Pubkey) ->
+	libdecaf_nif:ed448_convert_public_key_to_x448(Pubkey).
+
+ed448_convert_private_key_to_x448(Privkey) ->
+	libdecaf_nif:ed448_convert_private_key_to_x448(Privkey).
 
 %%%===================================================================
 %%% decaf/point_255.h

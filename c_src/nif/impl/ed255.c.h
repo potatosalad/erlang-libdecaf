@@ -7,7 +7,7 @@
  * Erlang NIF functions
  */
 
-/* decaf/ed255.h */
+/* libdecaf_nif:ed25519_derive_public_key/1 */
 
 static ERL_NIF_TERM
 libdecaf_nif_ed25519_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -25,6 +25,8 @@ libdecaf_nif_ed25519_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF
 
     return out;
 }
+
+/* libdecaf_nif:ed25519_sign/5 */
 
 static ERL_NIF_TERM
 libdecaf_nif_ed25519_sign_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -57,6 +59,8 @@ libdecaf_nif_ed25519_sign_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     return out;
 }
+
+/* libdecaf_nif:ed25519_sign_prehash/4 */
 
 static ERL_NIF_TERM
 libdecaf_nif_ed25519_sign_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -93,6 +97,8 @@ libdecaf_nif_ed25519_sign_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     return out;
 }
 
+/* libdecaf_nif:ed25519_verify/5 */
+
 static ERL_NIF_TERM
 libdecaf_nif_ed25519_verify_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -123,6 +129,8 @@ libdecaf_nif_ed25519_verify_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         return ATOM_false;
     }
 }
+
+/* libdecaf_nif:ed25519_verify_prehash/4 */
 
 static ERL_NIF_TERM
 libdecaf_nif_ed25519_verify_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -156,4 +164,45 @@ libdecaf_nif_ed25519_verify_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TE
         (void)decaf_ed25519_prehash_destroy(hash);
         return ATOM_false;
     }
+}
+
+/* libdecaf_nif:ed25519_convert_public_key_to_x25519/1 */
+
+static ERL_NIF_TERM
+libdecaf_nif_ed25519_convert_public_key_to_x25519_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifBinary ed25519_pubkey;
+    uint8_t *x25519_pubkey = NULL;
+    ERL_NIF_TERM out_term;
+
+    if (argc != 1 || !enif_inspect_binary(env, argv[0], &ed25519_pubkey) || ed25519_pubkey.size != DECAF_EDDSA_25519_PUBLIC_BYTES) {
+        return enif_make_badarg(env);
+    }
+
+    x25519_pubkey = (uint8_t *)(enif_make_new_binary(env, DECAF_X25519_PUBLIC_BYTES, &out_term));
+
+    (void)decaf_ed25519_convert_public_key_to_x25519(x25519_pubkey, ed25519_pubkey.data);
+
+    return out_term;
+}
+
+/* libdecaf_nif:ed25519_convert_private_key_to_x25519/1 */
+
+static ERL_NIF_TERM
+libdecaf_nif_ed25519_convert_private_key_to_x25519_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifBinary ed25519_privkey;
+    uint8_t *x25519_privkey = NULL;
+    ERL_NIF_TERM out_term;
+
+    if (argc != 1 || !enif_inspect_binary(env, argv[0], &ed25519_privkey) ||
+        ed25519_privkey.size != DECAF_EDDSA_25519_PRIVATE_BYTES) {
+        return enif_make_badarg(env);
+    }
+
+    x25519_privkey = (uint8_t *)(enif_make_new_binary(env, DECAF_X25519_PRIVATE_BYTES, &out_term));
+
+    (void)decaf_ed25519_convert_private_key_to_x25519(x25519_privkey, ed25519_privkey.data);
+
+    return out_term;
 }

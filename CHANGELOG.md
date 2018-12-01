@@ -11,6 +11,7 @@
     * `libdecaf_spongerng:next/2`
     * `libdecaf_spongerng:stir/2`
   * Verious improvements to the build system (more appropriate usage of dirty schedulers and time slices).
+  * Added Ed25519 to X25519 and Ed448 to X448 conversion functions.
 
 ## 0.0.4 (2016-09-02)
 

@@ -17,6 +17,11 @@
 -export([eddsa_secret_to_pk/1]).
 -export([eddsa_sk_to_pk/1]).
 -export([eddsa_sk_to_secret/1]).
+-export([eddsa_keypair_to_x25519_keypair/1]).
+-export([eddsa_pk_to_x25519_pk/1]).
+-export([eddsa_secret_to_x25519_keypair/1]).
+-export([eddsa_secret_to_x25519_secret/1]).
+-export([eddsa_sk_to_x25519_keypair/1]).
 % Ed25519
 -export([ed25519_sign/2]).
 -export([ed25519_verify/3]).
@@ -74,6 +79,28 @@ eddsa_sk_to_pk(<< _:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) ->
 eddsa_sk_to_secret(<< Secret:?EdDSA_SECRET_BYTES/binary, _:?EdDSA_PK_BYTES/binary >>) ->
 	Secret.
 
+eddsa_keypair_to_x25519_keypair({<< PK:?EdDSA_PK_BYTES/binary >>, SK = << _:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>}) ->
+	eddsa_sk_to_x25519_keypair(SK).
+
+eddsa_pk_to_x25519_pk(<< PK:?EdDSA_PK_BYTES/binary >>) ->
+	libdecaf:ed25519_convert_public_key_to_x25519(PK).
+
+eddsa_secret_to_x25519_keypair(<< Secret:?EdDSA_SECRET_BYTES/binary >>) ->
+	x25519_keypair(eddsa_secret_to_x25519_secret(Secret)).
+
+eddsa_secret_to_x25519_secret(<< Secret:?EdDSA_SECRET_BYTES/binary >>) ->
+	libdecaf:ed25519_convert_private_key_to_x25519(Secret).
+
+eddsa_sk_to_x25519_keypair(SK = << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) ->
+	KP0 = {eddsa_pk_to_x25519_pk(PK), eddsa_secret_to_x25519_secret(Secret)},
+	KP1 = eddsa_secret_to_x25519_keypair(Secret),
+	case KP0 =:= KP1 of
+		true ->
+			KP1;
+		false ->
+			erlang:error({badarg, [SK]})
+	end.
+
 % Ed25519
 
 ed25519_sign(M, << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
@@ -129,7 +156,7 @@ curve25519(Scalar) when is_integer(Scalar) ->
 curve25519(Scalar)
 		when is_binary(Scalar)
 		andalso byte_size(Scalar) =:= ?X25519_PRIVATE_BYTES ->
-	<< U:?X25519_PUBLIC_BYTES/unsigned-little-integer-unit:8 >> = libdecaf:x25519_generate_key(Scalar),
+	<< U:?X25519_PUBLIC_BYTES/unsigned-little-integer-unit:8 >> = libdecaf:x25519_derive_public_key(Scalar),
 	U.
 
 curve25519(Scalar, Base) when is_integer(Scalar) ->
@@ -147,7 +174,7 @@ curve25519(Scalar, Base)
 x25519(K)
 		when is_binary(K)
 		andalso byte_size(K) =:= ?X25519_PRIVATE_BYTES ->
-	libdecaf:x25519_generate_key(K).
+	libdecaf:x25519_derive_public_key(K).
 
 x25519(K, U)
 		when is_binary(K)

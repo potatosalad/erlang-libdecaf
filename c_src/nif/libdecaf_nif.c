@@ -111,12 +111,16 @@ static ERL_NIF_TERM libdecaf_nif_ed25519_sign_5(ErlNifEnv *env, int argc, const 
 static ERL_NIF_TERM libdecaf_nif_ed25519_sign_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM libdecaf_nif_ed25519_verify_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM libdecaf_nif_ed25519_verify_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed25519_convert_public_key_to_x25519_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed25519_convert_private_key_to_x25519_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 /* decaf/ed448.h */
 static ERL_NIF_TERM libdecaf_nif_ed448_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM libdecaf_nif_ed448_sign_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM libdecaf_nif_ed448_sign_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM libdecaf_nif_ed448_verify_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM libdecaf_nif_ed448_verify_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed448_convert_public_key_to_x448_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed448_convert_private_key_to_x448_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 /* decaf/point_255.h */
 static ERL_NIF_TERM libdecaf_nif_x25519_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM libdecaf_nif_x25519_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
@@ -181,12 +185,16 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"ed25519_sign_prehash", 4, libdecaf_nif_ed25519_sign_prehash_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed25519_verify", 5, libdecaf_nif_ed25519_verify_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed25519_verify_prehash", 4, libdecaf_nif_ed25519_verify_prehash_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519_convert_public_key_to_x25519", 1, libdecaf_nif_ed25519_convert_public_key_to_x25519_1, 0},
+    {"ed25519_convert_private_key_to_x25519", 1, libdecaf_nif_ed25519_convert_private_key_to_x25519_1, 0},
     /* decaf/ed448.h */
     {"ed448_derive_public_key", 1, libdecaf_nif_ed448_derive_public_key_1, 0},
     {"ed448_sign", 5, libdecaf_nif_ed448_sign_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed448_sign_prehash", 4, libdecaf_nif_ed448_sign_prehash_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed448_verify", 5, libdecaf_nif_ed448_verify_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed448_verify_prehash", 4, libdecaf_nif_ed448_verify_prehash_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448_convert_public_key_to_x448", 1, libdecaf_nif_ed448_convert_public_key_to_x448_1, 0},
+    {"ed448_convert_private_key_to_x448", 1, libdecaf_nif_ed448_convert_private_key_to_x448_1, 0},
     /* decaf/point_255.h */
     {"x25519_derive_public_key", 1, libdecaf_nif_x25519_derive_public_key_1, 0},
     {"x25519", 2, libdecaf_nif_x25519_2, 0},

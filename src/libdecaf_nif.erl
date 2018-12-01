@@ -16,12 +16,16 @@
 -export([ed25519_sign_prehash/4]).
 -export([ed25519_verify/5]).
 -export([ed25519_verify_prehash/4]).
+-export([ed25519_convert_public_key_to_x25519/1]).
+-export([ed25519_convert_private_key_to_x25519/1]).
 %% decaf/ed448.h
 -export([ed448_derive_public_key/1]).
 -export([ed448_sign/5]).
 -export([ed448_sign_prehash/4]).
 -export([ed448_verify/5]).
 -export([ed448_verify_prehash/4]).
+-export([ed448_convert_public_key_to_x448/1]).
+-export([ed448_convert_private_key_to_x448/1]).
 %% decaf/point_255.h
 -export([x25519_derive_public_key/1]).
 -export([x25519/2]).
@@ -88,6 +92,12 @@ ed25519_verify(_Signature, _Pubkey, _Message, _Prehashed, _Context) ->
 ed25519_verify_prehash(_Signature, _Pubkey, _Message, _Context) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
+ed25519_convert_public_key_to_x25519(_Pubkey) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed25519_convert_private_key_to_x25519(_Privkey) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
 %%%===================================================================
 %%% decaf/ed448.h
 %%%===================================================================
@@ -105,6 +115,12 @@ ed448_verify(_Signature, _Pubkey, _Message, _Prehashed, _Context) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
 ed448_verify_prehash(_Signature, _Pubkey, _Message, _Context) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed448_convert_public_key_to_x448(_Pubkey) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed448_convert_private_key_to_x448(_Privkey) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
 %%%===================================================================
