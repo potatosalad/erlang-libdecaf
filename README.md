@@ -46,7 +46,7 @@ Add `libdecaf` to your project's dependencies in your `Makefile` for [`erlang.mk
 
 ```erlang
 {deps, [
-  {libdecaf, ".*", {git, "git://github.com/potatosalad/erlang-libdecaf.git", {branch, "master"}}}
+  {libdecaf, ".*", {git, "https://github.com/potatosalad/erlang-libdecaf.git", {branch, "master"}}}
 ]}.
 ```
 
