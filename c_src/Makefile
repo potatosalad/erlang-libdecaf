@@ -105,7 +105,7 @@ LDLIBS += -L"$(ERL_INTERFACE_LIB_DIR)" \
 # Dependencies.
 
 ED448GOLDILOCKS_VSN ?= v1.0
-ED448GOLDILOCKS_GIT ?= git://github.com/potatosalad/ed448goldilocks.git
+ED448GOLDILOCKS_GIT ?= https://github.com/potatosalad/ed448goldilocks.git
 ED448GOLDILOCKS_SRC_DIR ?= $(C_DEPS_DIR)/ed448goldilocks
 ED448GOLDILOCKS_OUTPUT_FILE ?= $(ED448GOLDILOCKS_SRC_DIR)/build/lib/libdecaf.so.1
 ED448GOLDILOCKS_LIB_DIR ?= $(ED448GOLDILOCKS_SRC_DIR)/src/GENERATED/include
