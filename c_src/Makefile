@@ -98,8 +98,7 @@ CFLAGS += -I"$(ERTS_INCLUDE_DIR)" -I"$(ERL_INTERFACE_INCLUDE_DIR)" -I"$(ED448GOL
 CXXFLAGS += -I"$(ERTS_INCLUDE_DIR)" -I"$(ERL_INTERFACE_INCLUDE_DIR)" -I"$(ED448GOLDILOCKS_INCLUDE_DIR)"
 
 LDLIBS += -L"$(ERL_INTERFACE_LIB_DIR)" \
-	-lerl_interface \
-	-lei \
+	$(ERL_INTERFACE_LIBS) \
 	$(ED448GOLDILOCKS_OBJECTS)
 
 # Dependencies.
@@ -235,10 +234,14 @@ $(C_SRC_ENV):
 		io_lib:format( \
 			\"ERTS_INCLUDE_DIR ?= ~s/erts-~s/include/~n\" \
 			\"ERL_INTERFACE_INCLUDE_DIR ?= ~s~n\" \
-			\"ERL_INTERFACE_LIB_DIR ?= ~s~n\", \
+			\"ERL_INTERFACE_LIB_DIR ?= ~s~n\" \
+			\"ERL_INTERFACE_LIBS ?= ~s -lei~n\", \
 			[code:root_dir(), erlang:system_info(version), \
 			code:lib_dir(erl_interface, include), \
-			code:lib_dir(erl_interface, lib)])), \
+			code:lib_dir(erl_interface, lib), \
+			try {match, _} = re:run(erlang:system_info(otp_release), \
+			\"^2[3-9]$$\"), \"\" catch _:_ -> \"-lerl_interface\" end \
+		])), \
 		halt()."
 
 distclean:: distclean-deps distclean-env
