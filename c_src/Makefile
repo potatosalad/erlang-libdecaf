@@ -239,8 +239,10 @@ $(C_SRC_ENV):
 			[code:root_dir(), erlang:system_info(version), \
 			code:lib_dir(erl_interface, include), \
 			code:lib_dir(erl_interface, lib), \
-			try {match, _} = re:run(erlang:system_info(otp_release), \
-			\"^2[3-9]$$\"), \"\" catch _:_ -> \"-lerl_interface\" end \
+			case re:run(erlang:system_info(otp_release), \"^2[3-9]$$\") of \
+			    {match, _} -> \"\"; \
+			    nomatch -> \"-lerl_interface\" \
+			end \
 		])), \
 		halt()."
 
