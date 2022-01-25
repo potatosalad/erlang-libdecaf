@@ -12,6 +12,7 @@
 	]},
 	{modules, []},
 	{maintainers, ["Andrew Bennett"]},
-	{licenses, ["Mozilla Public License Version 2.0"]},
-	{links, [{"Github", "https://github.com/potatosalad/erlang-libdecaf"}]}
+	{licenses, ["MIT"]},
+	{links, [{"Github", "https://github.com/potatosalad/erlang-libdecaf"}]},
+	{include_paths, ["c_deps/ed448goldilocks/"]}
 ]}.
