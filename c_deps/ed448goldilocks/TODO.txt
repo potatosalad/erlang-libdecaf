@@ -1,0 +1,30 @@
+Important work items for Ed448-Goldilocks / decaf / Ristretto.
+
+* Test signed 32-bit NEON implementation to avoid bias/reduce after subtract
+
+* Documentation: write high-level API docs, and internal docs to help
+  other implementors.
+    * Pretty good progress on Doxygenating the code.
+
+* Documentation: help work on ristretto.group website.
+
+* Cleanup: unify intrinsics code
+    * Generate asm intrinsics with a script?
+
+* Testing:
+    * More testing.  Testing, testing and testing.
+    * Test corner cases better.
+    * Try to formally verify some things.
+
+* Safety:
+    * If RNG fails, return error and zeroize
+
+* Portability: test and make clean with other compilers
+    * Using a fair amount of __attribute__ code.
+    * Should work for GCC now.
+    * Autoconf
+
+* Portability: try to make the vector code as portable as possible
+    * Currently using clang ext_vector_length.
+    * I can't get a simple for-loop to autovectorize :-/
+    * Autogenerate somehow?

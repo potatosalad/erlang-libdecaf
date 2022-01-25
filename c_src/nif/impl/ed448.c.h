@@ -102,9 +102,9 @@ libdecaf_nif_ed448_verify_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     if (decaf_ed448_verify(signature.data, pubkey.data, message.data, message.size, prehashed, context.data, context.size) ==
         DECAF_SUCCESS) {
-        return ATOM_true;
+        return libdecaf_nif_atom_table->ATOM_true;
     } else {
-        return ATOM_false;
+        return libdecaf_nif_atom_table->ATOM_false;
     }
 }
 
@@ -130,10 +130,10 @@ libdecaf_nif_ed448_verify_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 
     if (decaf_ed448_verify_prehash(signature.data, pubkey.data, hash, context.data, context.size) == DECAF_SUCCESS) {
         (void)decaf_ed448_prehash_destroy(hash);
-        return ATOM_true;
+        return libdecaf_nif_atom_table->ATOM_true;
     } else {
         (void)decaf_ed448_prehash_destroy(hash);
-        return ATOM_false;
+        return libdecaf_nif_atom_table->ATOM_false;
     }
 }
 

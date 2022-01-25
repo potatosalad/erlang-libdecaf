@@ -2,7 +2,7 @@
 %% vim: ts=4 sw=4 ft=erlang noet
 %%%-------------------------------------------------------------------
 %%% @author Andrew Bennett <potatosaladx@gmail.com>
-%%% @copyright 2018, Andrew Bennett
+%%% @copyright 2018-2022, Andrew Bennett
 %%% @doc
 %%%
 %%% @end
@@ -33,12 +33,36 @@
 -export([x448_derive_public_key/1]).
 -export([x448/2]).
 %% decaf/sha512.h
+-export([
+	sha2_512_hash/2,
+	sha2_512_hash_init/0,
+	sha2_512_hash_update/2,
+	sha2_512_hash_final/2
+]).
 -export([sha2_512/2]).
 -export([sha2_512_init/0]).
 -export([sha2_512_update/2]).
 -export([sha2_512_final/2]).
 %% decaf/shake.h
 % SHA-3 API
+-export([
+	sha3_224_hash/2,
+	sha3_224_hash_init/0,
+	sha3_224_hash_update/2,
+	sha3_224_hash_final/2,
+	sha3_256_hash/2,
+	sha3_256_hash_init/0,
+	sha3_256_hash_update/2,
+	sha3_256_hash_final/2,
+	sha3_384_hash/2,
+	sha3_384_hash_init/0,
+	sha3_384_hash_update/2,
+	sha3_384_hash_final/2,
+	sha3_512_hash/2,
+	sha3_512_hash_init/0,
+	sha3_512_hash_update/2,
+	sha3_512_hash_final/2
+]).
 -export([sha3_224/2]).
 -export([sha3_224_init/0]).
 -export([sha3_224_update/2]).
@@ -56,6 +80,16 @@
 -export([sha3_512_update/2]).
 -export([sha3_512_final/2]).
 % SHAKE API
+-export([
+	shake128_xof/2,
+	shake128_xof_init/0,
+	shake128_xof_update/2,
+	shake128_xof_output/2,
+	shake256_xof/2,
+	shake256_xof_init/0,
+	shake256_xof_update/2,
+	shake256_xof_output/2
+]).
 -export([shake128/2]).
 -export([shake128_init/0]).
 -export([shake128_update/2]).
@@ -65,6 +99,13 @@
 -export([shake256_update/2]).
 -export([shake256_final/2]).
 %% decaf/spongerng.h
+-export([
+	spongerng_csprng_init_from_buffer/2,
+	spongerng_csprng_init_from_file/3,
+	spongerng_csprng_init_from_dev_urandom/0,
+	spongerng_csprng_next/2,
+	spongerng_csprng_stir/2
+]).
 -export([spongerng_init_from_buffer/2]).
 -export([spongerng_init_from_file/3]).
 -export([spongerng_init_from_dev_urandom/0]).
@@ -147,17 +188,29 @@ x448(_Base, _Scalar) ->
 %%% decaf/sha512.h
 %%%===================================================================
 
-sha2_512(_In, _Outlen) ->
+sha2_512_hash(_Input, _OutputLen) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha2_512_hash_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha2_512_hash_update(_Ctx, _In) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha2_512_hash_final(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha2_512(Input, OutputLen) ->
+	sha2_512_hash(Input, OutputLen).
 
 sha2_512_init() ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+	sha2_512_hash_init().
 
-sha2_512_update(_State, _In) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha2_512_update(Ctx, Input) ->
+	sha2_512_hash_update(Ctx, Input).
 
-sha2_512_final(_State, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha2_512_final(Ctx, OutputLen) ->
+	sha2_512_hash_final(Ctx, OutputLen).
 
 %%%===================================================================
 %%% decaf/shake.h
@@ -165,98 +218,187 @@ sha2_512_final(_State, _Outlen) ->
 
 %% SHA-3 API functions
 
-sha3_224(_In, _Outlen) ->
+sha3_224_hash(_Input, _OutputLen) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_224_hash_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_224_hash_update(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_224_hash_final(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_256_hash(_Input, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_256_hash_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_256_hash_update(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_256_hash_final(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_384_hash(_Input, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_384_hash_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_384_hash_update(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_384_hash_final(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_512_hash(_Input, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_512_hash_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_512_hash_update(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_512_hash_final(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+sha3_224(Input, OutputLen) ->
+	sha3_224_hash(Input, OutputLen).
 
 sha3_224_init() ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+	sha3_224_hash_init().
 
-sha3_224_update(_State, _In) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_224_update(Ctx, Input) ->
+	sha3_224_hash_update(Ctx, Input).
 
-sha3_224_final(_State, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_224_final(Ctx, OutputLen) ->
+	sha3_224_hash_final(Ctx, OutputLen).
 
-sha3_256(_In, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_256(Input, OutputLen) ->
+	sha3_256_hash(Input, OutputLen).
 
 sha3_256_init() ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+	sha3_256_hash_init().
 
-sha3_256_update(_State, _In) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_256_update(Ctx, Input) ->
+	sha3_256_hash_update(Ctx, Input).
 
-sha3_256_final(_State, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_256_final(Ctx, OutputLen) ->
+	sha3_256_hash_final(Ctx, OutputLen).
 
-sha3_384(_In, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_384(Input, OutputLen) ->
+	sha3_384_hash(Input, OutputLen).
 
 sha3_384_init() ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+	sha3_384_hash_init().
 
-sha3_384_update(_State, _In) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_384_update(Ctx, Input) ->
+	sha3_384_hash_update(Ctx, Input).
 
-sha3_384_final(_State, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_384_final(Ctx, OutputLen) ->
+	sha3_384_hash_final(Ctx, OutputLen).
 
-sha3_512(_In, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_512(Input, OutputLen) ->
+	sha3_512_hash(Input, OutputLen).
 
 sha3_512_init() ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+	sha3_512_hash_init().
 
-sha3_512_update(_State, _In) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_512_update(Ctx, Input) ->
+	sha3_512_hash_update(Ctx, Input).
 
-sha3_512_final(_State, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+sha3_512_final(Ctx, OutputLen) ->
+	sha3_512_hash_final(Ctx, OutputLen).
 
 %% SHAKE API functions
 
-shake128(_In, _Outlen) ->
+shake128_xof(_Input, _OutputLen) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+shake128_xof_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+shake128_xof_update(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+shake128_xof_output(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+shake256_xof(_Input, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+shake256_xof_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+shake256_xof_update(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+shake256_xof_output(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+shake128(Input, OutputLen) ->
+	shake128_xof(Input, OutputLen).
 
 shake128_init() ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+	shake128_xof_init().
 
-shake128_update(_State, _In) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+shake128_update(Ctx, Input) ->
+	shake128_xof_update(Ctx, Input).
 
-shake128_final(_State, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+shake128_final(OldCtx, OutputLen) ->
+	{_NewCtx, Output} = shake128_xof_output(OldCtx, OutputLen),
+	Output.
 
-shake256(_In, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+shake256(Input, OutputLen) ->
+	shake256_xof(Input, OutputLen).
 
 shake256_init() ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+	shake256_xof_init().
 
-shake256_update(_State, _In) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+shake256_update(Ctx, Input) ->
+	shake256_xof_update(Ctx, Input).
 
-shake256_final(_State, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+shake256_final(OldCtx, OutputLen) ->
+	{_NewCtx, Output} = shake256_xof_output(OldCtx, OutputLen),
+	Output.
 
 %%%===================================================================
 %%% decaf/spongerng.h
 %%%===================================================================
 
-spongerng_init_from_buffer(_In, _Deterministic) ->
+spongerng_csprng_init_from_buffer(_Input, _Deterministic) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
-spongerng_init_from_file(_File, _Inlen, _Deterministic) ->
+spongerng_csprng_init_from_file(_File, _InputLen, _Deterministic) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+spongerng_csprng_init_from_dev_urandom() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+spongerng_csprng_next(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+spongerng_csprng_stir(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+spongerng_init_from_buffer(Input, Deterministic) ->
+	spongerng_csprng_init_from_buffer(Input, Deterministic).
+
+spongerng_init_from_file(File, InputLen, Deterministic) ->
+	spongerng_csprng_init_from_file(File, InputLen, Deterministic).
 
 spongerng_init_from_dev_urandom() ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+	spongerng_csprng_init_from_dev_urandom().
 
-spongerng_next(_State, _Outlen) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+spongerng_next(Ctx, OutputLen) ->
+	spongerng_csprng_next(Ctx, OutputLen).
 
-spongerng_stir(_State, _In) ->
-	erlang:nif_error({nif_not_loaded, ?MODULE}).
+spongerng_stir(Ctx, Input) ->
+	spongerng_csprng_stir(Ctx, Input).
 
 %%%-------------------------------------------------------------------
 %%% Internal functions

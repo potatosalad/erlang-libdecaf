@@ -45,6 +45,6 @@ libdecaf_nif_x25519_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     if (decaf_x25519(u, base.data, scalar.data) == DECAF_SUCCESS) {
         return out;
     } else {
-        return ATOM_error;
+        return libdecaf_nif_atom_table->ATOM_error;
     }
 }

@@ -2,7 +2,8 @@
 /_build/
 
 # The directory make downloads the C dependencies sources to.
-/c_deps/
+/c_deps/ed448goldilocks-build/
+!/c_deps/ed448goldilocks/
 
 # If you run "mix test --cover", coverage assets end up here.
 /cover/

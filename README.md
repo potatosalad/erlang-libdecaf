@@ -1,6 +1,6 @@
 # libdecaf NIF
 
-[![Build Status](https://travis-ci.org/potatosalad/erlang-libdecaf.svg?branch=master)](https://travis-ci.org/potatosalad/erlang-libdecaf) [![Hex.pm](https://img.shields.io/hexpm/v/libdecaf.svg)](https://hex.pm/packages/libdecaf)
+[![Build Status](https://github.com/potatosalad/erlang-libdecaf/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/potatosalad/erlang-libdecaf/actions) [![Hex.pm](https://img.shields.io/hexpm/v/libdecaf.svg)](https://hex.pm/packages/libdecaf)
 
 [ed448goldilocks (libdecaf)](https://sourceforge.net/p/ed448goldilocks) NIF with timeslice reductions for Erlang and Elixir.
 
@@ -37,7 +37,7 @@ Add `libdecaf` to your project's dependencies in `mix.exs`
 ```elixir
 defp deps do
   [
-    {:libdecaf, "~> 1.0"}
+    {:libdecaf, "~> 2.0"}
   ]
 end
 ```
@@ -46,7 +46,7 @@ Add `libdecaf` to your project's dependencies in your `Makefile` for [`erlang.mk
 
 ```erlang
 {deps, [
-  {libdecaf, ".*", {git, "git://github.com/potatosalad/erlang-libdecaf.git", {branch, "master"}}}
+  {libdecaf, "2.0.0"}
 ]}.
 ```
 

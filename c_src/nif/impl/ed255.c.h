@@ -44,7 +44,7 @@ libdecaf_nif_ed25519_sign_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
     }
 
-    if (enif_compare(ATOM_no_context, argv[4]) == 0) {
+    if (enif_compare(libdecaf_nif_atom_table->ATOM_no_context, argv[4]) == 0) {
         context.size = 0;
         context.data = (unsigned char *)(DECAF_ED25519_NO_CONTEXT);
     } else if (!enif_inspect_binary(env, argv[4], &context) || context.size > 255) {
@@ -76,7 +76,7 @@ libdecaf_nif_ed25519_sign_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM
         return enif_make_badarg(env);
     }
 
-    if (enif_compare(ATOM_no_context, argv[3]) == 0) {
+    if (enif_compare(libdecaf_nif_atom_table->ATOM_no_context, argv[3]) == 0) {
         context.size = 0;
         context.data = (unsigned char *)(DECAF_ED25519_NO_CONTEXT);
     } else if (!enif_inspect_binary(env, argv[3], &context) || context.size > 255) {
@@ -115,7 +115,7 @@ libdecaf_nif_ed25519_verify_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         return enif_make_badarg(env);
     }
 
-    if (enif_compare(ATOM_no_context, argv[4]) == 0) {
+    if (enif_compare(libdecaf_nif_atom_table->ATOM_no_context, argv[4]) == 0) {
         context.size = 0;
         context.data = (unsigned char *)(DECAF_ED25519_NO_CONTEXT);
     } else if (!enif_inspect_binary(env, argv[4], &context) || context.size > 255) {
@@ -124,9 +124,9 @@ libdecaf_nif_ed25519_verify_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 
     if (decaf_ed25519_verify(signature.data, pubkey.data, message.data, message.size, prehashed, context.data, context.size) ==
         DECAF_SUCCESS) {
-        return ATOM_true;
+        return libdecaf_nif_atom_table->ATOM_true;
     } else {
-        return ATOM_false;
+        return libdecaf_nif_atom_table->ATOM_false;
     }
 }
 
@@ -146,7 +146,7 @@ libdecaf_nif_ed25519_verify_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TE
         return enif_make_badarg(env);
     }
 
-    if (enif_compare(ATOM_no_context, argv[3]) == 0) {
+    if (enif_compare(libdecaf_nif_atom_table->ATOM_no_context, argv[3]) == 0) {
         context.size = 0;
         context.data = (unsigned char *)(DECAF_ED25519_NO_CONTEXT);
     } else if (!enif_inspect_binary(env, argv[3], &context) || context.size > 255) {
@@ -159,10 +159,10 @@ libdecaf_nif_ed25519_verify_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TE
 
     if (decaf_ed25519_verify_prehash(signature.data, pubkey.data, hash, context.data, context.size) == DECAF_SUCCESS) {
         (void)decaf_ed25519_prehash_destroy(hash);
-        return ATOM_true;
+        return libdecaf_nif_atom_table->ATOM_true;
     } else {
         (void)decaf_ed25519_prehash_destroy(hash);
-        return ATOM_false;
+        return libdecaf_nif_atom_table->ATOM_false;
     }
 }
 

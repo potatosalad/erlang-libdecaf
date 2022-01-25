@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.0 (2022-01-25)
+
+* Fixes
+  * Remove `xnif_slice` related code and refactor to use regular timeslice reduction bumping (see [#7](https://github.com/potatosalad/erlang-libdecaf/issues/7)).
+  * Compilation problems on macOS and Erlang/OTP 23+ compatibility.
+* Enhancements
+  * Upstream update to [`ed448goldilocks` version `features-20220121`](https://github.com/potatosalad/ed448goldilocks/tree/features-20220121) (now vendored as part of `libdecaf` app).
+  * Added tests for timeslice checking with large input and/or large output.
+  * Switch from Travis CI to GitHub Actions.
+  * Relicense library under MIT license.
+
 ## 1.0.0 (2018-11-30)
 
 * Upstream update to [`ed448goldilocks` version 1.0](https://sourceforge.net/p/ed448goldilocks/code/ci/v1.0/tree/)

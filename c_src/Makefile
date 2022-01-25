@@ -63,25 +63,25 @@ ifeq ($(PLATFORM),msys2)
 # We hardcode the compiler used on MSYS2. The default CC=cc does
 # not produce working code. The "gcc" MSYS2 package also doesn't.
 	CC = /mingw64/bin/gcc
-	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes
-	CXXFLAGS ?= -O3 -std=c++11 -finline-functions -fstack-protector -Wall
+	CFLAGS ?= -O3 -std=c17 -finline-functions -fstack-protector -Wall -Wmissing-prototypes -fPIC
+	CXXFLAGS ?= -O3 -std=c++14 -finline-functions -fstack-protector -Wall -fPIC
 else ifeq ($(PLATFORM),darwin)
 	CC ?= cc
-	CFLAGS ?= -O3 -std=c11 -arch x86_64 -fstack-protector -Wall -Wmissing-prototypes
-	CXXFLAGS ?= -O3 -std=c++11 -arch x86_64 -fstack-protector -Wall
+	CFLAGS ?= -O3 -std=c17 -arch x86_64 -fstack-protector -Wall -Wmissing-prototypes -fPIC
+	CXXFLAGS ?= -O3 -std=c++14 -arch x86_64 -fstack-protector -Wall -fPIC
 	LDFLAGS ?= -arch x86_64 -flat_namespace -undefined suppress
 else ifeq ($(PLATFORM),freebsd)
 	CC ?= cc
-	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes
-	CXXFLAGS ?= -O3 -std=c++11 -finline-functions -fstack-protector -Wall
+	CFLAGS ?= -O3 -std=c17 -finline-functions -fstack-protector -Wall -Wmissing-prototypes -fPIC
+	CXXFLAGS ?= -O3 -std=c++14 -finline-functions -fstack-protector -Wall -fPIC
 else ifeq ($(PLATFORM),linux)
 	CC ?= gcc
-	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes
-	CXXFLAGS ?= -O3 -std=c++11 -finline-functions -fstack-protector -Wall
+	CFLAGS ?= -O3 -std=c17 -finline-functions -fstack-protector -Wall -Wmissing-prototypes -fPIC
+	CXXFLAGS ?= -O3 -std=c++14 -finline-functions -fstack-protector -Wall -fPIC
 else ifeq ($(PLATFORM),solaris)
 	CC ?= cc
-	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes -fPIC
-	CXXFLAGS ?= -O3 -std=c++11 -finline-functions -fstack-protector -Wall -fPIC
+	CFLAGS ?= -O3 -std=c17 -finline-functions -fstack-protector -Wall -Wmissing-prototypes -fPIC
+	CXXFLAGS ?= -O3 -std=c++14 -finline-functions -fstack-protector -Wall -fPIC
 	LDLIBS ?= -latomic -lssp
 endif
 
@@ -98,39 +98,19 @@ CFLAGS += -I"$(ERTS_INCLUDE_DIR)" -I"$(ERL_INTERFACE_INCLUDE_DIR)" -I"$(ED448GOL
 CXXFLAGS += -I"$(ERTS_INCLUDE_DIR)" -I"$(ERL_INTERFACE_INCLUDE_DIR)" -I"$(ED448GOLDILOCKS_INCLUDE_DIR)"
 
 LDLIBS += -L"$(ERL_INTERFACE_LIB_DIR)" \
-	-lerl_interface \
 	-lei \
-	$(ED448GOLDILOCKS_OBJECTS)
+	-L"$(ED448GOLDILOCKS_LIB_DIR)" -ldecaf
 
 # Dependencies.
 
-ED448GOLDILOCKS_VSN ?= v1.0
+ED448GOLDILOCKS_VSN ?= features-20220121
 ED448GOLDILOCKS_GIT ?= git://github.com/potatosalad/ed448goldilocks.git
 ED448GOLDILOCKS_SRC_DIR ?= $(C_DEPS_DIR)/ed448goldilocks
-ED448GOLDILOCKS_OUTPUT_FILE ?= $(ED448GOLDILOCKS_SRC_DIR)/build/lib/libdecaf.so.1
-ED448GOLDILOCKS_LIB_DIR ?= $(ED448GOLDILOCKS_SRC_DIR)/src/GENERATED/include
-ED448GOLDILOCKS_INCLUDE_DIR ?= $(ED448GOLDILOCKS_SRC_DIR)/src/GENERATED/include
+ED448GOLDILOCKS_BUILD_DIR ?= $(C_DEPS_DIR)/ed448goldilocks-build
+ED448GOLDILOCKS_INCLUDE_DIR ?= $(ED448GOLDILOCKS_BUILD_DIR)/src/GENERATED/include
+ED448GOLDILOCKS_LIB_DIR ?= $(ED448GOLDILOCKS_BUILD_DIR)/src
+ED448GOLDILOCKS_OUTPUT_FILE ?= $(ED448GOLDILOCKS_BUILD_DIR)/src/libdecaf.a
 ED448GOLDILOCKS_MAKE_FILE ?= $(ED448GOLDILOCKS_SRC_DIR)/Makefile
-ED448GOLDILOCKS_OBJECTS ?= $(ED448GOLDILOCKS_SRC_DIR)/build/obj/curve25519/decaf.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/curve25519/decaf_tables.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/curve25519/eddsa.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/curve25519/elligator.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/curve25519/scalar.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/ed448goldilocks/decaf.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/ed448goldilocks/decaf_tables.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/ed448goldilocks/eddsa.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/ed448goldilocks/elligator.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/ed448goldilocks/scalar.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/p25519/f_arithmetic.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/p25519/f_generic.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/p25519/f_impl.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/p448/f_arithmetic.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/p448/f_generic.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/p448/f_impl.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/sha512.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/shake.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/spongerng.o	\
-	$(ED448GOLDILOCKS_SRC_DIR)/build/obj/utils.o
 
 ALL_DEPS_OUTPUT ?= $(ED448GOLDILOCKS_OUTPUT_FILE)
 
@@ -161,7 +141,7 @@ link_verbose = $(link_verbose_$(V))
 
 # Targets.
 
-core_find = $(if $(wildcard $1),$(shell find $(1:%/=%) -type f -name $(subst *,\*,$2)))
+core_find = $(if $(wildcard $1),$(shell find $(1:%/=%) \( -type l -o -type f \) -name $(subst *,\*,$2) | grep -v " "))
 
 ifeq ($(PLATFORM),msys2)
 core_native_path = $(subst \,\\\\,$(shell cygpath -w $1))
@@ -197,15 +177,29 @@ $(C_DEPS_DIR):
 	$(verbose) mkdir -p $(C_DEPS_DIR)
 
 $(ED448GOLDILOCKS_SRC_DIR):
-	$(verbose) if [ ! -f $(ED448GOLDILOCKS_SRC_DIR)/configure ]; then \
+	$(verbose) if [ ! -f $(ED448GOLDILOCKS_SRC_DIR)/CMakeLists.txt ]; then \
 		git clone -n $(ED448GOLDILOCKS_GIT) $(ED448GOLDILOCKS_SRC_DIR) && \
 		(cd $(ED448GOLDILOCKS_SRC_DIR) && git checkout -q $(ED448GOLDILOCKS_VSN)); \
 	else \
 		true; \
 	fi
 
-$(ED448GOLDILOCKS_OUTPUT_FILE): $(ED448GOLDILOCKS_SRC_DIR)
-	$(MAKE) -C $(ED448GOLDILOCKS_SRC_DIR) lib
+$(ED448GOLDILOCKS_MAKE_FILE): $(ED448GOLDILOCKS_SRC_DIR)
+	$(verbose) mkdir -p $(ED448GOLDILOCKS_BUILD_DIR)
+	$(verbose) if [ ! -f $(ED448GOLDILOCKS_MAKE_FILE) ]; then \
+		(cd $(ED448GOLDILOCKS_BUILD_DIR) \
+			&& cmake \
+			-DENABLE_SHARED=OFF \
+			-DENABLE_STATIC=ON \
+			-DCMAKE_C_FLAGS="-fPIC" \
+			-DCMAKE_CXX_FLAGS="-fPIC" \
+			"$(ED448GOLDILOCKS_SRC_DIR)"); \
+	else \
+		true; \
+	fi
+
+$(ED448GOLDILOCKS_OUTPUT_FILE): $(ED448GOLDILOCKS_MAKE_FILE)
+	$(MAKE) -C $(ED448GOLDILOCKS_BUILD_DIR)
 
 $(C_SRC_NIF_FILE): $(NIF_OBJECTS)
 	$(verbose) mkdir -p $(BASEDIR)/priv
@@ -230,16 +224,31 @@ clean:: clean-c_src
 clean-c_src:
 	$(gen_verbose) rm -f $(C_SRC_NIF_FILE) $(NIF_OBJECTS)
 
+ERL_ERTS_DIR = $(shell $(ERL) -eval 'io:format("~s~n", [code:lib_dir(erts)]), halt().')
+
 $(C_SRC_ENV):
 	$(verbose) $(ERL) -eval "file:write_file(\"$(call core_native_path,$(C_SRC_ENV))\", \
 		io_lib:format( \
+			\"# Generated by Erlang.mk. Edit at your own risk!~n~n\" \
 			\"ERTS_INCLUDE_DIR ?= ~s/erts-~s/include/~n\" \
 			\"ERL_INTERFACE_INCLUDE_DIR ?= ~s~n\" \
-			\"ERL_INTERFACE_LIB_DIR ?= ~s~n\", \
+			\"ERL_INTERFACE_LIB_DIR ?= ~s~n\" \
+			\"ERTS_DIR ?= $(ERL_ERTS_DIR)~n\", \
 			[code:root_dir(), erlang:system_info(version), \
 			code:lib_dir(erl_interface, include), \
 			code:lib_dir(erl_interface, lib)])), \
 		halt()."
+
+distclean:: distclean-c_src-env
+
+distclean-c_src-env:
+	$(gen_verbose) rm -f $(C_SRC_ENV)
+
+-include $(C_SRC_ENV)
+
+ifneq ($(ERL_ERTS_DIR),$(ERTS_DIR))
+$(shell rm -f $(C_SRC_ENV))
+endif
 
 distclean:: distclean-deps distclean-env
 
@@ -251,5 +260,3 @@ distclean-env:
 
 format:
 	$(gen_verbose) clang-format -i nif/*.c nif/*.h nif/impl/*.c.h
-
--include $(C_SRC_ENV)
