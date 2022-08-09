@@ -105,6 +105,42 @@ static libdecaf_nif_hash_table_t libdecaf_nif_hash_table_internal = {
             .final = (void *)decaf_sha3_512_final,
             .destroy = (void *)decaf_sha3_512_destroy,
         },
+    .keccak_224 =
+        {
+            .type = LIBDECAF_NIF_HASH_TYPE_KECCAK_224,
+            .max_output_len = 28,
+            .init = (void *)decaf_keccak_224_init,
+            .update = (void *)decaf_keccak_224_update,
+            .final = (void *)decaf_keccak_224_final,
+            .destroy = (void *)decaf_keccak_224_destroy,
+        },
+    .keccak_256 =
+        {
+            .type = LIBDECAF_NIF_HASH_TYPE_KECCAK_256,
+            .max_output_len = 32,
+            .init = (void *)decaf_keccak_256_init,
+            .update = (void *)decaf_keccak_256_update,
+            .final = (void *)decaf_keccak_256_final,
+            .destroy = (void *)decaf_keccak_256_destroy,
+        },
+    .keccak_384 =
+        {
+            .type = LIBDECAF_NIF_HASH_TYPE_KECCAK_384,
+            .max_output_len = 48,
+            .init = (void *)decaf_keccak_384_init,
+            .update = (void *)decaf_keccak_384_update,
+            .final = (void *)decaf_keccak_384_final,
+            .destroy = (void *)decaf_keccak_384_destroy,
+        },
+    .keccak_512 =
+        {
+            .type = LIBDECAF_NIF_HASH_TYPE_KECCAK_512,
+            .max_output_len = 64,
+            .init = (void *)decaf_keccak_512_init,
+            .update = (void *)decaf_keccak_512_update,
+            .final = (void *)decaf_keccak_512_final,
+            .destroy = (void *)decaf_keccak_512_destroy,
+        },
 };
 
 libdecaf_nif_hash_table_t *libdecaf_nif_hash_table = &libdecaf_nif_hash_table_internal;
@@ -121,6 +157,10 @@ static ERL_NIF_TERM libdecaf_nif_hash_update_2_continue(ErlNifEnv *env, int argc
 /* libdecaf_nif:sha3_256_hash/2 */
 /* libdecaf_nif:sha3_384_hash/2 */
 /* libdecaf_nif:sha3_512_hash/2 */
+/* libdecaf_nif:keccak_224_hash/2 */
+/* libdecaf_nif:keccak_256_hash/2 */
+/* libdecaf_nif:keccak_384_hash/2 */
+/* libdecaf_nif:keccak_512_hash/2 */
 
 ERL_NIF_TERM
 libdecaf_nif_hash_2(libdecaf_nif_hash_t *hash, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -261,6 +301,10 @@ libdecaf_nif_hash_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 /* libdecaf_nif:sha3_256_hash_init/0 */
 /* libdecaf_nif:sha3_384_hash_init/0 */
 /* libdecaf_nif:sha3_512_hash_init/0 */
+/* libdecaf_nif:keccak_224_hash_init/0 */
+/* libdecaf_nif:keccak_256_hash_init/0 */
+/* libdecaf_nif:keccak_384_hash_init/0 */
+/* libdecaf_nif:keccak_512_hash_init/0 */
 
 ERL_NIF_TERM
 libdecaf_nif_hash_init_0(libdecaf_nif_hash_t *hash, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -290,6 +334,10 @@ libdecaf_nif_hash_init_0(libdecaf_nif_hash_t *hash, ErlNifEnv *env, int argc, co
 /* libdecaf_nif:sha3_256_hash_update/2 */
 /* libdecaf_nif:sha3_384_hash_update/2 */
 /* libdecaf_nif:sha3_512_hash_update/2 */
+/* libdecaf_nif:keccak_224_hash_update/2 */
+/* libdecaf_nif:keccak_256_hash_update/2 */
+/* libdecaf_nif:keccak_384_hash_update/2 */
+/* libdecaf_nif:keccak_512_hash_update/2 */
 
 ERL_NIF_TERM
 libdecaf_nif_hash_update_2(libdecaf_nif_hash_t *hash, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -418,6 +466,10 @@ libdecaf_nif_hash_update_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 /* libdecaf_nif:sha3_256_hash_final/2 */
 /* libdecaf_nif:sha3_384_hash_final/2 */
 /* libdecaf_nif:sha3_512_hash_final/2 */
+/* libdecaf_nif:keccak_224_hash_final/2 */
+/* libdecaf_nif:keccak_256_hash_final/2 */
+/* libdecaf_nif:keccak_384_hash_final/2 */
+/* libdecaf_nif:keccak_512_hash_final/2 */
 
 ERL_NIF_TERM
 libdecaf_nif_hash_final_2(libdecaf_nif_hash_t *hash, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])

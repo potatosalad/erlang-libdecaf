@@ -39,6 +39,14 @@ hash(sha3_384, In) ->
 	libdecaf:sha3_384(In);
 hash(sha3_512, In) ->
 	libdecaf:sha3_512(In);
+hash(keccak_224, In) ->
+	libdecaf:keccak_224(In);
+hash(keccak_256, In) ->
+	libdecaf:keccak_256(In);
+hash(keccak_384, In) ->
+	libdecaf:keccak_384(In);
+hash(keccak_512, In) ->
+	libdecaf:keccak_512(In);
 hash(Type, In) ->
 	erlang:error({badarg, [Type, In]}).
 
@@ -50,6 +58,14 @@ hash(sha3_384, In, Outlen) ->
 	libdecaf:sha3_384(In, Outlen);
 hash(sha3_512, In, Outlen) ->
 	libdecaf:sha3_512(In, Outlen);
+hash(keccak_224, In, Outlen) ->
+	libdecaf:keccak_224(In, Outlen);
+hash(keccak_256, In, Outlen) ->
+	libdecaf:keccak_256(In, Outlen);
+hash(keccak_384, In, Outlen) ->
+	libdecaf:keccak_384(In, Outlen);
+hash(keccak_512, In, Outlen) ->
+	libdecaf:keccak_512(In, Outlen);
 hash(shake128, In, Outlen) ->
 	libdecaf:shake128(In, Outlen);
 hash(shake256, In, Outlen) ->
@@ -65,6 +81,14 @@ init(sha3_384) ->
 	?WRAP_STATE(sha3_384, libdecaf:sha3_384_init());
 init(sha3_512) ->
 	?WRAP_STATE(sha3_512, libdecaf:sha3_512_init());
+init(keccak_224) ->
+	?WRAP_STATE(keccak_224, libdecaf:keccak_224_init());
+init(keccak_256) ->
+	?WRAP_STATE(keccak_256, libdecaf:keccak_256_init());
+init(keccak_384) ->
+	?WRAP_STATE(keccak_384, libdecaf:keccak_384_init());
+init(keccak_512) ->
+	?WRAP_STATE(keccak_512, libdecaf:keccak_512_init());
 init(shake128) ->
 	?WRAP_STATE(shake128, libdecaf:shake128_init());
 init(shake256) ->
@@ -80,6 +104,14 @@ update({T = sha3_384, State}, In) ->
 	?WRAP_STATE(T, libdecaf:sha3_384_update(State, In));
 update({T = sha3_512, State}, In) ->
 	?WRAP_STATE(T, libdecaf:sha3_512_update(State, In));
+update({T = keccak_224, State}, In) ->
+	?WRAP_STATE(T, libdecaf:keccak_224_update(State, In));
+update({T = keccak_256, State}, In) ->
+	?WRAP_STATE(T, libdecaf:keccak_256_update(State, In));
+update({T = keccak_384, State}, In) ->
+	?WRAP_STATE(T, libdecaf:keccak_384_update(State, In));
+update({T = keccak_512, State}, In) ->
+	?WRAP_STATE(T, libdecaf:keccak_512_update(State, In));
 update({T = shake128, State}, In) ->
 	?WRAP_STATE(T, libdecaf:shake128_update(State, In));
 update({T = shake256, State}, In) ->
@@ -95,6 +127,14 @@ final({sha3_384, State}) ->
 	libdecaf:sha3_384_final(State);
 final({sha3_512, State}) ->
 	libdecaf:sha3_512_final(State);
+final({keccak_224, State}) ->
+	libdecaf:keccak_224_final(State);
+final({keccak_256, State}) ->
+	libdecaf:keccak_256_final(State);
+final({keccak_384, State}) ->
+	libdecaf:keccak_384_final(State);
+final({keccak_512, State}) ->
+	libdecaf:keccak_512_final(State);
 final(State) ->
 	erlang:error({badarg, [State]}).
 
@@ -106,6 +146,14 @@ final({sha3_384, State}, Outlen) ->
 	libdecaf:sha3_384_final(State, Outlen);
 final({sha3_512, State}, Outlen) ->
 	libdecaf:sha3_512_final(State, Outlen);
+final({keccak_224, State}, Outlen) ->
+	libdecaf:keccak_224_final(State, Outlen);
+final({keccak_256, State}, Outlen) ->
+	libdecaf:keccak_256_final(State, Outlen);
+final({keccak_384, State}, Outlen) ->
+	libdecaf:keccak_384_final(State, Outlen);
+final({keccak_512, State}, Outlen) ->
+	libdecaf:keccak_512_final(State, Outlen);
 final({shake128, State}, Outlen) ->
 	libdecaf:shake128_final(State, Outlen);
 final({shake256, State}, Outlen) ->

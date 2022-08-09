@@ -124,6 +124,10 @@ HASH_DECLARATION(sha3_224)
 HASH_DECLARATION(sha3_256)
 HASH_DECLARATION(sha3_384)
 HASH_DECLARATION(sha3_512)
+HASH_DECLARATION(keccak_224)
+HASH_DECLARATION(keccak_256)
+HASH_DECLARATION(keccak_384)
+HASH_DECLARATION(keccak_512)
 #undef HASH_DECLARATION
 #define XOF_DECLARATION(Id)                                                                                                        \
     static ERL_NIF_TERM libdecaf_nif_##Id##_xof_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);                            \
@@ -175,6 +179,10 @@ HASH_DEFINITION(sha3_224)
 HASH_DEFINITION(sha3_256)
 HASH_DEFINITION(sha3_384)
 HASH_DEFINITION(sha3_512)
+HASH_DEFINITION(keccak_224)
+HASH_DEFINITION(keccak_256)
+HASH_DEFINITION(keccak_384)
+HASH_DEFINITION(keccak_512)
 #undef HASH_DEFINITION
 #define XOF_DEFINITION(Id)                                                                                                         \
     ERL_NIF_TERM                                                                                                                   \
@@ -241,6 +249,10 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     NIF_FUNC_HASH(sha3_256),
     NIF_FUNC_HASH(sha3_384),
     NIF_FUNC_HASH(sha3_512),
+    NIF_FUNC_HASH(keccak_224),
+    NIF_FUNC_HASH(keccak_256),
+    NIF_FUNC_HASH(keccak_384),
+    NIF_FUNC_HASH(keccak_512),
 #undef NIF_FUNC_HASH
 #define NIF_FUNC_XOF(Id)                                                                                                          \
     {#Id "_xof", 2, libdecaf_nif_##Id##_xof_2, ERL_NIF_NORMAL_JOB_BOUND},                                                        \
@@ -283,6 +295,10 @@ libdecaf_nif_make_atoms(ErlNifEnv *env)
     ATOM(ATOM_sha3_256, "sha3_256");
     ATOM(ATOM_sha3_384, "sha3_384");
     ATOM(ATOM_sha3_512, "sha3_512");
+    ATOM(ATOM_keccak_224, "keccak_224");
+    ATOM(ATOM_keccak_256, "keccak_256");
+    ATOM(ATOM_keccak_384, "keccak_384");
+    ATOM(ATOM_keccak_512, "keccak_512");
     ATOM(ATOM_shake128, "shake128");
     ATOM(ATOM_shake256, "shake256");
     ATOM(ATOM_true, "true");

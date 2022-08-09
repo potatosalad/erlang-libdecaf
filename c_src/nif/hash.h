@@ -24,6 +24,10 @@ enum libdecaf_nif_hash_type_t {
     LIBDECAF_NIF_HASH_TYPE_SHA3_256,
     LIBDECAF_NIF_HASH_TYPE_SHA3_384,
     LIBDECAF_NIF_HASH_TYPE_SHA3_512,
+    LIBDECAF_NIF_HASH_TYPE_KECCAK_224,
+    LIBDECAF_NIF_HASH_TYPE_KECCAK_256,
+    LIBDECAF_NIF_HASH_TYPE_KECCAK_384,
+    LIBDECAF_NIF_HASH_TYPE_KECCAK_512,
 };
 
 struct libdecaf_nif_hash_s {
@@ -42,6 +46,10 @@ struct libdecaf_nif_hash_ctx_s {
         struct decaf_sha3_256_ctx_s sha3_256;
         struct decaf_sha3_384_ctx_s sha3_384;
         struct decaf_sha3_512_ctx_s sha3_512;
+        struct decaf_keccak_224_ctx_s keccak_224;
+        struct decaf_keccak_256_ctx_s keccak_256;
+        struct decaf_keccak_384_ctx_s keccak_384;
+        struct decaf_keccak_512_ctx_s keccak_512;
     } u;
     libdecaf_nif_hash_type_t type;
 };
@@ -52,6 +60,10 @@ struct libdecaf_nif_hash_table_s {
     libdecaf_nif_hash_t sha3_256;
     libdecaf_nif_hash_t sha3_384;
     libdecaf_nif_hash_t sha3_512;
+    libdecaf_nif_hash_t keccak_224;
+    libdecaf_nif_hash_t keccak_256;
+    libdecaf_nif_hash_t keccak_384;
+    libdecaf_nif_hash_t keccak_512;
 };
 
 extern libdecaf_nif_hash_table_t *libdecaf_nif_hash_table;
@@ -82,6 +94,18 @@ libdecaf_nif_hash_from_type(libdecaf_nif_hash_type_t type)
         break;
     case LIBDECAF_NIF_HASH_TYPE_SHA3_512:
         hash = &libdecaf_nif_hash_table->sha3_512;
+        break;
+    case LIBDECAF_NIF_HASH_TYPE_KECCAK_224:
+        hash = &libdecaf_nif_hash_table->keccak_224;
+        break;
+    case LIBDECAF_NIF_HASH_TYPE_KECCAK_256:
+        hash = &libdecaf_nif_hash_table->keccak_256;
+        break;
+    case LIBDECAF_NIF_HASH_TYPE_KECCAK_384:
+        hash = &libdecaf_nif_hash_table->keccak_384;
+        break;
+    case LIBDECAF_NIF_HASH_TYPE_KECCAK_512:
+        hash = &libdecaf_nif_hash_table->keccak_512;
         break;
     default:
         break;
