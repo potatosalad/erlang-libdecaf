@@ -89,6 +89,41 @@
 -export([sha3_512_init/0]).
 -export([sha3_512_update/2]).
 -export([sha3_512_final/2]).
+% KECCAK API
+-export([
+	keccak_224_hash/2,
+	keccak_224_hash_init/0,
+	keccak_224_hash_update/2,
+	keccak_224_hash_final/2,
+	keccak_256_hash/2,
+	keccak_256_hash_init/0,
+	keccak_256_hash_update/2,
+	keccak_256_hash_final/2,
+	keccak_384_hash/2,
+	keccak_384_hash_init/0,
+	keccak_384_hash_update/2,
+	keccak_384_hash_final/2,
+	keccak_512_hash/2,
+	keccak_512_hash_init/0,
+	keccak_512_hash_update/2,
+	keccak_512_hash_final/2
+]).
+-export([keccak_224/2]).
+-export([keccak_224_init/0]).
+-export([keccak_224_update/2]).
+-export([keccak_224_final/2]).
+-export([keccak_256/2]).
+-export([keccak_256_init/0]).
+-export([keccak_256_update/2]).
+-export([keccak_256_final/2]).
+-export([keccak_384/2]).
+-export([keccak_384_init/0]).
+-export([keccak_384_update/2]).
+-export([keccak_384_final/2]).
+-export([keccak_512/2]).
+-export([keccak_512_init/0]).
+-export([keccak_512_update/2]).
+-export([keccak_512_final/2]).
 % SHAKE API
 -export([
 	shake128_xof/2,
@@ -353,6 +388,104 @@ sha3_512_update(Ctx, Input) ->
 
 sha3_512_final(Ctx, OutputLen) ->
 	sha3_512_hash_final(Ctx, OutputLen).
+
+%% KECCAK API functions
+
+keccak_224_hash(_Input, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_224_hash_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_224_hash_update(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_224_hash_final(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_256_hash(_Input, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_256_hash_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_256_hash_update(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_256_hash_final(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_384_hash(_Input, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_384_hash_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_384_hash_update(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_384_hash_final(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_512_hash(_Input, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_512_hash_init() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_512_hash_update(_Ctx, _Input) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_512_hash_final(_Ctx, _OutputLen) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+keccak_224(Input, OutputLen) ->
+	keccak_224_hash(Input, OutputLen).
+
+keccak_224_init() ->
+	keccak_224_hash_init().
+
+keccak_224_update(Ctx, Input) ->
+	keccak_224_hash_update(Ctx, Input).
+
+keccak_224_final(Ctx, OutputLen) ->
+	keccak_224_hash_final(Ctx, OutputLen).
+
+keccak_256(Input, OutputLen) ->
+	keccak_256_hash(Input, OutputLen).
+
+keccak_256_init() ->
+	keccak_256_hash_init().
+
+keccak_256_update(Ctx, Input) ->
+	keccak_256_hash_update(Ctx, Input).
+
+keccak_256_final(Ctx, OutputLen) ->
+	keccak_256_hash_final(Ctx, OutputLen).
+
+keccak_384(Input, OutputLen) ->
+	keccak_384_hash(Input, OutputLen).
+
+keccak_384_init() ->
+	keccak_384_hash_init().
+
+keccak_384_update(Ctx, Input) ->
+	keccak_384_hash_update(Ctx, Input).
+
+keccak_384_final(Ctx, OutputLen) ->
+	keccak_384_hash_final(Ctx, OutputLen).
+
+keccak_512(Input, OutputLen) ->
+	keccak_512_hash(Input, OutputLen).
+
+keccak_512_init() ->
+	keccak_512_hash_init().
+
+keccak_512_update(Ctx, Input) ->
+	keccak_512_hash_update(Ctx, Input).
+
+keccak_512_final(Ctx, OutputLen) ->
+	keccak_512_hash_final(Ctx, OutputLen).
 
 %% SHAKE API functions
 

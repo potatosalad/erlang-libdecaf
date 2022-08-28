@@ -79,6 +79,31 @@
 -export([sha3_512_update/2]).
 -export([sha3_512_final/1]).
 -export([sha3_512_final/2]).
+% KECCAK API
+-export([keccak_224/1]).
+-export([keccak_224/2]).
+-export([keccak_224_init/0]).
+-export([keccak_224_update/2]).
+-export([keccak_224_final/1]).
+-export([keccak_224_final/2]).
+-export([keccak_256/1]).
+-export([keccak_256/2]).
+-export([keccak_256_init/0]).
+-export([keccak_256_update/2]).
+-export([keccak_256_final/1]).
+-export([keccak_256_final/2]).
+-export([keccak_384/1]).
+-export([keccak_384/2]).
+-export([keccak_384_init/0]).
+-export([keccak_384_update/2]).
+-export([keccak_384_final/1]).
+-export([keccak_384_final/2]).
+-export([keccak_512/1]).
+-export([keccak_512/2]).
+-export([keccak_512_init/0]).
+-export([keccak_512_update/2]).
+-export([keccak_512_final/1]).
+-export([keccak_512_final/2]).
 % SHAKE API
 -export([shake128/2]).
 -export([shake128_init/0]).
@@ -311,6 +336,80 @@ sha3_512_final(State) ->
 
 sha3_512_final(State, Outlen) ->
 	libdecaf_nif:sha3_512_final(State, Outlen).
+
+%% KECCAK API functions
+
+keccak_224(In) ->
+	keccak_224(In, 28).
+
+keccak_224(In, Outlen) ->
+	libdecaf_nif:keccak_224(In, Outlen).
+
+keccak_224_init() ->
+	libdecaf_nif:keccak_224_init().
+
+keccak_224_update(State, In) ->
+	libdecaf_nif:keccak_224_update(State, In).
+
+keccak_224_final(State) ->
+	keccak_224_final(State, 28).
+
+keccak_224_final(State, Outlen) ->
+	libdecaf_nif:keccak_224_final(State, Outlen).
+
+keccak_256(In) ->
+	keccak_256(In, 32).
+
+keccak_256(In, Outlen) ->
+	libdecaf_nif:keccak_256(In, Outlen).
+
+keccak_256_init() ->
+	libdecaf_nif:keccak_256_init().
+
+keccak_256_update(State, In) ->
+	libdecaf_nif:keccak_256_update(State, In).
+
+keccak_256_final(State) ->
+	keccak_256_final(State, 32).
+
+keccak_256_final(State, Outlen) ->
+	libdecaf_nif:keccak_256_final(State, Outlen).
+
+keccak_384(In) ->
+	keccak_384(In, 48).
+
+keccak_384(In, Outlen) ->
+	libdecaf_nif:keccak_384(In, Outlen).
+
+keccak_384_init() ->
+	libdecaf_nif:keccak_384_init().
+
+keccak_384_update(State, In) ->
+	libdecaf_nif:keccak_384_update(State, In).
+
+keccak_384_final(State) ->
+	keccak_384_final(State, 48).
+
+keccak_384_final(State, Outlen) ->
+	libdecaf_nif:keccak_384_final(State, Outlen).
+
+keccak_512(In) ->
+	keccak_512(In, 64).
+
+keccak_512(In, Outlen) ->
+	libdecaf_nif:keccak_512(In, Outlen).
+
+keccak_512_init() ->
+	libdecaf_nif:keccak_512_init().
+
+keccak_512_update(State, In) ->
+	libdecaf_nif:keccak_512_update(State, In).
+
+keccak_512_final(State) ->
+	keccak_512_final(State, 64).
+
+keccak_512_final(State, Outlen) ->
+	libdecaf_nif:keccak_512_final(State, Outlen).
 
 %% SHAKE API functions
 
