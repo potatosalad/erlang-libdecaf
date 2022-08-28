@@ -1,6 +1,6 @@
 # libdecaf NIF
 
-[![Build Status](https://github.com/potatosalad/erlang-libdecaf/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/potatosalad/erlang-libdecaf/actions) [![Hex.pm](https://img.shields.io/hexpm/v/libdecaf.svg)](https://hex.pm/packages/libdecaf)
+[![Build Status](https://github.com/potatosalad/erlang-libdecaf/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/potatosalad/erlang-libdecaf/actions) [![Hex.pm](https://img.shields.io/hexpm/v/libdecaf.svg)](https://hex.pm/packages/libdecaf)
 
 [ed448goldilocks (libdecaf)](https://sourceforge.net/p/ed448goldilocks) NIF with timeslice reductions for Erlang and Elixir.
 
