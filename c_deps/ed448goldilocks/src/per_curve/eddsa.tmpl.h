@@ -143,8 +143,7 @@ void DECAF_API_VIS decaf_ed$(gf_shortname)_sign (
     uint8_t context_len
 ) __attribute__((nonnull(1,2,3))) DECAF_NOINLINE
 #if DECAF_EDDSA_NON_KEYPAIR_API_IS_DEPRECATED
-  __attribute__((deprecated("Passing the pubkey and privkey separately is unsafe",
-        "decaf_ed$(gf_shortname)_keypair_sign")))
+  DECAF_DEPRECATED("Passing the pubkey and privkey separately is unsafe, use decaf_ed$(gf_shortname)_keypair_sign")
 #endif
 ;
 
@@ -171,8 +170,7 @@ void DECAF_API_VIS decaf_ed$(gf_shortname)_sign_prehash (
     uint8_t context_len
 ) __attribute__((nonnull(1,2,3,4))) DECAF_NOINLINE
 #if DECAF_EDDSA_NON_KEYPAIR_API_IS_DEPRECATED
-  __attribute__((deprecated("Passing the pubkey and privkey separately is unsafe",
-        "decaf_ed$(gf_shortname)_keypair_sign_prehash")))
+  DECAF_DEPRECATED("Passing the pubkey and privkey separately is unsafe, use decaf_ed$(gf_shortname)_keypair_sign_prehash")
 #endif
 ;
 
