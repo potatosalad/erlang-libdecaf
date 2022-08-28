@@ -214,6 +214,10 @@ decaf_error_t decaf_sha3_hash (
     const struct decaf_kparams_s DECAF_SHA3_##n##_params_s = \
         { 0, FLAG_ABSORBING, 200-n/4, 0, 0x06, 0x80, n/8, n/8 };
 
+#define DEFKECCAK(n) \
+    const struct decaf_kparams_s DECAF_KECCAK_##n##_params_s = \
+        { 0, FLAG_ABSORBING, 200-n/4, 0, 0x01, 0x80, n/8, n/8 };
+
 size_t decaf_sha3_default_output_bytes (
     const decaf_keccak_sponge_t s
 ) {
@@ -236,5 +240,9 @@ DEFSHA3(224)
 DEFSHA3(256)
 DEFSHA3(384)
 DEFSHA3(512)
+DEFKECCAK(224)
+DEFKECCAK(256)
+DEFKECCAK(384)
+DEFKECCAK(512)
 
 /* FUTURE: Keyak instances, etc */

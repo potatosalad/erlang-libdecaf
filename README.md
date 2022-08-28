@@ -25,6 +25,10 @@ Tested against the [RFC 8032](https://tools.ietf.org/html/rfc8032), [FIPS 180-4]
 | [SHA3-256](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
 | [SHA3-384](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
 | [SHA3-512](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
+| [KECCAK-224](#sha-3)      | [SHA-3](#sha-3)   | Hash          | [Keccak submission (version 3)](https://keccak.team/files/Keccak-submission-3.pdf) |
+| [KECCAK-256](#sha-3)      | [SHA-3](#sha-3)   | Hash          | [Keccak submission (version 3)](https://keccak.team/files/Keccak-submission-3.pdf) |
+| [KECCAK-384](#sha-3)      | [SHA-3](#sha-3)   | Hash          | [Keccak submission (version 3)](https://keccak.team/files/Keccak-submission-3.pdf) |
+| [KECCAK-512](#sha-3)      | [SHA-3](#sha-3)   | Hash          | [Keccak submission (version 3)](https://keccak.team/files/Keccak-submission-3.pdf) |
 | [SHAKE128](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
 | [SHAKE256](#sha-3)        | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
 | [X25519](#x25519)         | [ECDH](#ecdh)     | Key Exchange  | [RFC 7748](https://tools.ietf.org/html/rfc7748#section-5) |
@@ -312,6 +316,10 @@ This function can be used for the following algorithms:
  * SHA3-256 (`sha3_256`)
  * SHA3-384 (`sha3_384`)
  * SHA3-512 (`sha3_512`)
+ * KECCAK-224 (`keccak_224`)
+ * KECCAK-256 (`keccak_256`)
+ * KECCAK-384 (`keccak_384`)
+ * KECCAK-512 (`keccak_512`)
 
 ```erlang
 libdecaf_sha3:hash(sha3_224, <<"test">>).
@@ -325,6 +333,18 @@ libdecaf_sha3:hash(sha3_384, <<"test">>).
 
 libdecaf_sha3:hash(sha3_512, <<"test">>).
 % <<158,206,8,110,155,172,73,31,172,92,29,16,70,202,17,215,55,185,42,43,46,189,147,240,5,215,183,16,17,12,10,103,130,136,22,110,127,190,121,104,131,164,242,233,179,202,159,72,79,82,29,12,228,100,52,92,193,174,201,103,121,20,156,20>>
+
+libdecaf_sha3:hash(keccak_224, <<"test">>).
+% <<59,227,10,159,246,79,52,165,134,17,22,197,25,137,135,173,120,1,101,248,54,110,103,175,244,118,11,94>>
+
+libdecaf_sha3:hash(keccak_256, <<"test">>).
+% <<156,34,255,95,33,240,184,27,17,62,99,247,219,109,169,79,237,239,17,178,17,155,64,136,184,150,100,251,154,60,182,88>>
+
+libdecaf_sha3:hash(keccak_384, <<"test">>).
+% <<83,208,186,19,115,7,212,194,249,182,103,76,131,237,189,88,183,12,15,67,64,19,62,208,173,198,251,161,210,71,138,106,3,183,120,130,41,231,117,210,222,138,232,192,117,157,5,39>>
+
+libdecaf_sha3:hash(keccak_512, <<"test">>).
+% <<30,46,159,194,0,43,0,45,117,25,139,117,3,33,12,5,161,186,172,69,96,145,106,60,109,147,188,206,58,80,215,240,15,211,149,191,22,71,185,171,184,209,175,204,156,118,194,137,176,201,56,59,163,134,169,86,218,75,56,147,68,23,120,158>>
 ```
 
 #### `libdecaf_sha3:hash/3`
@@ -352,6 +372,10 @@ This function can be used for the following algorithms:
  * SHA3-256 (`sha3_256`)
  * SHA3-384 (`sha3_384`)
  * SHA3-512 (`sha3_512`)
+ * KECCAK-224 (`keccak_224`)
+ * KECCAK-256 (`keccak_256`)
+ * KECCAK-384 (`keccak_384`)
+ * KECCAK-512 (`keccak_512`)
  * SHAKE128 (`shake128`)
  * SHAKE256 (`shake256`)
 
@@ -382,19 +406,46 @@ Sponge0 = libdecaf_sha3:init(sha3_384).
 Sponge0 = libdecaf_sha3:init(sha3_512).
 % {sha3_512, #Ref<0.0.0.6>}
 ```
+##### KECCAK-224 (`keccak_224`)
+
+```erlang
+Sponge0 = libdecaf_sha3:init(keccak_224).
+% {keccak_224, #Ref<0.0.0.7>}
+```
+
+##### KECCAK-256 (`keccak_256`)
+
+```erlang
+Sponge0 = libdecaf_sha3:init(keccak_256).
+% {keccak_256, #Ref<0.0.0.8>}
+```
+
+##### KECCAK-384 (`keccak_384`)
+
+```erlang
+Sponge0 = libdecaf_sha3:init(keccak_384).
+% {keccak_384, #Ref<0.0.0.9>}
+```
+
+##### KECCAK-512 (`keccak_512`)
+
+```erlang
+Sponge0 = libdecaf_sha3:init(keccak_512).
+% {keccak_512, #Ref<0.0.0.10>}
+```
 
 ##### SHAKE128 (`shake128`)
 
 ```erlang
 Sponge0 = libdecaf_sha3:init(shake128).
-% {shake128, #Ref<0.0.0.7>}
+% {shake128, #Ref<0.0.0.11>}
 ```
 
 ##### SHAKE256 (`shake256`)
 
 ```erlang
 Sponge0 = libdecaf_sha3:init(shake256).
-% {shake256, #Ref<0.0.0.8>}
+% {shake256, #Ref<0.0.0.12>}
 ```
 
 #### `libdecaf_sha3:update/2`
@@ -405,6 +456,10 @@ This function can be used for the following algorithms:
  * SHA3-256 (`sha3_256`)
  * SHA3-384 (`sha3_384`)
  * SHA3-512 (`sha3_512`)
+ * KECCAK-224 (`keccak_224`)
+ * KECCAK-256 (`keccak_256`)
+ * KECCAK-384 (`keccak_384`)
+ * KECCAK-512 (`keccak_512`)
  * SHAKE128 (`shake128`)
  * SHAKE256 (`shake256`)
 
@@ -414,42 +469,70 @@ The examples below use the `Sponge0` for each algorithm from the examples above 
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_224, #Ref<0.0.0.9>}
+% {sha3_224, #Ref<0.0.0.13>}
 ```
 
 ##### SHA3-256 (`sha3_256`)
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_256, #Ref<0.0.0.10>}
+% {sha3_256, #Ref<0.0.0.14>}
 ```
 
 ##### SHA3-384 (`sha3_384`)
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_384, #Ref<0.0.0.11>}
+% {sha3_384, #Ref<0.0.0.15>}
 ```
 
 ##### SHA3-512 (`sha3_512`)
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_512, #Ref<0.0.0.12>}
+% {sha3_512, #Ref<0.0.0.16>}
+```
+
+##### KECCAK-224 (`keccak_224`)
+
+```erlang
+Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
+% {keccak_224, #Ref<0.0.0.17>}
+```
+
+##### KECCAK-256 (`keccak_256`)
+
+```erlang
+Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
+% {keccak_256, #Ref<0.0.0.18>}
+```
+
+##### KECCAK-384 (`keccak_384`)
+
+```erlang
+Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
+% {keccak_384, #Ref<0.0.0.19>}
+```
+
+##### KECCAK-512 (`keccak_512`)
+
+```erlang
+Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
+% {keccak_512, #Ref<0.0.0.20>}
 ```
 
 ##### SHAKE128 (`shake128`)
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {shake128, #Ref<0.0.0.13>}
+% {shake128, #Ref<0.0.0.21>}
 ```
 
 ##### SHAKE256 (`shake256`)
 
 ```erlang
 Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {shake256, #Ref<0.0.0.14>}
+% {shake256, #Ref<0.0.0.22>}
 ```
 
 #### `libdecaf_sha3:final/2`
@@ -460,6 +543,10 @@ This function can be used for the following algorithms:
  * SHA3-256 (`sha3_256`)
  * SHA3-384 (`sha3_384`)
  * SHA3-512 (`sha3_512`)
+ * KECCAK-224 (`keccak_224`)
+ * KECCAK-256 (`keccak_256`)
+ * KECCAK-384 (`keccak_384`)
+ * KECCAK-512 (`keccak_512`)
 
 The examples below use the `Sponge1` for each algorithm from the examples above for `libdecaf_sha3:update/2`.
 
@@ -491,6 +578,34 @@ Out = libdecaf_sha3:final(Sponge1).
 % <<158,206,8,110,155,172,73,31,172,92,29,16,70,202,17,215,55,185,42,43,46,189,147,240,5,215,183,16,17,12,10,103,130,136,22,110,127,190,121,104,131,164,242,233,179,202,159,72,79,82,29,12,228,100,52,92,193,174,201,103,121,20,156,20>>
 ```
 
+##### KECCAK-224 (`keccak_224`)
+
+```erlang
+Out = libdecaf_sha3:final(Sponge1).
+% <<55,151,191,10,251,191,202,74,123,187,167,96,42,43,85,39,70,135,101,23,167,249,183,206,45,176,174,123>>
+```
+
+##### KECCAK-256 (`keccak_256`)
+
+```erlang
+Out = libdecaf_sha3:final(Sponge1).
+% <<54,240,40,88,11,176,44,200,39,42,154,2,15,66,0,227,70,226,118,174,102,78,69,238,128,116,85,116,226,245,171,128>>
+```
+
+##### KECCAK-384 (`keccak_384`)
+
+```erlang
+Out = libdecaf_sha3:final(Sponge1).
+% <<229,22,218,187,35,182,227,0,38,134,53,67,40,39,128,163,174,13,204,240,85,81,207,2,149,23,141,127,240,241,180,30,236,185,219,63,242,25,0,124,78,9,114,96,213,134,33,189>>
+```
+
+##### KECCAK-512 (`keccak_512`)
+
+```erlang
+Out = libdecaf_sha3:final(Sponge1).
+% <<158,206,8,110,155,172,73,31,172,92,29,16,70,202,17,215,55,185,42,43,46,189,147,240,5,215,183,16,17,12,10,103,130,136,22,110,127,190,121,104,131,164,242,233,179,202,159,72,79,82,29,12,228,100,52,92,193,174,201,103,121,20,156,20>>
+```
+
 #### `libdecaf_sha3:final/3`
 
 This function can be used for the following algorithms:
@@ -499,6 +614,10 @@ This function can be used for the following algorithms:
  * SHA3-256 (`sha3_256`)
  * SHA3-384 (`sha3_384`)
  * SHA3-512 (`sha3_512`)
+ * KECCAK-224 (`keccak_224`)
+ * KECCAK-256 (`keccak_256`)
+ * KECCAK-384 (`keccak_384`)
+ * KECCAK-512 (`keccak_512`)
 
 These algorithms can output arbitrary length digests, so an output length must be specified.
 

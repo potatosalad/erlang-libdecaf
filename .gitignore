@@ -70,4 +70,7 @@ rebar3.crashdump
 # Other test artifacts.
 /test/fips180_4_SUITE_data/shabytetestvectors
 /test/fips202_SUITE_data/keccaktestvectors
+/test/legacy_keccak_SUITE_data/keccaktestvectors
+/test/legacy_keccak_SUITE_data/temp
 /tmp
+

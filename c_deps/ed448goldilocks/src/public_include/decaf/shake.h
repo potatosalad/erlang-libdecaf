@@ -203,6 +203,33 @@ decaf_error_t DECAF_API_VIS decaf_sha3_hash (
     static inline void DECAF_NONNULL decaf_sha3_##n##_destroy(decaf_sha3_##n##_ctx_t sponge) { \
         decaf_sha3_destroy(sponge->s); \
     }
+
+#define DECAF_DEC_KECCAK(n) \
+    extern const struct DECAF_API_VIS decaf_kparams_s DECAF_KECCAK_##n##_params_s; \
+    typedef struct decaf_keccak_##n##_ctx_s { decaf_keccak_sponge_t s; } decaf_keccak_##n##_ctx_t[1]; \
+    static inline void DECAF_NONNULL decaf_keccak_##n##_init(decaf_keccak_##n##_ctx_t sponge) { \
+        decaf_sha3_init(sponge->s, &DECAF_KECCAK_##n##_params_s); \
+    } \
+    static inline void DECAF_NONNULL decaf_keccak_##n##_gen_init(decaf_keccak_sponge_t sponge) { \
+        decaf_sha3_init(sponge, &DECAF_KECCAK_##n##_params_s); \
+    } \
+    static inline decaf_error_t DECAF_NONNULL decaf_keccak_##n##_update(decaf_keccak_##n##_ctx_t sponge, const uint8_t *in, size_t inlen ) { \
+        return decaf_sha3_update(sponge->s, in, inlen); \
+    } \
+    static inline decaf_error_t DECAF_NONNULL decaf_keccak_##n##_final(decaf_keccak_##n##_ctx_t sponge, uint8_t *out, size_t outlen ) { \
+        decaf_error_t ret = decaf_sha3_output(sponge->s, out, outlen); \
+        decaf_sha3_init(sponge->s, &DECAF_KECCAK_##n##_params_s); \
+        return ret; \
+    } \
+    static inline decaf_error_t DECAF_NONNULL decaf_keccak_##n##_output(decaf_keccak_##n##_ctx_t sponge, uint8_t *out, size_t outlen ) { \
+        return decaf_sha3_output(sponge->s, out, outlen); \
+    } \
+    static inline decaf_error_t DECAF_NONNULL decaf_keccak_##n##_hash(uint8_t *out, size_t outlen, const uint8_t *in, size_t inlen) { \
+        return decaf_sha3_hash(out,outlen,in,inlen,&DECAF_KECCAK_##n##_params_s); \
+    } \
+    static inline void DECAF_NONNULL decaf_keccak_##n##_destroy(decaf_keccak_##n##_ctx_t sponge) { \
+        decaf_sha3_destroy(sponge->s); \
+    }
 /** @endcond */
 
 #else // _MSC_VER
@@ -260,8 +287,35 @@ decaf_error_t DECAF_API_VIS decaf_sha3_hash (
     static inline void DECAF_NONNULL decaf_sha3_##n##_destroy(decaf_sha3_##n##_ctx_t sponge) { \
         decaf_sha3_destroy(sponge->s); \
     }
+
+#define DECAF_DEC_KECCAK(n) \
+    DECAF_API_VIS extern const struct decaf_kparams_s DECAF_KECCAK_##n##_params_s; \
+    typedef struct decaf_keccak_##n##_ctx_s { decaf_keccak_sponge_t s; } decaf_keccak_##n##_ctx_t[1]; \
+    static inline void DECAF_NONNULL decaf_keccak_##n##_init(decaf_keccak_##n##_ctx_t sponge) { \
+        decaf_sha3_init(sponge->s, &DECAF_KECCAK_##n##_params_s); \
+    } \
+    static inline void DECAF_NONNULL decaf_keccak_##n##_gen_init(decaf_keccak_sponge_t sponge) { \
+        decaf_sha3_init(sponge, &DECAF_KECCAK_##n##_params_s); \
+    } \
+    static inline decaf_error_t DECAF_NONNULL decaf_keccak_##n##_update(decaf_keccak_##n##_ctx_t sponge, const uint8_t *in, size_t inlen ) { \
+        return decaf_sha3_update(sponge->s, in, inlen); \
+    } \
+    static inline decaf_error_t DECAF_NONNULL decaf_keccak_##n##_final(decaf_keccak_##n##_ctx_t sponge, uint8_t *out, size_t outlen ) { \
+        decaf_error_t ret = decaf_sha3_output(sponge->s, out, outlen); \
+        decaf_sha3_init(sponge->s, &DECAF_KECCAK_##n##_params_s); \
+        return ret; \
+    } \
+    static inline decaf_error_t DECAF_NONNULL decaf_keccak_##n##_output(decaf_keccak_##n##_ctx_t sponge, uint8_t *out, size_t outlen ) { \
+        return decaf_sha3_output(sponge->s, out, outlen); \
+    } \
+    static inline decaf_error_t DECAF_NONNULL decaf_keccak_##n##_hash(uint8_t *out, size_t outlen, const uint8_t *in, size_t inlen) { \
+        return decaf_sha3_hash(out,outlen,in,inlen,&DECAF_KECCAK_##n##_params_s); \
+    } \
+    static inline void DECAF_NONNULL decaf_keccak_##n##_destroy(decaf_keccak_##n##_ctx_t sponge) { \
+        decaf_sha3_destroy(sponge->s); \
+    }
 /** @endcond */
-    
+
 #endif // _MSC_VER
 
 
@@ -272,8 +326,13 @@ DECAF_DEC_SHA3(224)
 DECAF_DEC_SHA3(256)
 DECAF_DEC_SHA3(384)
 DECAF_DEC_SHA3(512)
+DECAF_DEC_KECCAK(224)
+DECAF_DEC_KECCAK(256)
+DECAF_DEC_KECCAK(384)
+DECAF_DEC_KECCAK(512)
 #undef DECAF_DEC_SHAKE
 #undef DECAF_DEC_SHA3
+#undef DECAF_DEC_KECCAK
 
 #ifdef __cplusplus
 } /* extern "C" */

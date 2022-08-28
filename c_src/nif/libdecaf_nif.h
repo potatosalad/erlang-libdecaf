@@ -36,6 +36,10 @@ struct libdecaf_nif_atom_table_s {
     ERL_NIF_TERM ATOM_sha3_256;
     ERL_NIF_TERM ATOM_sha3_384;
     ERL_NIF_TERM ATOM_sha3_512;
+    ERL_NIF_TERM ATOM_keccak_224;
+    ERL_NIF_TERM ATOM_keccak_256;
+    ERL_NIF_TERM ATOM_keccak_384;
+    ERL_NIF_TERM ATOM_keccak_512;
     ERL_NIF_TERM ATOM_shake128;
     ERL_NIF_TERM ATOM_shake256;
     ERL_NIF_TERM ATOM_true;
