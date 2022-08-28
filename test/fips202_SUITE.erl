@@ -95,7 +95,7 @@ data_setup(Config) ->
 
 %% @private
 data_setup(F = "keccaktestvectors", Config) ->
-	BaseURL = "https://raw.githubusercontent.com/XKCP/XKCP/3eab79e98e873d0c78f7eec0346cc6510368fa7d/tests/TestVectors/",
+	BaseURL = "https://raw.github.com/XKCP/XKCP/fc23735511f06ff57d47f9c47dc950eaf913c83b/tests/TestVectors/",
 	Files = [
 		"ShortMsgKAT_SHA3-224.txt",
 		"ShortMsgKAT_SHA3-256.txt",

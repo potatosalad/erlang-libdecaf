@@ -95,7 +95,7 @@ data_setup(Config) ->
 
 %% @private
 data_setup(F = "shabytetestvectors", Config) ->
-	BaseURL = "https://raw.githubusercontent.com/coruus/nist-testvectors/2841a2d486a155c8c79c1e6b2fe5a653e7276d96/csrc.nist.gov/groups/STM/cavp/documents/shs/shabytetestvectors/",
+	BaseURL = "https://raw.github.com/coruus/nist-testvectors/2841a2d486a155c8c79c1e6b2fe5a653e7276d96/csrc.nist.gov/groups/STM/cavp/documents/shs/shabytetestvectors/",
 	Files = [
 		"SHA512LongMsg.rsp",
 		"SHA512ShortMsg.rsp"

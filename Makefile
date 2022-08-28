@@ -1,12 +1,12 @@
 PROJECT = libdecaf
 PROJECT_DESCRIPTION = libdecaf NIF for ECDH (X25519, X448), EdDSA (Ed25519, Ed25519ctx, Ed25519ph, Ed448, Ed448ph), curve25519, curve448, spongerng
-PROJECT_VERSION = 2.0.0
+PROJECT_VERSION = 2.1.0
 
 include erlang.mk
 
 .PHONY: docker-build docker-load docker-setup docker-save docker-shell docker-test
 
-DOCKER_OTP_VERSION ?= 24.2.1-alpine-3.15.0
+DOCKER_OTP_VERSION ?= 25.0.4-alpine-3.16.1
 
 docker-build::
 	$(gen_verbose) docker build \
