@@ -12,42 +12,52 @@
 
 %% API
 % Keypair
--export([keypair_random/0]).
--export([keypair_derive/1]).
--export([keypair_extract_private_key/1]).
--export([keypair_extract_public_key/1]).
+-export([
+	keypair_random/0,
+	keypair_derive/1,
+	keypair_extract_private_key/1,
+	keypair_extract_public_key/1
+]).
 % EdDSA
--export([eddsa_keypair/0]).
--export([eddsa_keypair/1]).
--export([eddsa_secret_to_pk/1]).
--export([eddsa_sk_to_pk/1]).
--export([eddsa_sk_to_secret/1]).
--export([eddsa_keypair_to_x448_keypair/1]).
--export([eddsa_pk_to_x448_pk/1]).
--export([eddsa_secret_to_x448_keypair/1]).
--export([eddsa_secret_to_x448_secret/1]).
--export([eddsa_sk_to_x448_keypair/1]).
+-export([
+	eddsa_keypair/0,
+	eddsa_keypair/1,
+	eddsa_secret_to_pk/1,
+	eddsa_sk_to_pk/1,
+	eddsa_sk_to_secret/1,
+	eddsa_keypair_to_x448_keypair/1,
+	eddsa_pk_to_x448_pk/1,
+	eddsa_secret_to_x448_keypair/1,
+	eddsa_secret_to_x448_secret/1,
+	eddsa_sk_to_x448_keypair/1
+]).
 % Ed448
--export([ed448_keypair_sign/2]).
--export([ed448_keypair_sign/3]).
--export([ed448_sign/2]).
--export([ed448_sign/3]).
--export([ed448_verify/3]).
--export([ed448_verify/4]).
+-export([
+	ed448_keypair_sign/2,
+	ed448_keypair_sign/3,
+	ed448_sign/2,
+	ed448_sign/3,
+	ed448_verify/3,
+	ed448_verify/4
+]).
 % Ed448ph
--export([ed448ph_keypair_sign/2]).
--export([ed448ph_keypair_sign/3]).
--export([ed448ph_sign/2]).
--export([ed448ph_sign/3]).
--export([ed448ph_verify/3]).
--export([ed448ph_verify/4]).
+-export([
+	ed448ph_keypair_sign/2,
+	ed448ph_keypair_sign/3,
+	ed448ph_sign/2,
+	ed448ph_sign/3,
+	ed448ph_verify/3,
+	ed448ph_verify/4
+]).
 % X448
--export([curve448/1]).
--export([curve448/2]).
--export([x448/1]).
--export([x448/2]).
--export([x448_keypair/0]).
--export([x448_keypair/1]).
+-export([
+	curve448/1,
+	curve448/2,
+	x448/1,
+	x448/2,
+	x448_keypair/0,
+	x448_keypair/1
+]).
 
 %% Macro
 % EdDSA

@@ -8,15 +8,17 @@
 %%% @end
 %%% Created :  28 Aug 2022 by Andrew Bennett <potatosaladx@gmail.com>
 %%%-------------------------------------------------------------------
--module(libdecaf_keccak).
+-module(libdecaf_keccak_sha3).
 
 %% API
--export([hash/2]).
--export([hash/3]).
--export([init/1]).
--export([update/2]).
--export([final/1]).
--export([final/2]).
+-export([
+	hash/2,
+	hash/3,
+	init/1,
+	update/2,
+	final/1,
+	final/2
+]).
 
 %% Macros
 -define(WRAP_STATE(T, R),

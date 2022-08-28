@@ -11,11 +11,13 @@
 -module(libdecaf_spongerng).
 
 %% API
--export([init_from_buffer/2]).
--export([init_from_file/3]).
--export([init_from_dev_urandom/0]).
--export([next/2]).
--export([stir/2]).
+-export([
+	init_from_buffer/2,
+	init_from_file/3,
+	init_from_dev_urandom/0,
+	next/2,
+	stir/2
+]).
 
 %% Macros
 -define(WRAP_STATE(T, R),

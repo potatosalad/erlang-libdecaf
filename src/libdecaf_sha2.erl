@@ -11,12 +11,14 @@
 -module(libdecaf_sha2).
 
 %% API
--export([hash/2]).
--export([hash/3]).
--export([init/1]).
--export([update/2]).
--export([final/1]).
--export([final/2]).
+-export([
+	hash/2,
+	hash/3,
+	init/1,
+	update/2,
+	final/1,
+	final/2
+]).
 
 %% Macros
 -define(WRAP_STATE(T, R),

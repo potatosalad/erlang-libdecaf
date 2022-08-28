@@ -12,46 +12,58 @@
 
 %% API
 % Keypair
--export([keypair_random/0]).
--export([keypair_derive/1]).
--export([keypair_extract_private_key/1]).
--export([keypair_extract_public_key/1]).
+-export([
+	keypair_random/0,
+	keypair_derive/1,
+	keypair_extract_private_key/1,
+	keypair_extract_public_key/1
+]).
 % EdDSA
--export([eddsa_keypair/0]).
--export([eddsa_keypair/1]).
--export([eddsa_secret_to_pk/1]).
--export([eddsa_sk_to_pk/1]).
--export([eddsa_sk_to_secret/1]).
--export([eddsa_keypair_to_x25519_keypair/1]).
--export([eddsa_pk_to_x25519_pk/1]).
--export([eddsa_secret_to_x25519_keypair/1]).
--export([eddsa_secret_to_x25519_secret/1]).
--export([eddsa_sk_to_x25519_keypair/1]).
+-export([
+	eddsa_keypair/0,
+	eddsa_keypair/1,
+	eddsa_secret_to_pk/1,
+	eddsa_sk_to_pk/1,
+	eddsa_sk_to_secret/1,
+	eddsa_keypair_to_x25519_keypair/1,
+	eddsa_pk_to_x25519_pk/1,
+	eddsa_secret_to_x25519_keypair/1,
+	eddsa_secret_to_x25519_secret/1,
+	eddsa_sk_to_x25519_keypair/1
+]).
 % Ed25519
--export([ed25519_keypair_sign/2]).
--export([ed25519_sign/2]).
--export([ed25519_verify/3]).
+-export([
+	ed25519_keypair_sign/2,
+	ed25519_sign/2,
+	ed25519_verify/3
+]).
 % Ed25519ctx
--export([ed25519ctx_keypair_sign/2]).
--export([ed25519ctx_keypair_sign/3]).
--export([ed25519ctx_sign/2]).
--export([ed25519ctx_sign/3]).
--export([ed25519ctx_verify/3]).
--export([ed25519ctx_verify/4]).
+-export([
+	ed25519ctx_keypair_sign/2,
+	ed25519ctx_keypair_sign/3,
+	ed25519ctx_sign/2,
+	ed25519ctx_sign/3,
+	ed25519ctx_verify/3,
+	ed25519ctx_verify/4
+]).
 % Ed25519ph
--export([ed25519ph_keypair_sign/2]).
--export([ed25519ph_keypair_sign/3]).
--export([ed25519ph_sign/2]).
--export([ed25519ph_sign/3]).
--export([ed25519ph_verify/3]).
--export([ed25519ph_verify/4]).
+-export([
+	ed25519ph_keypair_sign/2,
+	ed25519ph_keypair_sign/3,
+	ed25519ph_sign/2,
+	ed25519ph_sign/3,
+	ed25519ph_verify/3,
+	ed25519ph_verify/4
+]).
 % X25519
--export([curve25519/1]).
--export([curve25519/2]).
--export([x25519/1]).
--export([x25519/2]).
--export([x25519_keypair/0]).
--export([x25519_keypair/1]).
+-export([
+	curve25519/1,
+	curve25519/2,
+	x25519/1,
+	x25519/2,
+	x25519_keypair/0,
+	x25519_keypair/1
+]).
 
 %% Macro
 % EdDSA

@@ -13,112 +13,130 @@
 %% API
 -export([start/0]).
 %% decaf/ed255.h
--export([ed25519_derive_keypair/1]).
--export([ed25519_derive_public_key/1]).
--export([ed25519_keypair_extract_private_key/1]).
--export([ed25519_keypair_extract_public_key/1]).
--export([ed25519_keypair_sign/4]).
--export([ed25519_keypair_sign_prehash/3]).
--export([ed25519_sign/5]).
--export([ed25519_sign_prehash/4]).
--export([ed25519_verify/5]).
--export([ed25519_verify_prehash/4]).
--export([ed25519_convert_public_key_to_x25519/1]).
--export([ed25519_convert_private_key_to_x25519/1]).
+-export([
+	ed25519_derive_keypair/1,
+	ed25519_derive_public_key/1,
+	ed25519_keypair_extract_private_key/1,
+	ed25519_keypair_extract_public_key/1,
+	ed25519_keypair_sign/4,
+	ed25519_keypair_sign_prehash/3,
+	ed25519_sign/5,
+	ed25519_sign_prehash/4,
+	ed25519_verify/5,
+	ed25519_verify_prehash/4,
+	ed25519_convert_public_key_to_x25519/1,
+	ed25519_convert_private_key_to_x25519/1
+]).
 %% decaf/ed448.h
--export([ed448_derive_keypair/1]).
--export([ed448_derive_public_key/1]).
--export([ed448_keypair_extract_private_key/1]).
--export([ed448_keypair_extract_public_key/1]).
--export([ed448_keypair_sign/4]).
--export([ed448_keypair_sign_prehash/3]).
--export([ed448_sign/5]).
--export([ed448_sign_prehash/4]).
--export([ed448_verify/5]).
--export([ed448_verify_prehash/4]).
--export([ed448_convert_public_key_to_x448/1]).
--export([ed448_convert_private_key_to_x448/1]).
+-export([
+	ed448_derive_keypair/1,
+	ed448_derive_public_key/1,
+	ed448_keypair_extract_private_key/1,
+	ed448_keypair_extract_public_key/1,
+	ed448_keypair_sign/4,
+	ed448_keypair_sign_prehash/3,
+	ed448_sign/5,
+	ed448_sign_prehash/4,
+	ed448_verify/5,
+	ed448_verify_prehash/4,
+	ed448_convert_public_key_to_x448/1,
+	ed448_convert_private_key_to_x448/1
+]).
 %% decaf/point_255.h
--export([x25519_derive_public_key/1]).
--export([x25519_generate_key/1]).
--export([x25519/2]).
+-export([
+	x25519_derive_public_key/1,
+	x25519_generate_key/1,
+	x25519/2
+]).
 %% decaf/point_448.h
--export([x448_derive_public_key/1]).
--export([x448_generate_key/1]).
--export([x448/2]).
+-export([
+	x448_derive_public_key/1,
+	x448_generate_key/1,
+	x448/2
+]).
 %% decaf/sha512.h
--export([sha2_512/1]).
--export([sha2_512/2]).
--export([sha2_512_init/0]).
--export([sha2_512_update/2]).
--export([sha2_512_final/1]).
--export([sha2_512_final/2]).
+-export([
+	sha2_512/1,
+	sha2_512/2,
+	sha2_512_init/0,
+	sha2_512_update/2,
+	sha2_512_final/1,
+	sha2_512_final/2
+]).
 %% decaf/shake.h
 % SHA-3 API
--export([sha3_224/1]).
--export([sha3_224/2]).
--export([sha3_224_init/0]).
--export([sha3_224_update/2]).
--export([sha3_224_final/1]).
--export([sha3_224_final/2]).
--export([sha3_256/1]).
--export([sha3_256/2]).
--export([sha3_256_init/0]).
--export([sha3_256_update/2]).
--export([sha3_256_final/1]).
--export([sha3_256_final/2]).
--export([sha3_384/1]).
--export([sha3_384/2]).
--export([sha3_384_init/0]).
--export([sha3_384_update/2]).
--export([sha3_384_final/1]).
--export([sha3_384_final/2]).
--export([sha3_512/1]).
--export([sha3_512/2]).
--export([sha3_512_init/0]).
--export([sha3_512_update/2]).
--export([sha3_512_final/1]).
--export([sha3_512_final/2]).
+-export([
+	sha3_224/1,
+	sha3_224/2,
+	sha3_224_init/0,
+	sha3_224_update/2,
+	sha3_224_final/1,
+	sha3_224_final/2,
+	sha3_256/1,
+	sha3_256/2,
+	sha3_256_init/0,
+	sha3_256_update/2,
+	sha3_256_final/1,
+	sha3_256_final/2,
+	sha3_384/1,
+	sha3_384/2,
+	sha3_384_init/0,
+	sha3_384_update/2,
+	sha3_384_final/1,
+	sha3_384_final/2,
+	sha3_512/1,
+	sha3_512/2,
+	sha3_512_init/0,
+	sha3_512_update/2,
+	sha3_512_final/1,
+	sha3_512_final/2
+]).
 % KECCAK API
--export([keccak_224/1]).
--export([keccak_224/2]).
--export([keccak_224_init/0]).
--export([keccak_224_update/2]).
--export([keccak_224_final/1]).
--export([keccak_224_final/2]).
--export([keccak_256/1]).
--export([keccak_256/2]).
--export([keccak_256_init/0]).
--export([keccak_256_update/2]).
--export([keccak_256_final/1]).
--export([keccak_256_final/2]).
--export([keccak_384/1]).
--export([keccak_384/2]).
--export([keccak_384_init/0]).
--export([keccak_384_update/2]).
--export([keccak_384_final/1]).
--export([keccak_384_final/2]).
--export([keccak_512/1]).
--export([keccak_512/2]).
--export([keccak_512_init/0]).
--export([keccak_512_update/2]).
--export([keccak_512_final/1]).
--export([keccak_512_final/2]).
+-export([
+	keccak_224/1,
+	keccak_224/2,
+	keccak_224_init/0,
+	keccak_224_update/2,
+	keccak_224_final/1,
+	keccak_224_final/2,
+	keccak_256/1,
+	keccak_256/2,
+	keccak_256_init/0,
+	keccak_256_update/2,
+	keccak_256_final/1,
+	keccak_256_final/2,
+	keccak_384/1,
+	keccak_384/2,
+	keccak_384_init/0,
+	keccak_384_update/2,
+	keccak_384_final/1,
+	keccak_384_final/2,
+	keccak_512/1,
+	keccak_512/2,
+	keccak_512_init/0,
+	keccak_512_update/2,
+	keccak_512_final/1,
+	keccak_512_final/2
+]).
 % SHAKE API
--export([shake128/2]).
--export([shake128_init/0]).
--export([shake128_update/2]).
--export([shake128_final/2]).
--export([shake256/2]).
--export([shake256_init/0]).
--export([shake256_update/2]).
--export([shake256_final/2]).
+-export([
+	shake128/2,
+	shake128_init/0,
+	shake128_update/2,
+	shake128_final/2,
+	shake256/2,
+	shake256_init/0,
+	shake256_update/2,
+	shake256_final/2
+]).
 %% decaf/spongerng.h
--export([spongerng_init_from_buffer/2]).
--export([spongerng_init_from_file/3]).
--export([spongerng_init_from_dev_urandom/0]).
--export([spongerng_next/2]).
--export([spongerng_stir/2]).
+-export([
+	spongerng_init_from_buffer/2,
+	spongerng_init_from_file/3,
+	spongerng_init_from_dev_urandom/0,
+	spongerng_next/2,
+	spongerng_stir/2
+]).
 %% Internal API
 -export([priv_dir/0]).
 

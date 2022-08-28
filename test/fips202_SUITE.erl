@@ -168,7 +168,7 @@ fips202([
 			| Vectors
 		], {Type, Arity=2, OutputByteLen}, Config) when Len rem 8 =:= 0 ->
 	InputBytes = binary:part(Msg, 0, Len div 8),
-	?tv_ok(T0, libdecaf_sha3, hash, [Type, InputBytes, OutputByteLen], Squeezed),
+	?tv_ok(T0, libdecaf_sha3, xof, [Type, InputBytes, OutputByteLen], Squeezed),
 	Sponge0 = libdecaf_sha3:init(Type),
 	Sponge1 = libdecaf_sha3:update(Sponge0, InputBytes),
 	?tv_ok(T1, libdecaf_sha3, final, [Sponge1, OutputByteLen], Squeezed),

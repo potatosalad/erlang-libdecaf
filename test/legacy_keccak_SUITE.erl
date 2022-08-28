@@ -162,10 +162,10 @@ legacy_keccak([
 			| Vectors
 		], {Type, Arity=1, OutputByteLen}, Config) when Len rem 8 =:= 0 ->
 	InputBytes = binary:part(Msg, 0, Len div 8),
-	?tv_ok(T0, libdecaf_keccak, hash, [Type, InputBytes], MD),
-	Sponge0 = libdecaf_keccak:init(Type),
-	Sponge1 = libdecaf_keccak:update(Sponge0, InputBytes),
-	?tv_ok(T1, libdecaf_keccak, final, [Sponge1], MD),
+	?tv_ok(T0, libdecaf_keccak_sha3, hash, [Type, InputBytes], MD),
+	Sponge0 = libdecaf_keccak_sha3:init(Type),
+	Sponge1 = libdecaf_keccak_sha3:update(Sponge0, InputBytes),
+	?tv_ok(T1, libdecaf_keccak_sha3, final, [Sponge1], MD),
 	legacy_keccak(Vectors, {Type, Arity, OutputByteLen}, Config);
 legacy_keccak([
 			{vector, {<<"Len">>, _Len}, _},
