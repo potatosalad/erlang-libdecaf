@@ -11,6 +11,11 @@
 -module(libdecaf_curve25519).
 
 %% API
+% Keypair
+-export([keypair_random/0]).
+-export([keypair_derive/1]).
+-export([keypair_extract_private_key/1]).
+-export([keypair_extract_public_key/1]).
 % EdDSA
 -export([eddsa_keypair/0]).
 -export([eddsa_keypair/1]).
@@ -23,14 +28,19 @@
 -export([eddsa_secret_to_x25519_secret/1]).
 -export([eddsa_sk_to_x25519_keypair/1]).
 % Ed25519
+-export([ed25519_keypair_sign/2]).
 -export([ed25519_sign/2]).
 -export([ed25519_verify/3]).
 % Ed25519ctx
+-export([ed25519ctx_keypair_sign/2]).
+-export([ed25519ctx_keypair_sign/3]).
 -export([ed25519ctx_sign/2]).
 -export([ed25519ctx_sign/3]).
 -export([ed25519ctx_verify/3]).
 -export([ed25519ctx_verify/4]).
 % Ed25519ph
+-export([ed25519ph_keypair_sign/2]).
+-export([ed25519ph_keypair_sign/3]).
 -export([ed25519ph_sign/2]).
 -export([ed25519ph_sign/3]).
 -export([ed25519ph_verify/3]).
@@ -56,6 +66,22 @@
 %%%===================================================================
 %%% API functions
 %%%===================================================================
+
+% Keypair
+
+keypair_random() ->
+	keypair_derive(crypto:strong_rand_bytes(?EdDSA_SECRET_BYTES)).
+
+keypair_derive(Secret)
+		when is_binary(Secret)
+		andalso byte_size(Secret) =:= ?EdDSA_SECRET_BYTES ->
+	libdecaf:ed25519_derive_keypair(Secret).
+
+keypair_extract_private_key(Keypair) when is_reference(Keypair) ->
+	libdecaf:ed25519_keypair_extract_private_key(Keypair).
+
+keypair_extract_public_key(Keypair) when is_reference(Keypair) ->
+	libdecaf:ed25519_keypair_extract_public_key(Keypair).
 
 % EdDSA
 
@@ -103,6 +129,9 @@ eddsa_sk_to_x25519_keypair(SK = << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_
 
 % Ed25519
 
+ed25519_keypair_sign(M, Keypair) when is_binary(M) andalso is_reference(Keypair) ->
+	libdecaf:ed25519_keypair_sign(Keypair, M, 0, no_context).
+
 ed25519_sign(M, << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary >>) when is_binary(M) ->
 	libdecaf:ed25519_sign(Secret, PK, M, 0, no_context).
 
@@ -110,6 +139,16 @@ ed25519_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/bina
 	libdecaf:ed25519_verify(Sig, PK, M, 0, no_context).
 
 % Ed25519ctx
+
+ed25519ctx_keypair_sign(M, Keypair) when is_binary(M) andalso is_reference(Keypair) ->
+	ed25519ctx_keypair_sign(M, Keypair, <<>>).
+
+ed25519ctx_keypair_sign(M, Keypair, C)
+		when is_binary(M)
+		andalso is_reference(Keypair)
+		andalso is_binary(C)
+		andalso byte_size(C) =< 255 ->
+	libdecaf:ed25519_keypair_sign(Keypair, M, 0, C).
 
 ed25519ctx_sign(M, << SK:?EdDSA_SK_BYTES/binary >>) when is_binary(M) ->
 	ed25519ctx_sign(M, SK, <<>>).
@@ -130,6 +169,16 @@ ed25519ctx_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/b
 	libdecaf:ed25519_verify(Sig, PK, M, 0, C).
 
 % Ed25519ph
+
+ed25519ph_keypair_sign(M, Keypair) when is_binary(M) andalso is_reference(Keypair) ->
+	ed25519ph_keypair_sign(M, Keypair, <<>>).
+
+ed25519ph_keypair_sign(M, Keypair, C)
+		when is_binary(M)
+		andalso is_reference(Keypair)
+		andalso is_binary(C)
+		andalso byte_size(C) =< 255 ->
+	libdecaf:ed25519_keypair_sign_prehash(Keypair, M, C).
 
 ed25519ph_sign(M, << SK:?EdDSA_SK_BYTES/binary >>) when is_binary(M) ->
 	ed25519ph_sign(M, SK, <<>>).

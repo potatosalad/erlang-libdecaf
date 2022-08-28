@@ -45,8 +45,8 @@ $("DECAF_API_VIS extern const uint8_t * const DECAF_ED" + gf_shortname + "_NO_CO
 #define $(C_NS)_EDDSA_DECODE_RATIO ($(cofactor) / $(eddsa_encode_ratio))
     
 #ifndef DECAF_EDDSA_NON_KEYPAIR_API_IS_DEPRECATED
-/** If 1, add deprecation attribute to non-keypair API functions. For now, deprecate in Doxygen only. */
-#define DECAF_EDDSA_NON_KEYPAIR_API_IS_DEPRECATED 0
+/** If 1, add deprecation attribute to non-keypair API functions. Now deprecated. */
+#define DECAF_EDDSA_NON_KEYPAIR_API_IS_DEPRECATED 1
 #endif
 
 /** @cond internal */

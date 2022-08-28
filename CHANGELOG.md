@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0 (2022-08-28)
+
+* Fixes
+  * Security fix for [Misuse of public apis can result in private key exposure #13](https://github.com/potatosalad/erlang-libdecaf/issues/13) (see [report here](https://github.com/MystenLabs/ed25519-unsafe-libs)).
+* Enhancements
+  * New Keypair API for Ed25519 and Ed448 operations (see [#13](https://github.com/potatosalad/erlang-libdecaf/issues/13)).
+  * Upstream update to [`ed448goldilocks` version `features-20220828`](https://github.com/potatosalad/ed448goldilocks/tree/features-20220828) (vendored as part of `libdecaf` app).
+
 ## 2.0.0 (2022-01-25)
 
 * Fixes

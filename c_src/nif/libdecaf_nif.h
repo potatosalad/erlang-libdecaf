@@ -19,33 +19,6 @@
 extern "C" {
 #endif
 
-/* Resource Types and Traps */
-
-typedef struct libdecaf_nif_trap_s libdecaf_nif_trap_t;
-typedef enum libdecaf_nif_trap_type_t libdecaf_nif_trap_type_t;
-
-enum libdecaf_nif_trap_type_t {
-    LIBDECAF_NIF_TRAP_TYPE_CSPRNG_NEXT,
-    LIBDECAF_NIF_TRAP_TYPE_CSPRNG_STIR,
-    LIBDECAF_NIF_TRAP_TYPE_HASH,
-    LIBDECAF_NIF_TRAP_TYPE_HASH_UPDATE,
-    LIBDECAF_NIF_TRAP_TYPE_XOF_ABSORB,
-    LIBDECAF_NIF_TRAP_TYPE_XOF_SQUEEZE,
-    LIBDECAF_NIF_TRAP_TYPE_XOF_UPDATE,
-    LIBDECAF_NIF_TRAP_TYPE_XOF_OUTPUT,
-};
-
-struct libdecaf_nif_trap_s {
-    libdecaf_nif_trap_type_t type;
-    void (*dtor)(ErlNifEnv *caller_env, void *obj);
-    ErlNifEnv *work_env;
-};
-
-extern ErlNifResourceType *libdecaf_nif_trap_resource_type;
-extern ErlNifResourceType *libdecaf_nif_csprng_resource_type;
-extern ErlNifResourceType *libdecaf_nif_hash_resource_type;
-extern ErlNifResourceType *libdecaf_nif_xof_resource_type;
-
 /* Atom Table */
 
 typedef struct libdecaf_nif_atom_table_s libdecaf_nif_atom_table_t;
@@ -71,9 +44,42 @@ struct libdecaf_nif_atom_table_s {
 
 extern libdecaf_nif_atom_table_t *libdecaf_nif_atom_table;
 
-/* NIF Utility Macros */
+#define ATOM(Id) libdecaf_nif_atom_table->ATOM_##Id
 
+/* Resource Types and Traps */
+
+typedef struct libdecaf_nif_trap_s libdecaf_nif_trap_t;
+typedef enum libdecaf_nif_trap_type_t libdecaf_nif_trap_type_t;
+
+enum libdecaf_nif_trap_type_t {
+    LIBDECAF_NIF_TRAP_TYPE_CSPRNG_NEXT,
+    LIBDECAF_NIF_TRAP_TYPE_CSPRNG_STIR,
+    LIBDECAF_NIF_TRAP_TYPE_HASH,
+    LIBDECAF_NIF_TRAP_TYPE_HASH_UPDATE,
+    LIBDECAF_NIF_TRAP_TYPE_XOF_ABSORB,
+    LIBDECAF_NIF_TRAP_TYPE_XOF_SQUEEZE,
+    LIBDECAF_NIF_TRAP_TYPE_XOF_UPDATE,
+    LIBDECAF_NIF_TRAP_TYPE_XOF_OUTPUT,
+};
+
+struct libdecaf_nif_trap_s {
+    libdecaf_nif_trap_type_t type;
+    void (*dtor)(ErlNifEnv *caller_env, void *obj);
+    ErlNifEnv *work_env;
+};
+
+extern ErlNifResourceType *libdecaf_nif_trap_resource_type;
+extern ErlNifResourceType *libdecaf_nif_csprng_resource_type;
+extern ErlNifResourceType *libdecaf_nif_ed25519_keypair_resource_type;
+extern ErlNifResourceType *libdecaf_nif_ed448_keypair_resource_type;
+extern ErlNifResourceType *libdecaf_nif_hash_resource_type;
+extern ErlNifResourceType *libdecaf_nif_xof_resource_type;
+
+/* NIF Utility Macros and Functions */
+
+#ifndef ERL_NIF_NORMAL_JOB_BOUND
 #define ERL_NIF_NORMAL_JOB_BOUND (0)
+#endif
 
 #define REDUCTIONS_UNTIL_YCF_YIELD() (20000)
 #define BUMP_ALL_REDS(env)                                                                                                         \
@@ -93,9 +99,17 @@ extern libdecaf_nif_atom_table_t *libdecaf_nif_atom_table;
                                                                   enif_make_int((Env), __LINE__)),                                 \
                                                  enif_make_string((Env), (Str), (ERL_NIF_LATIN1))))
 
-#define EXCP_NOTSUP(Env, Str) EXCP((Env), libdecaf_nif_atom_table->ATOM_notsup, (Str))
-#define EXCP_BADARG(Env, Str) EXCP((Env), libdecaf_nif_atom_table->ATOM_badarg, (Str))
-#define EXCP_ERROR(Env, Str) EXCP((Env), libdecaf_nif_atom_table->ATOM_error, (Str))
+#define EXCP_F(Env, Id, Fmt, ...)                                                                                                         \
+    enif_raise_exception((Env), enif_make_tuple3((Env), (Id),                                                                      \
+                                                 enif_make_tuple2((Env), enif_make_string((Env), __FILE__, (ERL_NIF_LATIN1)),      \
+                                                                  enif_make_int((Env), __LINE__)),                                 \
+                                                 xnif_make_string_printf((Env), (Fmt), __VA_ARGS__)))
+
+#define EXCP_NOTSUP(Env, Str) EXCP((Env), ATOM(notsup), (Str))
+#define EXCP_BADARG(Env, Str) EXCP((Env), ATOM(badarg), (Str))
+#define EXCP_BADARG_F(Env, Fmt, ...) EXCP_F((Env), ATOM(badarg), Fmt, __VA_ARGS__)
+#define EXCP_ERROR(Env, Str) EXCP((Env), ATOM(error), (Str))
+#define EXCP_ERROR_F(Env, Fmt, ...) EXCP_F((Env), ATOM(error), Fmt, __VA_ARGS__)
 
 #ifdef __cplusplus
 }

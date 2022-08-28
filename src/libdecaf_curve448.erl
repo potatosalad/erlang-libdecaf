@@ -11,6 +11,11 @@
 -module(libdecaf_curve448).
 
 %% API
+% Keypair
+-export([keypair_random/0]).
+-export([keypair_derive/1]).
+-export([keypair_extract_private_key/1]).
+-export([keypair_extract_public_key/1]).
 % EdDSA
 -export([eddsa_keypair/0]).
 -export([eddsa_keypair/1]).
@@ -23,11 +28,15 @@
 -export([eddsa_secret_to_x448_secret/1]).
 -export([eddsa_sk_to_x448_keypair/1]).
 % Ed448
+-export([ed448_keypair_sign/2]).
+-export([ed448_keypair_sign/3]).
 -export([ed448_sign/2]).
 -export([ed448_sign/3]).
 -export([ed448_verify/3]).
 -export([ed448_verify/4]).
 % Ed448ph
+-export([ed448ph_keypair_sign/2]).
+-export([ed448ph_keypair_sign/3]).
 -export([ed448ph_sign/2]).
 -export([ed448ph_sign/3]).
 -export([ed448ph_verify/3]).
@@ -53,6 +62,22 @@
 %%%===================================================================
 %%% API functions
 %%%===================================================================
+
+% Keypair
+
+keypair_random() ->
+	keypair_derive(crypto:strong_rand_bytes(?EdDSA_SECRET_BYTES)).
+
+keypair_derive(Secret)
+		when is_binary(Secret)
+		andalso byte_size(Secret) =:= ?EdDSA_SECRET_BYTES ->
+	libdecaf:ed448_derive_keypair(Secret).
+
+keypair_extract_private_key(Keypair) when is_reference(Keypair) ->
+	libdecaf:ed448_keypair_extract_private_key(Keypair).
+
+keypair_extract_public_key(Keypair) when is_reference(Keypair) ->
+	libdecaf:ed448_keypair_extract_public_key(Keypair).
 
 % EdDSA
 
@@ -100,6 +125,18 @@ eddsa_sk_to_x448_keypair(SK = << Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK
 
 % Ed448
 
+ed448_keypair_sign(M, Keypair)
+		when is_binary(M)
+		andalso is_reference(Keypair) ->
+	ed448_keypair_sign(M, Keypair, <<>>).
+
+ed448_keypair_sign(M, Keypair, C)
+		when is_binary(M)
+		andalso is_reference(Keypair)
+		andalso is_binary(C)
+		andalso byte_size(C) =< 255 ->
+	libdecaf:ed448_keypair_sign(Keypair, M, 0, C).
+
 ed448_sign(M, << SK:?EdDSA_SK_BYTES/binary >>) when is_binary(M) ->
 	ed448_sign(M, SK, <<>>).
 
@@ -119,6 +156,18 @@ ed448_verify(<< Sig:?EdDSA_SIGN_BYTES/binary >>, M, << PK:?EdDSA_PK_BYTES/binary
 	libdecaf:ed448_verify(Sig, PK, M, 0, C).
 
 % Ed448ph
+
+ed448ph_keypair_sign(M, Keypair)
+		when is_binary(M)
+		andalso is_reference(Keypair) ->
+	ed448ph_keypair_sign(M, Keypair, <<>>).
+
+ed448ph_keypair_sign(M, Keypair, C)
+		when is_binary(M)
+		andalso is_reference(Keypair)
+		andalso is_binary(C)
+		andalso byte_size(C) =< 255 ->
+	libdecaf:ed448_keypair_sign_prehash(Keypair, M, C).
 
 ed448ph_sign(M, << SK:?EdDSA_SK_BYTES/binary >>) when is_binary(M) ->
 	ed448ph_sign(M, SK, <<>>).

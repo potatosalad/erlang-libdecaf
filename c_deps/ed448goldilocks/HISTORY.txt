@@ -1,3 +1,15 @@
+July 13, 2022:
+    Fix a security bug and an issue.
+
+    Point::steg_encode was leaving the 24 high bits of the buffer as zero.
+    It also ignored the size parameter.  The size parameter has now been removed,
+    the zeros fixed and a test added to make sure that it is fixed.
+
+    Per https://github.com/MystenLabs/ed25519-unsafe-libs, deprecate eddsa signing
+    with separate pubkey and privkey input.  Instead decaf_ed*_keypair_sign.
+
+    Release v1.0.2.
+
 October 10, 2020:
     A paper by Konstantinos Chalkias, François Garillot, and Valeria
     Nikolaenko, to be found at:
@@ -10,7 +22,7 @@ October 10, 2020:
     an attacker could modify an existing valid signature to create a
     new signature that is still valid, but only for the same message.
     
-    Releave v1.0.1, correcting this flaw.
+    Release v1.0.1, correcting this flaw.
 
 July 12, 2018:
     Release 1.0 with Johan Pascal's build scripts.

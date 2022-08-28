@@ -4,6 +4,8 @@
 #include "libdecaf_nif.h"
 
 #include "csprng.h"
+#include "ed25519.h"
+#include "ed448.h"
 #include "hash.h"
 #include "xof.h"
 
@@ -13,6 +15,8 @@
 
 ErlNifResourceType *libdecaf_nif_trap_resource_type = NULL;
 ErlNifResourceType *libdecaf_nif_csprng_resource_type = NULL;
+ErlNifResourceType *libdecaf_nif_ed25519_keypair_resource_type = NULL;
+ErlNifResourceType *libdecaf_nif_ed448_keypair_resource_type = NULL;
 ErlNifResourceType *libdecaf_nif_hash_resource_type = NULL;
 ErlNifResourceType *libdecaf_nif_xof_resource_type = NULL;
 
@@ -24,6 +28,8 @@ libdecaf_nif_atom_table_t *libdecaf_nif_atom_table = &libdecaf_nif_atom_table_in
 
 static void libdecaf_nif_trap_dtor(ErlNifEnv *caller_env, void *obj);
 static void libdecaf_nif_csprng_dtor(ErlNifEnv *caller_env, void *obj);
+static void libdecaf_nif_ed25519_keypair_dtor(ErlNifEnv *caller_env, void *obj);
+static void libdecaf_nif_ed448_keypair_dtor(ErlNifEnv *caller_env, void *obj);
 static void libdecaf_nif_hash_dtor(ErlNifEnv *caller_env, void *obj);
 static void libdecaf_nif_xof_dtor(ErlNifEnv *caller_env, void *obj);
 
@@ -52,6 +58,28 @@ libdecaf_nif_csprng_dtor(ErlNifEnv *caller_env, void *obj)
     if (ctx != NULL) {
         XNIF_TRACE_F("libdecaf_nif_csprng_dtor:%s:%d\n", __FILE__, __LINE__);
         (void)decaf_spongerng_destroy((void *)ctx);
+    }
+    return;
+}
+
+void
+libdecaf_nif_ed25519_keypair_dtor(ErlNifEnv *caller_env, void *obj)
+{
+    libdecaf_nif_ed25519_keypair_t *keypair = (void *)obj;
+    if (keypair != NULL) {
+        XNIF_TRACE_F("libdecaf_nif_ed25519_keypair_dtor:%s:%d\n", __FILE__, __LINE__);
+        (void)decaf_ed25519_keypair_destroy(keypair->inner);
+    }
+    return;
+}
+
+void
+libdecaf_nif_ed448_keypair_dtor(ErlNifEnv *caller_env, void *obj)
+{
+    libdecaf_nif_ed448_keypair_t *keypair = (void *)obj;
+    if (keypair != NULL) {
+        XNIF_TRACE_F("libdecaf_nif_ed448_keypair_dtor:%s:%d\n", __FILE__, __LINE__);
+        (void)decaf_ed448_keypair_destroy(keypair->inner);
     }
     return;
 }
@@ -208,7 +236,12 @@ XOF_DEFINITION(shake256)
 
 static ErlNifFunc libdecaf_nif_funcs[] = {
     /* decaf/ed255.h */
+    {"ed25519_derive_keypair", 1, libdecaf_nif_ed25519_derive_keypair_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"ed25519_derive_public_key", 1, libdecaf_nif_ed25519_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519_keypair_extract_private_key", 1, libdecaf_nif_ed25519_keypair_extract_private_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519_keypair_extract_public_key", 1, libdecaf_nif_ed25519_keypair_extract_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519_keypair_sign", 4, libdecaf_nif_ed25519_keypair_sign_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519_keypair_sign_prehash", 3, libdecaf_nif_ed25519_keypair_sign_prehash_3, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed25519_sign", 5, libdecaf_nif_ed25519_sign_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed25519_sign_prehash", 4, libdecaf_nif_ed25519_sign_prehash_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed25519_verify", 5, libdecaf_nif_ed25519_verify_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
@@ -216,7 +249,12 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"ed25519_convert_public_key_to_x25519", 1, libdecaf_nif_ed25519_convert_public_key_to_x25519_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"ed25519_convert_private_key_to_x25519", 1, libdecaf_nif_ed25519_convert_private_key_to_x25519_1, ERL_NIF_NORMAL_JOB_BOUND},
     /* decaf/ed448.h */
+    {"ed448_derive_keypair", 1, libdecaf_nif_ed448_derive_keypair_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"ed448_derive_public_key", 1, libdecaf_nif_ed448_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448_keypair_extract_private_key", 1, libdecaf_nif_ed448_keypair_extract_private_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448_keypair_extract_public_key", 1, libdecaf_nif_ed448_keypair_extract_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448_keypair_sign", 4, libdecaf_nif_ed448_keypair_sign_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448_keypair_sign_prehash", 3, libdecaf_nif_ed448_keypair_sign_prehash_3, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed448_sign", 5, libdecaf_nif_ed448_sign_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed448_sign_prehash", 4, libdecaf_nif_ed448_sign_prehash_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed448_verify", 5, libdecaf_nif_ed448_verify_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
@@ -267,27 +305,27 @@ static void libdecaf_nif_unload(ErlNifEnv *env, void *priv_data);
 static void
 libdecaf_nif_make_atoms(ErlNifEnv *env)
 {
-#define ATOM(Id, Value)                                                                                                            \
-    {                                                                                                                              \
-        libdecaf_nif_atom_table->Id = enif_make_atom(env, Value);                                                                  \
+#define MAKE_ATOM(Id, Value)                                                                                           \
+    {                                                                                                                  \
+        libdecaf_nif_atom_table->ATOM_##Id = enif_make_atom(env, Value);                                         \
     }
-    ATOM(ATOM_badarg, "badarg");
-    ATOM(ATOM_error, "error");
-    ATOM(ATOM_false, "false");
-    ATOM(ATOM_nil, "nil");
-    ATOM(ATOM_no_context, "no_context");
-    ATOM(ATOM_notsup, "notsup");
-    ATOM(ATOM_ok, "ok");
-    ATOM(ATOM_sha2_512, "sha2_512");
-    ATOM(ATOM_sha3_224, "sha3_224");
-    ATOM(ATOM_sha3_256, "sha3_256");
-    ATOM(ATOM_sha3_384, "sha3_384");
-    ATOM(ATOM_sha3_512, "sha3_512");
-    ATOM(ATOM_shake128, "shake128");
-    ATOM(ATOM_shake256, "shake256");
-    ATOM(ATOM_true, "true");
-    ATOM(ATOM_undefined, "undefined");
-#undef ATOM
+    MAKE_ATOM(badarg, "badarg");
+    MAKE_ATOM(error, "error");
+    MAKE_ATOM(false, "false");
+    MAKE_ATOM(nil, "nil");
+    MAKE_ATOM(no_context, "no_context");
+    MAKE_ATOM(notsup, "notsup");
+    MAKE_ATOM(ok, "ok");
+    MAKE_ATOM(sha2_512, "sha2_512");
+    MAKE_ATOM(sha3_224, "sha3_224");
+    MAKE_ATOM(sha3_256, "sha3_256");
+    MAKE_ATOM(sha3_384, "sha3_384");
+    MAKE_ATOM(sha3_512, "sha3_512");
+    MAKE_ATOM(shake128, "shake128");
+    MAKE_ATOM(shake256, "shake256");
+    MAKE_ATOM(true, "true");
+    MAKE_ATOM(undefined, "undefined");
+#undef MAKE_ATOM
 }
 
 static int
@@ -306,6 +344,8 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     }
     LOAD_RESOURCE_TYPE(trap);
     LOAD_RESOURCE_TYPE(csprng);
+    LOAD_RESOURCE_TYPE(ed25519_keypair);
+    LOAD_RESOURCE_TYPE(ed448_keypair);
     LOAD_RESOURCE_TYPE(hash);
     LOAD_RESOURCE_TYPE(xof);
 #undef LOAD_RESOURCE_TYPE
@@ -330,6 +370,8 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
     }
     UPGRADE_RESOURCE_TYPE(trap);
     UPGRADE_RESOURCE_TYPE(csprng);
+    UPGRADE_RESOURCE_TYPE(ed25519_keypair);
+    UPGRADE_RESOURCE_TYPE(ed448_keypair);
     UPGRADE_RESOURCE_TYPE(hash);
     UPGRADE_RESOURCE_TYPE(xof);
 #undef UPGRADE_RESOURCE_TYPE

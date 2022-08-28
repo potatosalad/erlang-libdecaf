@@ -72,8 +72,8 @@ static void print(const char *name, const Scalar &x) {
 
 static void hexprint(const char *name, const SecureBuffer &buffer) {
     printf("  %s = 0x", name);
-    for (auto i = buffer.rbegin(); i!= buffer.rend(); ++i) {
-        printf("%02x", *i);
+    for (int i=buffer.size()-1; i>=0; i--) {
+        printf("%02x", buffer[i]);
     }
     printf("\n");
 }
@@ -292,7 +292,13 @@ static void test_elligator() {
         }
         
         Point t(rng);
-        point_check(test,t,t,t,0,0,t,Point::from_hash(t.steg_encode(rng)),"steg round-trip");
+        SecureBuffer bsteg = t.steg_encode(rng);
+        if (bsteg[Point::STEG_BYTES-1] == 0 && bsteg[Point::STEG_BYTES-2] == 0 && bsteg[Point::STEG_BYTES-3] == 0) {
+            test.fail();
+            printf("    Steg is nonuniform (probability of false failure = 2^-24)\n");
+            hexprint("    steg buffer:", bsteg);
+        }
+        point_check(test,t,t,t,0,0,t,Point::from_hash(bsteg),"steg round-trip");
         
         FixedArrayBuffer<Point::HASH_BYTES> b3(rng), b4(b3);
         t = Point::from_hash(b3);

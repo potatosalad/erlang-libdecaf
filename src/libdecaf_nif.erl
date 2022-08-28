@@ -11,7 +11,12 @@
 -module(libdecaf_nif).
 
 %% decaf/ed255.h
+-export([ed25519_derive_keypair/1]).
 -export([ed25519_derive_public_key/1]).
+-export([ed25519_keypair_extract_private_key/1]).
+-export([ed25519_keypair_extract_public_key/1]).
+-export([ed25519_keypair_sign/4]).
+-export([ed25519_keypair_sign_prehash/3]).
 -export([ed25519_sign/5]).
 -export([ed25519_sign_prehash/4]).
 -export([ed25519_verify/5]).
@@ -19,7 +24,12 @@
 -export([ed25519_convert_public_key_to_x25519/1]).
 -export([ed25519_convert_private_key_to_x25519/1]).
 %% decaf/ed448.h
+-export([ed448_derive_keypair/1]).
 -export([ed448_derive_public_key/1]).
+-export([ed448_keypair_extract_private_key/1]).
+-export([ed448_keypair_extract_public_key/1]).
+-export([ed448_keypair_sign/4]).
+-export([ed448_keypair_sign_prehash/3]).
 -export([ed448_sign/5]).
 -export([ed448_sign_prehash/4]).
 -export([ed448_verify/5]).
@@ -118,7 +128,22 @@
 %%% decaf/ed255.h
 %%%===================================================================
 
+ed25519_derive_keypair(_Privkey) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
 ed25519_derive_public_key(_Privkey) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed25519_keypair_extract_private_key(_Keypair) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed25519_keypair_extract_public_key(_Keypair) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed25519_keypair_sign(_Keypair, _Message, _Prehashed, _Context) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed25519_keypair_sign_prehash(_Keypair, _Message, _Context) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
 ed25519_sign(_Privkey, _Pubkey, _Message, _Prehashed, _Context) ->
@@ -143,7 +168,22 @@ ed25519_convert_private_key_to_x25519(_Privkey) ->
 %%% decaf/ed448.h
 %%%===================================================================
 
+ed448_derive_keypair(_Privkey) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
 ed448_derive_public_key(_Privkey) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed448_keypair_extract_private_key(_Keypair) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed448_keypair_extract_public_key(_Keypair) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed448_keypair_sign(_Keypair, _Message, _Prehashed, _Context) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ed448_keypair_sign_prehash(_Keypair, _Message, _Context) ->
 	erlang:nif_error({nif_not_loaded, ?MODULE}).
 
 ed448_sign(_Privkey, _Pubkey, _Message, _Prehashed, _Context) ->

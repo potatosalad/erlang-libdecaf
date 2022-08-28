@@ -43,7 +43,7 @@ def fillin(template,data):
     ret = ""
     while True:
         dollars = template.find("$(",position)
-        if dollars is -1: return ret + template[position:]
+        if dollars == -1: return ret + template[position:]
         ret += template[position:dollars]
         position = dollars + 2
         parens = 1

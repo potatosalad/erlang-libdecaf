@@ -551,12 +551,11 @@ public:
     }
 
     /** Steganographically encode this */
-    inline SecureBuffer steg_encode(Rng &rng, size_t size=STEG_BYTES) const /*throw(std::bad_alloc, LengthException)*/ {
-        if (size <= HASH_BYTES + 4 || size > 2*HASH_BYTES) throw LengthException();
+    inline SecureBuffer steg_encode(Rng &rng) const /*throw(std::bad_alloc, LengthException)*/ {
         SecureBuffer out(STEG_BYTES);
         decaf_error_t done;
         do {
-            rng.read(Buffer(out).slice(HASH_BYTES-4,STEG_BYTES-HASH_BYTES+1));
+            rng.read(Buffer(out).slice(HASH_BYTES-4,STEG_BYTES-HASH_BYTES+4));
             uint32_t hint = 0;
             for (int i=0; i<4; i++) { hint |= uint32_t(out[HASH_BYTES-4+i])<<(8*i); }
             done = invert_elligator(out, hint);

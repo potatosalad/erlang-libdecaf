@@ -765,45 +765,73 @@ ed25519_vector({Secret, PK, Message, Signature}) ->
 	SK = << Secret/binary, PK/binary >>,
 	?tv_ok(T0, libdecaf_curve25519, eddsa_secret_to_pk, [Secret], PK),
 	?tv_ok(T1, libdecaf_curve25519, ed25519_sign, [Message, SK], Signature),
-	?tv_ok(T2, libdecaf_curve25519, ed25519_verify, [Signature, Message, PK], true).
+	?tv_ok(T2, libdecaf_curve25519, ed25519_verify, [Signature, Message, PK], true),
+	KP = libdecaf_curve25519:keypair_derive(Secret),
+	?tv_ok(T3, libdecaf_curve25519, keypair_extract_private_key, [KP], Secret),
+	?tv_ok(T4, libdecaf_curve25519, keypair_extract_public_key, [KP], PK),
+	?tv_ok(T5, libdecaf_curve25519, ed25519_keypair_sign, [Message, KP], Signature).
 
 %% @private
 ed25519ctx_vector({Secret, PK, Message, Context, Signature}) ->
 	SK = << Secret/binary, PK/binary >>,
 	?tv_ok(T0, libdecaf_curve25519, eddsa_secret_to_pk, [Secret], PK),
 	?tv_ok(T1, libdecaf_curve25519, ed25519ctx_sign, [Message, SK, Context], Signature),
-	?tv_ok(T2, libdecaf_curve25519, ed25519ctx_verify, [Signature, Message, PK, Context], true).
+	?tv_ok(T2, libdecaf_curve25519, ed25519ctx_verify, [Signature, Message, PK, Context], true),
+	KP = libdecaf_curve25519:keypair_derive(Secret),
+	?tv_ok(T3, libdecaf_curve25519, keypair_extract_private_key, [KP], Secret),
+	?tv_ok(T4, libdecaf_curve25519, keypair_extract_public_key, [KP], PK),
+	?tv_ok(T5, libdecaf_curve25519, ed25519ctx_keypair_sign, [Message, KP, Context], Signature).
 
 %% @private
 ed25519ph_vector({Secret, PK, Message, Signature}) ->
 	SK = << Secret/binary, PK/binary >>,
 	?tv_ok(T0, libdecaf_curve25519, eddsa_secret_to_pk, [Secret], PK),
 	?tv_ok(T1, libdecaf_curve25519, ed25519ph_sign, [Message, SK], Signature),
-	?tv_ok(T2, libdecaf_curve25519, ed25519ph_verify, [Signature, Message, PK], true).
+	?tv_ok(T2, libdecaf_curve25519, ed25519ph_verify, [Signature, Message, PK], true),
+	KP = libdecaf_curve25519:keypair_derive(Secret),
+	?tv_ok(T3, libdecaf_curve25519, keypair_extract_private_key, [KP], Secret),
+	?tv_ok(T4, libdecaf_curve25519, keypair_extract_public_key, [KP], PK),
+	?tv_ok(T5, libdecaf_curve25519, ed25519ph_keypair_sign, [Message, KP], Signature).
 
 %% @private
 ed448_vector({Secret, PK, Message, Signature}) ->
 	SK = << Secret/binary, PK/binary >>,
 	?tv_ok(T0, libdecaf_curve448, eddsa_secret_to_pk, [Secret], PK),
 	?tv_ok(T1, libdecaf_curve448, ed448_sign, [Message, SK], Signature),
-	?tv_ok(T2, libdecaf_curve448, ed448_verify, [Signature, Message, PK], true);
+	?tv_ok(T2, libdecaf_curve448, ed448_verify, [Signature, Message, PK], true),
+	KP = libdecaf_curve448:keypair_derive(Secret),
+	?tv_ok(T3, libdecaf_curve448, keypair_extract_private_key, [KP], Secret),
+	?tv_ok(T4, libdecaf_curve448, keypair_extract_public_key, [KP], PK),
+	?tv_ok(T5, libdecaf_curve448, ed448_keypair_sign, [Message, KP], Signature);
 ed448_vector({Secret, PK, Message, Context, Signature}) ->
 	SK = << Secret/binary, PK/binary >>,
 	?tv_ok(T0, libdecaf_curve448, eddsa_secret_to_pk, [Secret], PK),
 	?tv_ok(T1, libdecaf_curve448, ed448_sign, [Message, SK, Context], Signature),
-	?tv_ok(T2, libdecaf_curve448, ed448_verify, [Signature, Message, PK, Context], true).
+	?tv_ok(T2, libdecaf_curve448, ed448_verify, [Signature, Message, PK, Context], true),
+	KP = libdecaf_curve448:keypair_derive(Secret),
+	?tv_ok(T3, libdecaf_curve448, keypair_extract_private_key, [KP], Secret),
+	?tv_ok(T4, libdecaf_curve448, keypair_extract_public_key, [KP], PK),
+	?tv_ok(T5, libdecaf_curve448, ed448_keypair_sign, [Message, KP, Context], Signature).
 
 %% @private
 ed448ph_vector({Secret, PK, Message, Signature}) ->
 	SK = << Secret/binary, PK/binary >>,
 	?tv_ok(T0, libdecaf_curve448, eddsa_secret_to_pk, [Secret], PK),
 	?tv_ok(T1, libdecaf_curve448, ed448ph_sign, [Message, SK], Signature),
-	?tv_ok(T2, libdecaf_curve448, ed448ph_verify, [Signature, Message, PK], true);
+	?tv_ok(T2, libdecaf_curve448, ed448ph_verify, [Signature, Message, PK], true),
+	KP = libdecaf_curve448:keypair_derive(Secret),
+	?tv_ok(T3, libdecaf_curve448, keypair_extract_private_key, [KP], Secret),
+	?tv_ok(T4, libdecaf_curve448, keypair_extract_public_key, [KP], PK),
+	?tv_ok(T5, libdecaf_curve448, ed448ph_keypair_sign, [Message, KP], Signature);
 ed448ph_vector({Secret, PK, Message, Context, Signature}) ->
 	SK = << Secret/binary, PK/binary >>,
 	?tv_ok(T0, libdecaf_curve448, eddsa_secret_to_pk, [Secret], PK),
 	?tv_ok(T1, libdecaf_curve448, ed448ph_sign, [Message, SK, Context], Signature),
-	?tv_ok(T2, libdecaf_curve448, ed448ph_verify, [Signature, Message, PK, Context], true).
+	?tv_ok(T2, libdecaf_curve448, ed448ph_verify, [Signature, Message, PK, Context], true),
+	KP = libdecaf_curve448:keypair_derive(Secret),
+	?tv_ok(T3, libdecaf_curve448, keypair_extract_private_key, [KP], Secret),
+	?tv_ok(T4, libdecaf_curve448, keypair_extract_public_key, [KP], PK),
+	?tv_ok(T5, libdecaf_curve448, ed448ph_keypair_sign, [Message, KP, Context], Signature).
 
 %% @private
 hexstr2bin(S) ->

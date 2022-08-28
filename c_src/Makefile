@@ -103,8 +103,8 @@ LDLIBS += -L"$(ERL_INTERFACE_LIB_DIR)" \
 
 # Dependencies.
 
-ED448GOLDILOCKS_VSN ?= features-20220121
-ED448GOLDILOCKS_GIT ?= git://github.com/potatosalad/ed448goldilocks.git
+ED448GOLDILOCKS_VSN ?= features-20220828
+ED448GOLDILOCKS_GIT ?= https://github.com/potatosalad/ed448goldilocks.git
 ED448GOLDILOCKS_SRC_DIR ?= $(C_DEPS_DIR)/ed448goldilocks
 ED448GOLDILOCKS_BUILD_DIR ?= $(C_DEPS_DIR)/ed448goldilocks-build
 ED448GOLDILOCKS_INCLUDE_DIR ?= $(ED448GOLDILOCKS_BUILD_DIR)/src/GENERATED/include
