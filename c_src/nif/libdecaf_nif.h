@@ -103,7 +103,7 @@ extern ErlNifResourceType *libdecaf_nif_xof_resource_type;
                                                                   enif_make_int((Env), __LINE__)),                                 \
                                                  enif_make_string((Env), (Str), (ERL_NIF_LATIN1))))
 
-#define EXCP_F(Env, Id, Fmt, ...)                                                                                                         \
+#define EXCP_F(Env, Id, Fmt, ...)                                                                                                  \
     enif_raise_exception((Env), enif_make_tuple3((Env), (Id),                                                                      \
                                                  enif_make_tuple2((Env), enif_make_string((Env), __FILE__, (ERL_NIF_LATIN1)),      \
                                                                   enif_make_int((Env), __LINE__)),                                 \

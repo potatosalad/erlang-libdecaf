@@ -22,7 +22,8 @@ libdecaf_nif_ed448_derive_keypair_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM
         return EXCP_BADARG_F(env, "Privkey must be a binary of size %d-bytes", DECAF_EDDSA_448_PRIVATE_BYTES);
     }
 
-    keypair = (libdecaf_nif_ed448_keypair_t *)(enif_alloc_resource(libdecaf_nif_ed448_keypair_resource_type, sizeof(libdecaf_nif_ed448_keypair_t)));
+    keypair = (libdecaf_nif_ed448_keypair_t *)(enif_alloc_resource(libdecaf_nif_ed448_keypair_resource_type,
+                                                                   sizeof(libdecaf_nif_ed448_keypair_t)));
     if (keypair == NULL) {
         return EXCP_ERROR(env, "Failed to allocate libdecaf_nif_ed448_keypair_t");
     }

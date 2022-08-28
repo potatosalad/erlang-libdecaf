@@ -68,7 +68,9 @@ libdecaf_nif_ed448_sign_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     (void)decaf_ed448_derive_keypair(keypair, privkey.data);
     (void)decaf_ed448_keypair_extract_public_key(rederived_pubkey, keypair);
     if (decaf_memeq(rederived_pubkey, pubkey.data, sizeof(rederived_pubkey)) != DECAF_TRUE) {
-        return EXCP_ERROR(env, "UNSAFE: Privkey and Pubkey are not part of the same keypair. See: https://github.com/MystenLabs/ed448-unsafe-libs");
+        return EXCP_ERROR(
+            env,
+            "UNSAFE: Privkey and Pubkey are not part of the same keypair. See: https://github.com/MystenLabs/ed448-unsafe-libs");
     }
     signature = (uint8_t *)(enif_make_new_binary(env, DECAF_EDDSA_448_SIGNATURE_BYTES, &out));
     (void)decaf_ed448_keypair_sign(signature, keypair, message.data, message.size, prehashed, context.data, context.size);
@@ -112,7 +114,9 @@ libdecaf_nif_ed448_sign_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     (void)decaf_ed448_derive_keypair(keypair, privkey.data);
     (void)decaf_ed448_keypair_extract_public_key(rederived_pubkey, keypair);
     if (decaf_memeq(rederived_pubkey, pubkey.data, sizeof(rederived_pubkey)) != DECAF_TRUE) {
-        return EXCP_ERROR(env, "UNSAFE: Privkey and Pubkey are not part of the same keypair. See: https://github.com/MystenLabs/ed448-unsafe-libs");
+        return EXCP_ERROR(
+            env,
+            "UNSAFE: Privkey and Pubkey are not part of the same keypair. See: https://github.com/MystenLabs/ed448-unsafe-libs");
     }
     (void)decaf_ed448_prehash_init(hash);
     (void)decaf_ed448_prehash_update(hash, message.data, message.size);
@@ -155,7 +159,8 @@ libdecaf_nif_ed448_verify_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         return EXCP_BADARG(env, "Context must be a binary of size <= 255-bytes");
     }
 
-    if (decaf_ed448_verify(signature.data, pubkey.data, message.data, message.size, prehashed, context.data, context.size) == DECAF_SUCCESS) {
+    if (decaf_ed448_verify(signature.data, pubkey.data, message.data, message.size, prehashed, context.data, context.size) ==
+        DECAF_SUCCESS) {
         return ATOM(true);
     } else {
         return ATOM(false);

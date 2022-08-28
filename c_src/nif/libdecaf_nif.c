@@ -317,9 +317,9 @@ static void libdecaf_nif_unload(ErlNifEnv *env, void *priv_data);
 static void
 libdecaf_nif_make_atoms(ErlNifEnv *env)
 {
-#define MAKE_ATOM(Id, Value)                                                                                           \
-    {                                                                                                                  \
-        libdecaf_nif_atom_table->ATOM_##Id = enif_make_atom(env, Value);                                         \
+#define MAKE_ATOM(Id, Value)                                                                                                       \
+    {                                                                                                                              \
+        libdecaf_nif_atom_table->ATOM_##Id = enif_make_atom(env, Value);                                                           \
     }
     MAKE_ATOM(badarg, "badarg");
     MAKE_ATOM(error, "error");
