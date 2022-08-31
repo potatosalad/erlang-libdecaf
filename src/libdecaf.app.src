@@ -2,7 +2,7 @@
 %% vim: ts=4 sw=4 ft=erlang noet
 {application, libdecaf, [
 	{description, "libdecaf NIF for ECDH (X25519, X448), EdDSA (Ed25519, Ed25519ctx, Ed25519ph, Ed448, Ed448ph), curve25519, curve448, spongerng"},
-	{vsn, "2.1.0"},
+	{vsn, "2.1.1"},
 	{id, "git"},
 	{registered, []},
 	{applications, [
@@ -11,8 +11,12 @@
 		crypto
 	]},
 	{modules, []},
-	{maintainers, ["Andrew Bennett"]},
 	{licenses, ["MIT"]},
 	{links, [{"Github", "https://github.com/potatosalad/erlang-libdecaf"}]},
-	{include_paths, ["c_deps/ed448goldilocks/"]}
+	{include_paths, [
+		"build.config",
+		"erlang.mk",
+		"Makefile",
+		"c_deps/ed448goldilocks/"
+	]}
 ]}.

@@ -41,7 +41,7 @@ Add `libdecaf` to your project's dependencies in `mix.exs`
 ```elixir
 defp deps do
   [
-    {:libdecaf, "~> 2.1"}
+    {:libdecaf, "~> 2.1.1"}
   ]
 end
 ```
@@ -50,7 +50,7 @@ Add `libdecaf` to your project's dependencies in your `Makefile` for [`erlang.mk
 
 ```erlang
 {deps, [
-  {libdecaf, "2.1.0"}
+  {libdecaf, "2.1.1"}
 ]}.
 ```
 
