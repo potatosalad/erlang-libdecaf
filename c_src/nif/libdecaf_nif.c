@@ -368,7 +368,8 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     LOAD_RESOURCE_TYPE(hash);
     LOAD_RESOURCE_TYPE(xof);
 #undef LOAD_RESOURCE_TYPE
-    if (libdecaf_nif_groups_load(env) != 0) return -1;
+    if (libdecaf_nif_groups_load(env) != 0)
+        return -1;
     /* Initialize common atoms */
     (void)libdecaf_nif_make_atoms(env);
     return retval;
@@ -395,7 +396,8 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
     UPGRADE_RESOURCE_TYPE(hash);
     UPGRADE_RESOURCE_TYPE(xof);
 #undef UPGRADE_RESOURCE_TYPE
-    if (libdecaf_nif_groups_load(env) != 0) return -1;
+    if (libdecaf_nif_groups_load(env) != 0)
+        return -1;
     /* Initialize common atoms */
     (void)libdecaf_nif_make_atoms(env);
     return retval;

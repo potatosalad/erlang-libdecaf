@@ -66,6 +66,8 @@ _build
 *.iml
 rebar3.crashdump
 /rebar3
+/elp
+/erlfmt
 
 # Other test artifacts.
 /test/fips180_4_SUITE_data/shabytetestvectors

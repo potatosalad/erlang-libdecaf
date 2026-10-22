@@ -73,6 +73,21 @@ test vectors. RFC 9496 group test vectors are included in the repository.
 
 ## Usage
 
+### Developer tools
+
+The targets download erlfmt and ELP (including eqWAlizer) on demand.
+Building erlfmt uses the installed Rebar3, with a pinned download as a fallback:
+
+```sh
+gmake format      # Format C and Erlang sources
+gmake lint        # Check formatting and run Eqwalizer
+gmake eqwalize-all # Run only Eqwalizer
+```
+
+ELP defaults to its OTP 29.1 build. With OTP 28 or 27, set
+`ELP_OTP_VERSION=28.5` or `ELP_OTP_VERSION=27.3` when installing it.
+The checked-in `.elp.toml` also enables Eqwalizer for ELP editor integrations.
+
 ### ECDH
 
 #### X25519

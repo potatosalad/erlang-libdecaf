@@ -1,3 +1,4 @@
+%%% % @format
 %% -*- mode: erlang; tab-width: 4; indent-tabs-mode: 1; st-rulers: [70] -*-
 %% vim: ts=4 sw=4 ft=erlang noet
 %%%-------------------------------------------------------------------
@@ -12,22 +13,23 @@
 
 %% API
 -export([
-	hash/2,
-	hash/3,
-	init/1,
-	update/2,
-	final/1,
-	final/2
+    hash/2,
+    hash/3,
+    init/1,
+    update/2,
+    final/1,
+    final/2
 ]).
 
 %% Macros
 -define(WRAP_STATE(T, R),
-	case R of
-		NewState when is_reference(NewState) ->
-			{T, NewState};
-		Other ->
-			Other
-	end).
+    case R of
+        NewState when is_reference(NewState) ->
+            {T, NewState};
+        Other ->
+            Other
+    end
+).
 -define(SHA2_512_OUTPUT_BYTES, 64).
 
 %%%===================================================================
@@ -35,34 +37,34 @@
 %%%===================================================================
 
 hash(sha2_512, In) ->
-	libdecaf:sha2_512(In, ?SHA2_512_OUTPUT_BYTES);
+    libdecaf:sha2_512(In, ?SHA2_512_OUTPUT_BYTES);
 hash(Type, In) ->
-	erlang:error({badarg, [Type, In]}).
+    erlang:error({badarg, [Type, In]}).
 
 hash(sha2_512, In, Outlen) ->
-	libdecaf:sha2_512(In, Outlen);
+    libdecaf:sha2_512(In, Outlen);
 hash(Type, In, Outlen) ->
-	erlang:error({badarg, [Type, In, Outlen]}).
+    erlang:error({badarg, [Type, In, Outlen]}).
 
 init(sha2_512) ->
-	?WRAP_STATE(sha2_512, libdecaf:sha2_512_init());
+    ?WRAP_STATE(sha2_512, libdecaf:sha2_512_init());
 init(Type) ->
-	erlang:error({badarg, [Type]}).
+    erlang:error({badarg, [Type]}).
 
 update({sha2_512, State}, In) ->
-	?WRAP_STATE(sha2_512, libdecaf:sha2_512_update(State, In));
+    ?WRAP_STATE(sha2_512, libdecaf:sha2_512_update(State, In));
 update(State, In) ->
-	erlang:error({badarg, [State, In]}).
+    erlang:error({badarg, [State, In]}).
 
 final({sha2_512, State}) ->
-	libdecaf:sha2_512_final(State, ?SHA2_512_OUTPUT_BYTES);
+    libdecaf:sha2_512_final(State, ?SHA2_512_OUTPUT_BYTES);
 final(State) ->
-	erlang:error({badarg, [State]}).
+    erlang:error({badarg, [State]}).
 
 final({sha2_512, State}, Outlen) ->
-	libdecaf:sha2_512_final(State, Outlen);
+    libdecaf:sha2_512_final(State, Outlen);
 final(State, Outlen) ->
-	erlang:error({badarg, [State, Outlen]}).
+    erlang:error({badarg, [State, Outlen]}).
 
 %%%-------------------------------------------------------------------
 %%% Internal functions

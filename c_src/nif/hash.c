@@ -8,9 +8,9 @@
 /* Legacy Keccak uses the SHA-3 sponge with the original 0x01 padding.
  * These parameters used to be supplied by the upstream feature branch. */
 #define LIBDECAF_KECCAK_INIT(bits)                                                                                                 \
-    static void libdecaf_nif_keccak_##bits##_init(decaf_keccak_sponge_t sponge)                                                     \
-    {                                                                                                                            \
-        static const decaf_kparams_s params = {0, 'A', 200 - (bits) / 4, 0, 0x01, 0x80, (bits) / 8, (bits) / 8};                  \
+    static void libdecaf_nif_keccak_##bits##_init(decaf_keccak_sponge_t sponge)                                                    \
+    {                                                                                                                              \
+        static const decaf_kparams_s params = {0, 'A', 200 - (bits) / 4, 0, 0x01, 0x80, (bits) / 8, (bits) / 8};                   \
         decaf_sha3_init(sponge, &params);                                                                                          \
     }
 

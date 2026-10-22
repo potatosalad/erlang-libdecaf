@@ -253,3 +253,6 @@ distclean-env:
 
 format:
 	$(gen_verbose) clang-format -i nif/*.c nif/*.h nif/impl/*.c.h
+
+lint-format:
+	$(gen_verbose) clang-format --dry-run --Werror nif/*.c nif/*.h nif/impl/*.c.h
