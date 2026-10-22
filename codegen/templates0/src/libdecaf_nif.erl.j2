@@ -35,6 +35,9 @@ later for native Markdown documentation attributes.
 
 -on_load(init/0).
 
+%% Error if the crypto NIFs are not loaded.
+-define(nif_stub, nif_stub_error(?LINE)).
+
 %% NIF API
 -export([
 ~J{ for function in ctx.nif.functions }.
@@ -80,7 +83,7 @@ later for native Markdown documentation attributes.
 -doc #{group => "~J< function.group >."}.
 -spec ~J< function.spec >..
 ~J< function.name >.(~J< function.parameters >.) ->
-    erlang:nif_error({nif_not_loaded, ?MODULE}).
+    ?nif_stub.
 
 ~J{ endfor }.
 %%%-----------------------------------------------------------------------------
@@ -92,3 +95,8 @@ later for native Markdown documentation attributes.
 init() ->
     SoName = filename:join(libdecaf:priv_dir(), ?MODULE_STRING),
     erlang:load_nif(SoName, 0).
+
+-doc false.
+-spec nif_stub_error(Line :: pos_integer()) -> no_return().
+nif_stub_error(Line) ->
+    erlang:nif_error({nif_not_loaded, module, ?MODULE, line, Line}).
