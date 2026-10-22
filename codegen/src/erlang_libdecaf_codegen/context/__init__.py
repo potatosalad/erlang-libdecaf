@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from ..schema import Root
 from .nif import NIF
-from .functions import Function, functions, hash_groups, types
+from .functions import Function, HashGroup, functions, hash_groups, types
 
 
 @dataclass
@@ -36,3 +36,7 @@ class Context:
     @property
     def xof_functions(self) -> tuple[Function, ...]:
         return tuple(function for function in self.nif.functions if function.family == "hash_xof")
+
+    @property
+    def xof_groups(self) -> tuple[HashGroup, ...]:
+        return tuple(group for group in hash_groups(self.schema.nif) if group.family == "hash_xof")

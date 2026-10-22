@@ -1,9 +1,27 @@
 /* clang-format off */ //-
+{% from 'c_src/nif/hash_xof/lifecycle.c.inc' import lifecycle %}
+{% from 'c_src/nif/hash_xof/entry_points.c.inc' import entry_points %}
+{% set group = 'kt' %}
+{% set p = 'libdecaf_nif_hash_xof_kt' %}
+{% set profile = ctx.schema.nif.xof.values() | selectattr('group', 'equalto', group) | first %}
 #include <keccak_internal.h>
 #include "hash_xof_kt.h"
 
 #include <assert.h>
-#include <string.h>
+
+typedef struct libdecaf_nif_hash_xof_kt_ctx_s {
+    decaf_keccak_sponge_s root;
+    decaf_keccak_sponge_s leaf;
+    size_t rate;
+    size_t chaining_len;
+    size_t root_len;
+    size_t leaf_len;
+    size_t chaining_count;
+    size_t customization_len;
+    bool tree;
+    bool finalized;
+} libdecaf_nif_hash_xof_kt_ctx_t;
+
 
 /* RFC 9861 length_encode differs from SP 800-185 right_encode at zero. */
 static size_t
@@ -34,7 +52,7 @@ libdecaf_nif_hash_xof_kt_init(libdecaf_nif_hash_xof_kt_ctx_t *ctx, size_t rate)
 
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}
 {% if algorithm.kt_rate is not none %}
-void
+static void
 {{ algorithm.init }}(libdecaf_nif_hash_xof_kt_ctx_t *ctx)
 {
     libdecaf_nif_hash_xof_kt_init(ctx, {{ algorithm.kt_rate }});
@@ -54,7 +72,7 @@ libdecaf_nif_hash_xof_kt_emit_leaf(libdecaf_nif_hash_xof_kt_ctx_t *ctx)
     ctx->chaining_count++;
 }
 
-void
+static void
 libdecaf_nif_hash_xof_kt_update(libdecaf_nif_hash_xof_kt_ctx_t *ctx, const uint8_t *input, size_t input_len)
 {
     assert(!ctx->finalized);
@@ -82,7 +100,7 @@ libdecaf_nif_hash_xof_kt_update(libdecaf_nif_hash_xof_kt_ctx_t *ctx, const uint8
     }
 }
 
-void
+static void
 libdecaf_nif_hash_xof_kt_output(libdecaf_nif_hash_xof_kt_ctx_t *ctx, uint8_t *output, size_t output_len)
 {
     if (!ctx->finalized) {
@@ -103,9 +121,72 @@ libdecaf_nif_hash_xof_kt_output(libdecaf_nif_hash_xof_kt_ctx_t *ctx, uint8_t *ou
     decaf_sha3_output(&ctx->root, output, output_len);
 }
 
-void
+static void
 libdecaf_nif_hash_xof_kt_destroy(libdecaf_nif_hash_xof_kt_ctx_t *ctx)
 {
     decaf_bzero(ctx, sizeof(*ctx));
+}
+
+static bool
+{{ p }}_select(ErlNifEnv *env, ERL_NIF_TERM algorithm, {{ p }}_ctx_t *state)
+{
+{% for name, profile in ctx.schema.nif.xof | dictsort if profile.group == group %}
+    if (enif_is_identical(algorithm, ATOM({{ name }}))) {
+        {{ profile.init }}(state);
+        return true;
+    }
+{% endfor %}
+    return false;
+}
+
+{{ lifecycle(p, profile.update, profile.output, profile.destroy) }}
+{{ entry_points(p, 'hash_xof_' + group, profile.destroy) }}
+
+/* KT customization is absorbed after the message, then length-encoded by output. */
+ERL_NIF_TERM
+{{ p }}_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifBinary custom;
+    if (argc != 4 || !enif_inspect_iolist_as_binary(env, argv[3], &custom)) {
+        return EXCP_BADARG(env, "Customization must be iodata");
+    }
+    if (!enif_is_binary(env, argv[1]) && !enif_is_list(env, argv[1])) {
+        return EXCP_BADARG(env, "Input must be iodata");
+    }
+    unsigned long output_len;
+    if (!enif_get_ulong(env, argv[2], &output_len)) {
+        return EXCP_BADARG(env, "OutputLen must be a non-negative integer");
+    }
+    {{ p }}_ctx_t state;
+    if (!{{ p }}_select(env, argv[0], &state)) {
+        return EXCP_BADARG(env, "Algorithm must be kt128 or kt256");
+    }
+    state.customization_len = custom.size;
+    ERL_NIF_TERM input = enif_make_list2(env, argv[1], argv[3]);
+    ERL_NIF_TERM result = {{ p }}_absorb(env, &state, input, {{ p }}_squeeze, output_len);
+    {{ p }}_destroy(&state);
+    return result;
+}
+
+ERL_NIF_TERM
+{{ p }}_final_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    {{ p }}_ctx_t *old_state;
+    if (argc != 3 || !enif_get_resource(env, argv[0], {{ p }}_resource_type, (void **)&old_state)) {
+        return EXCP_BADARG(env, "State must be a hash_xof_kt resource");
+    }
+    unsigned long output_len;
+    if (!enif_get_ulong(env, argv[1], &output_len)) {
+        return EXCP_BADARG(env, "OutputLen must be a non-negative integer");
+    }
+    ErlNifBinary custom;
+    if (!enif_inspect_iolist_as_binary(env, argv[2], &custom)) {
+        return EXCP_BADARG(env, "Customization must be iodata");
+    }
+    {{ p }}_ctx_t state = *old_state;
+    state.customization_len = custom.size;
+    ERL_NIF_TERM result = {{ p }}_absorb(env, &state, argv[2], {{ p }}_squeeze, output_len);
+    {{ p }}_destroy(&state);
+    return result;
 }
 /* clang-format on */ //-

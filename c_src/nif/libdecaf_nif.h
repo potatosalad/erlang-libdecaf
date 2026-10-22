@@ -28,10 +28,6 @@ enum libdecaf_nif_trap_type_t {
     LIBDECAF_NIF_TRAP_TYPE_CSPRNG_STIR,
     LIBDECAF_NIF_TRAP_TYPE_HASH,
     LIBDECAF_NIF_TRAP_TYPE_HASH_UPDATE,
-    LIBDECAF_NIF_TRAP_TYPE_XOF_ABSORB,
-    LIBDECAF_NIF_TRAP_TYPE_XOF_SQUEEZE,
-    LIBDECAF_NIF_TRAP_TYPE_XOF_UPDATE,
-    LIBDECAF_NIF_TRAP_TYPE_XOF_OUTPUT,
 };
 
 struct libdecaf_nif_trap_s {
@@ -45,7 +41,6 @@ extern ErlNifResourceType *libdecaf_nif_csprng_resource_type;
 extern ErlNifResourceType *libdecaf_nif_ed25519_keypair_resource_type;
 extern ErlNifResourceType *libdecaf_nif_ed448_keypair_resource_type;
 extern ErlNifResourceType *libdecaf_nif_hash_resource_type;
-extern ErlNifResourceType *libdecaf_nif_hash_xof_resource_type;
 
 /* NIF Utility Macros and Functions */
 

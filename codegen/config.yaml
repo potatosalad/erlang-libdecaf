@@ -149,18 +149,18 @@ nif:
       kt_rate: 136
     shake128:
       group: sha3
-      context: decaf_shake128_ctx_s
-      init: decaf_shake128_init
-      update: decaf_shake128_update
-      output: decaf_shake128_output
-      destroy: decaf_shake128_destroy
+      context: decaf_keccak_sponge_s
+      init: decaf_shake128_gen_init
+      update: decaf_sha3_update
+      output: decaf_sha3_output
+      destroy: decaf_sha3_destroy
     shake256:
       group: sha3
-      context: decaf_shake256_ctx_s
-      init: decaf_shake256_init
-      update: decaf_shake256_update
-      output: decaf_shake256_output
-      destroy: decaf_shake256_destroy
+      context: decaf_keccak_sponge_s
+      init: decaf_shake256_gen_init
+      update: decaf_sha3_update
+      output: decaf_sha3_output
+      destroy: decaf_sha3_destroy
     turboshake128:
       group: turboshake
       context: decaf_keccak_sponge_s

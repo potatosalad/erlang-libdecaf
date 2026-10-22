@@ -2,92 +2,24 @@
 #ifndef LIBDECAF_NIF_HASH_XOF_H
 #define LIBDECAF_NIF_HASH_XOF_H
 
-#include "libdecaf_nif.h"
-#include "hash_xof_kt.h"
-#include <decaf/shake.h>
+{% for group in ctx.xof_groups %}
+#include "hash_xof/{{ group.name }}.h"
+{% endfor %}
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct libdecaf_nif_hash_xof_table_s libdecaf_nif_hash_xof_table_t;
-typedef struct libdecaf_nif_hash_xof_s libdecaf_nif_hash_xof_t;
-typedef enum libdecaf_nif_hash_xof_type_t libdecaf_nif_hash_xof_type_t;
-typedef struct libdecaf_nif_hash_xof_ctx_s libdecaf_nif_hash_xof_ctx_t;
-
-enum libdecaf_nif_hash_xof_type_t {
-{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-    LIBDECAF_NIF_HASH_XOF_TYPE_{{ name | upper }},
-{% endfor %}
-};
-
-struct libdecaf_nif_hash_xof_s {
-    libdecaf_nif_hash_xof_type_t type;
-    size_t cshake_rate;
-    size_t turbo_rate;
-    size_t kt_rate;
-    void (*init)(void *ctx);
-    void (*update)(void *ctx, const uint8_t *input, size_t input_len);
-    void (*output)(void *ctx, uint8_t *output, size_t output_len);
-    void (*destroy)(void *ctx);
-};
-
-struct libdecaf_nif_hash_xof_ctx_s {
-    union {
-{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-        struct {{ algorithm.context }} {{ name }};
-{% endfor %}
-    } u;
-    libdecaf_nif_hash_xof_type_t type;
-    bool squeezing;
-};
-
-struct libdecaf_nif_hash_xof_table_s {
-{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-    libdecaf_nif_hash_xof_t {{ name }};
-{% endfor %}
-};
-
-extern libdecaf_nif_hash_xof_table_t *libdecaf_nif_hash_xof_table;
-
-extern ERL_NIF_TERM libdecaf_nif_hash_xof_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-extern ERL_NIF_TERM libdecaf_nif_hash_xof_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-extern ERL_NIF_TERM libdecaf_nif_hash_xof_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-extern ERL_NIF_TERM libdecaf_nif_hash_xof_init_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-extern ERL_NIF_TERM libdecaf_nif_hash_xof_init_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-extern ERL_NIF_TERM libdecaf_nif_hash_xof_init_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-extern ERL_NIF_TERM libdecaf_nif_hash_xof_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-extern ERL_NIF_TERM libdecaf_nif_hash_xof_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-extern ERL_NIF_TERM libdecaf_nif_hash_xof_final_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-
-/* Algorithm-specific NIF entry points. */
-{% for function in ctx.xof_functions %}
-extern ERL_NIF_TERM {{ function.c_name }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-{% endfor %}
-
-static inline libdecaf_nif_hash_xof_t *
-libdecaf_nif_hash_xof_from_type(libdecaf_nif_hash_xof_type_t type)
-{
-    switch (type) {
-{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-    case LIBDECAF_NIF_HASH_XOF_TYPE_{{ name | upper }}:
-        return &libdecaf_nif_hash_xof_table->{{ name }};
-{% endfor %}
-    default:
-        return NULL;
-    }
-}
-
-static inline libdecaf_nif_hash_xof_t *
-libdecaf_nif_hash_xof_from_atom(ErlNifEnv *env, ERL_NIF_TERM atom)
-{
-{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-    if (enif_is_identical(atom, ATOM({{ name }}))) {
-        return &libdecaf_nif_hash_xof_table->{{ name }};
-    }
-{% endfor %}
-    return NULL;
-}
+int libdecaf_nif_hash_xof_load(ErlNifEnv *env);
+ERL_NIF_TERM libdecaf_nif_hash_xof_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM libdecaf_nif_hash_xof_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM libdecaf_nif_hash_xof_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM libdecaf_nif_hash_xof_init_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM libdecaf_nif_hash_xof_init_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM libdecaf_nif_hash_xof_init_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM libdecaf_nif_hash_xof_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM libdecaf_nif_hash_xof_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM libdecaf_nif_hash_xof_final_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 #ifdef __cplusplus
 }

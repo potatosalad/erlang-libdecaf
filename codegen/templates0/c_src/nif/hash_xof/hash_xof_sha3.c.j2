@@ -1,0 +1,26 @@
+/* clang-format off */ //-
+{% from 'c_src/nif/hash_xof/lifecycle.c.inc' import lifecycle %}
+{% from 'c_src/nif/hash_xof/entry_points.c.inc' import entry_points %}
+{% set group = 'sha3' %}
+{% set p = 'libdecaf_nif_hash_xof_sha3' %}
+{% set profile = ctx.schema.nif.xof.values() | selectattr('group', 'equalto', group) | first %}
+#include <keccak_internal.h>
+#include "hash_xof_sha3.h"
+
+typedef decaf_keccak_sponge_s {{ p }}_ctx_t;
+
+static bool
+{{ p }}_select(ErlNifEnv *env, ERL_NIF_TERM algorithm, {{ p }}_ctx_t *state)
+{
+{% for name, profile in ctx.schema.nif.xof | dictsort if profile.group == group %}
+    if (enif_is_identical(algorithm, ATOM({{ name }}))) {
+        {{ profile.init }}(state);
+        return true;
+    }
+{% endfor %}
+    return false;
+}
+
+{{ lifecycle(p, profile.update, profile.output, profile.destroy) }}
+{{ entry_points(p, 'hash_xof_' + group, profile.destroy) }}
+/* clang-format on */ //-

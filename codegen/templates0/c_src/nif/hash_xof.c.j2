@@ -1,915 +1,144 @@
 /* clang-format off */ //-
-
-#include <keccak_internal.h>
-
 #include "hash_xof.h"
 
-/* Trap Definitions */
-
-typedef struct libdecaf_nif_hash_xof_absorb_trap_s libdecaf_nif_hash_xof_absorb_trap_t;
-static void libdecaf_nif_hash_xof_absorb_trap_dtor(ErlNifEnv *caller_env, void *obj);
-
-struct libdecaf_nif_hash_xof_absorb_trap_s {
-    libdecaf_nif_trap_t super;
-    libdecaf_nif_hash_xof_t *xof;
-    libdecaf_nif_hash_xof_ctx_t *ctx;
-    ErlNifBinary input_bin;
-    size_t input_off;
-    size_t output_len;
-};
-
-void
-libdecaf_nif_hash_xof_absorb_trap_dtor(ErlNifEnv *caller_env, void *obj)
+/* Compatibility dispatch only. Each family owns validation, state, and trapping. */
+int
+libdecaf_nif_hash_xof_load(ErlNifEnv *env)
 {
-    libdecaf_nif_hash_xof_absorb_trap_t *trap = (void *)obj;
-    if (trap != NULL && trap->ctx != NULL) {
-        XNIF_TRACE_F("libdecaf_nif_hash_xof_absorb_trap_dtor:%s:%d\n", __FILE__, __LINE__);
-        (void)trap->xof->destroy((void *)trap->ctx);
-        (void)enif_free((void *)trap->ctx);
-        trap->ctx = NULL;
-    }
-    return;
-}
-
-typedef struct libdecaf_nif_hash_xof_squeeze_trap_s libdecaf_nif_hash_xof_squeeze_trap_t;
-static void libdecaf_nif_hash_xof_squeeze_trap_dtor(ErlNifEnv *caller_env, void *obj);
-
-struct libdecaf_nif_hash_xof_squeeze_trap_s {
-    libdecaf_nif_trap_t super;
-    libdecaf_nif_hash_xof_t *xof;
-    libdecaf_nif_hash_xof_ctx_t *ctx;
-    ErlNifBinary output_bin;
-    size_t output_off;
-    size_t output_len;
-};
-
-void
-libdecaf_nif_hash_xof_squeeze_trap_dtor(ErlNifEnv *caller_env, void *obj)
-{
-    libdecaf_nif_hash_xof_squeeze_trap_t *trap = (void *)obj;
-    if (trap != NULL && trap->ctx != NULL) {
-        XNIF_TRACE_F("libdecaf_nif_hash_xof_squeeze_trap_dtor:%s:%d\n", __FILE__, __LINE__);
-        (void)trap->xof->destroy((void *)trap->ctx);
-        (void)enif_free((void *)trap->ctx);
-        trap->ctx = NULL;
-        (void)enif_release_binary(&trap->output_bin);
-    }
-    return;
-}
-
-typedef struct libdecaf_nif_hash_xof_update_trap_s libdecaf_nif_hash_xof_update_trap_t;
-static void libdecaf_nif_hash_xof_update_trap_dtor(ErlNifEnv *caller_env, void *obj);
-
-struct libdecaf_nif_hash_xof_update_trap_s {
-    libdecaf_nif_trap_t super;
-    libdecaf_nif_hash_xof_t *xof;
-    libdecaf_nif_hash_xof_ctx_t *new_ctx;
-    ErlNifBinary input_bin;
-    size_t input_off;
-};
-
-void
-libdecaf_nif_hash_xof_update_trap_dtor(ErlNifEnv *caller_env, void *obj)
-{
-    libdecaf_nif_hash_xof_update_trap_t *trap = (void *)obj;
-    if (trap != NULL && trap->new_ctx != NULL) {
-        XNIF_TRACE_F("libdecaf_nif_hash_xof_update_trap_dtor:%s:%d\n", __FILE__, __LINE__);
-        (void)enif_release_resource((void *)trap->new_ctx);
-        trap->new_ctx = NULL;
-    }
-    return;
-}
-
-typedef struct libdecaf_nif_hash_xof_output_trap_s libdecaf_nif_hash_xof_output_trap_t;
-static void libdecaf_nif_hash_xof_output_trap_dtor(ErlNifEnv *caller_env, void *obj);
-
-struct libdecaf_nif_hash_xof_output_trap_s {
-    libdecaf_nif_trap_t super;
-    libdecaf_nif_hash_xof_t *xof;
-    libdecaf_nif_hash_xof_ctx_t *new_ctx;
-    ErlNifBinary output_bin;
-    size_t output_off;
-    size_t output_len;
-};
-
-void
-libdecaf_nif_hash_xof_output_trap_dtor(ErlNifEnv *caller_env, void *obj)
-{
-    libdecaf_nif_hash_xof_output_trap_t *trap = (void *)obj;
-    if (trap != NULL && trap->new_ctx != NULL) {
-        XNIF_TRACE_F("libdecaf_nif_hash_xof_output_trap_dtor:%s:%d\n", __FILE__, __LINE__);
-        (void)enif_release_resource((void *)trap->new_ctx);
-        trap->new_ctx = NULL;
-        (void)enif_release_binary(&trap->output_bin);
-    }
-    return;
-}
-
-/* Original Keccak padding and unlimited XOF output. */
-{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-{% if algorithm.legacy_keccak_rate is not none %}
-static void
-{{ algorithm.init }}(struct {{ algorithm.context }} *sponge)
-{
-    static const decaf_kparams_s params = {0, 'A', {{ algorithm.legacy_keccak_rate }}, 0, 0x01, 0x80, 0xFF, 0xFF};
-    decaf_sha3_init(sponge, &params);
-}
-{% endif %}
-{% endfor %}
-
-/* Typed adapters keep the upstream function signatures intact. */
-{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-{% if algorithm.turbo_rate is not none %}
-static void
-{{ algorithm.init }}(struct {{ algorithm.context }} *sponge)
-{
-    static const decaf_kparams_s params = {0, 'A', {{ algorithm.turbo_rate }}, 12, 0x1F, 0x80, 0xFF, 0xFF};
-    decaf_sha3_init(sponge, &params);
-}
-{% endif %}
-{% endfor %}
-
-{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-static void
-libdecaf_nif_hash_xof_{{ name }}_init_adapter(void *ctx)
-{
-    {{ algorithm.init }}((struct {{ algorithm.context }} *)ctx);
-}
-
-static void
-libdecaf_nif_hash_xof_{{ name }}_update_adapter(void *ctx, const uint8_t *input, size_t input_len)
-{
-    {{ algorithm.update }}((struct {{ algorithm.context }} *)ctx, input, input_len);
-}
-
-static void
-libdecaf_nif_hash_xof_{{ name }}_output_adapter(void *ctx, uint8_t *output, size_t output_len)
-{
-    {{ algorithm.output }}((struct {{ algorithm.context }} *)ctx, output, output_len);
-}
-
-static void
-libdecaf_nif_hash_xof_{{ name }}_destroy_adapter(void *ctx)
-{
-    {{ algorithm.destroy }}((struct {{ algorithm.context }} *)ctx);
-}
-{% endfor %}
-
-/* Global Variables */
-
-static libdecaf_nif_hash_xof_table_t libdecaf_nif_hash_xof_table_internal = {
-{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-    .{{ name }} = {
-        .type = LIBDECAF_NIF_HASH_XOF_TYPE_{{ name | upper }},
-        .cshake_rate = {{ algorithm.cshake_rate or 0 }},
-        .turbo_rate = {{ algorithm.turbo_rate or 0 }},
-        .kt_rate = {{ algorithm.kt_rate or 0 }},
-        .init = libdecaf_nif_hash_xof_{{ name }}_init_adapter,
-        .update = libdecaf_nif_hash_xof_{{ name }}_update_adapter,
-        .output = libdecaf_nif_hash_xof_{{ name }}_output_adapter,
-        .destroy = libdecaf_nif_hash_xof_{{ name }}_destroy_adapter,
-    },
-{% endfor %}
-};
-
-libdecaf_nif_hash_xof_table_t *libdecaf_nif_hash_xof_table = &libdecaf_nif_hash_xof_table_internal;
-
-/* Function Declarations */
-
-static ERL_NIF_TERM libdecaf_nif_hash_xof_absorb_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_hash_xof_squeeze_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_hash_xof_update_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_hash_xof_output_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_hash_xof_compute_from_state(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[], const libdecaf_nif_hash_xof_ctx_t *old_ctx);
-static ERL_NIF_TERM libdecaf_nif_hash_xof_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-
-/* SP 800-185 encodes lengths in bits, with the integer's byte count first. */
-static size_t
-libdecaf_nif_hash_xof_left_encode(size_t value, uint8_t *encoded)
-{
-    size_t bytes = 1;
-    for (size_t remaining = value; (remaining >>= 8) != 0; bytes++) {
-    }
-    encoded[0] = (uint8_t)bytes;
-    for (size_t i = 0; i < bytes; i++) {
-        encoded[bytes - i] = (uint8_t)(value >> (8 * i));
-    }
-    return bytes + 1;
-}
-
-/* Build bytepad(encode_string(N) || encode_string(S), rate) as iodata.
- * Return 1 on success, 0 for invalid input, or -1 on allocation failure.
- * The ordinary absorb/update paths handle yielding for large prefixes. */
-static int
-libdecaf_nif_hash_xof_cshake_prefix(ErlNifEnv *env, size_t rate, ERL_NIF_TERM function_name,
-                                   ERL_NIF_TERM customization, ERL_NIF_TERM *prefix, bool *customized)
-{
-    ErlNifBinary name, custom;
-    if (!enif_inspect_iolist_as_binary(env, function_name, &name) ||
-        !enif_inspect_iolist_as_binary(env, customization, &custom) ||
-        name.size > SIZE_MAX / 8 || custom.size > SIZE_MAX / 8) {
-        return 0;
-    }
-    *customized = name.size != 0 || custom.size != 0;
-    if (!*customized) {
-        *prefix = enif_make_list(env, 0);
-        return 1;
-    }
-    uint8_t header[2 * (sizeof(size_t) + 1)], encoded_custom[sizeof(size_t) + 1];
-    size_t header_len = libdecaf_nif_hash_xof_left_encode(rate, header);
-    header_len += libdecaf_nif_hash_xof_left_encode(name.size * 8, header + header_len);
-    size_t custom_len = libdecaf_nif_hash_xof_left_encode(custom.size * 8, encoded_custom);
-    size_t remainder = (header_len + name.size % rate + custom_len + custom.size % rate) % rate;
-    size_t padding_len = (rate - remainder) % rate;
-    ERL_NIF_TERM parts[5];
-    uint8_t *data = enif_make_new_binary(env, header_len, &parts[0]);
-    if (data == NULL) {
+{% for group in ctx.xof_groups %}
+    if (libdecaf_nif_{{ group.name }}_load(env) != 0) {
         return -1;
     }
-    memcpy(data, header, header_len);
-    parts[1] = function_name;
-    data = enif_make_new_binary(env, custom_len, &parts[2]);
-    if (data == NULL) {
-        return -1;
-    }
-    memcpy(data, encoded_custom, custom_len);
-    parts[3] = customization;
-    data = enif_make_new_binary(env, padding_len, &parts[4]);
-    if (padding_len != 0) {
-        if (data == NULL) {
-            return -1;
-        }
-        memset(data, 0, padding_len);
-    }
-    *prefix = enif_make_list_from_array(env, parts, 5);
-    return 1;
+{% endfor %}
+    return 0;
 }
-
-/* Function Definitions */
-
 
 ERL_NIF_TERM
 libdecaf_nif_hash_xof_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    return libdecaf_nif_hash_xof_compute(env, argc, argv);
+    if (argc != 3) {
+        return EXCP_BADARG(env, "Invalid argument count");
+    }
+{% for function in ctx.xof_functions if function.operation == 'once' and function.arity == 3 %}
+    if ({% for name in function.algorithms %}enif_is_identical(argv[0], ATOM({{ name }})){% if not loop.last %} || {% endif %}{% endfor %}) {
+        return {{ function.c_name }}(env, argc, argv);
+    }
+{% endfor %}
+    return EXCP_BADARG(env, "Unsupported XOF algorithm for this function arity");
 }
 
 ERL_NIF_TERM
 libdecaf_nif_hash_xof_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    return libdecaf_nif_hash_xof_compute(env, argc, argv);
+    if (argc != 4) {
+        return EXCP_BADARG(env, "Invalid argument count");
+    }
+{% for function in ctx.xof_functions if function.operation == 'once' and function.arity == 4 %}
+    if ({% for name in function.algorithms %}enif_is_identical(argv[0], ATOM({{ name }})){% if not loop.last %} || {% endif %}{% endfor %}) {
+        return {{ function.c_name }}(env, argc, argv);
+    }
+{% endfor %}
+    return EXCP_BADARG(env, "Unsupported XOF algorithm for this function arity");
 }
 
 ERL_NIF_TERM
 libdecaf_nif_hash_xof_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    return libdecaf_nif_hash_xof_compute(env, argc, argv);
+    if (argc != 5) {
+        return EXCP_BADARG(env, "Invalid argument count");
+    }
+{% for function in ctx.xof_functions if function.operation == 'once' and function.arity == 5 %}
+    if ({% for name in function.algorithms %}enif_is_identical(argv[0], ATOM({{ name }})){% if not loop.last %} || {% endif %}{% endfor %}) {
+        return {{ function.c_name }}(env, argc, argv);
+    }
+{% endfor %}
+    return EXCP_BADARG(env, "Unsupported XOF algorithm for this function arity");
 }
-
-static ERL_NIF_TERM
-libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    return libdecaf_nif_hash_xof_compute_from_state(env, argc, argv, NULL);
-}
-
-static ERL_NIF_TERM
-libdecaf_nif_hash_xof_compute_from_state(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[], const libdecaf_nif_hash_xof_ctx_t *old_ctx)
-{
-    libdecaf_nif_hash_xof_t *xof = NULL;
-    ERL_NIF_TERM input;
-    bool customized = false;
-    unsigned int domain = 0x1F;
-    size_t customization_len = 0;
-    ERL_NIF_TERM input_term;
-    ErlNifBinary input_bin;
-    unsigned long output_len;
-    ErlNifBinary output_bin;
-    libdecaf_nif_hash_xof_ctx_t *ctx = NULL;
-    ErlNifEnv *work_env = NULL;
-    long nr_of_reductions;
-    bool is_yielded = false;
-    size_t slice_len;
-
-    // Allocate work environment, we will use this if we need to yield.
-    work_env = enif_alloc_env();
-    if (work_env == NULL) {
-        return EXCP_ERROR(env, "Can't allocate work_env = enif_alloc_env()");
-    }
-
-    if (argc != 3 && argc != 4 && argc != 5) {
-        (void)enif_free_env(work_env);
-        return EXCP_NOTSUP(env, "argc must be 3, 4, or 5");
-    }
-    xof = old_ctx == NULL ? libdecaf_nif_hash_xof_from_atom(env, argv[0]) : libdecaf_nif_hash_xof_from_type(old_ctx->type);
-    if (xof == NULL) {
-        (void)enif_free_env(work_env);
-        return EXCP_BADARG(env, "Bad argument: 'Type'");
-    }
-    if (!enif_is_binary(env, argv[1]) && !enif_is_list(env, argv[1])) {
-        (void)enif_free_env(work_env);
-        return EXCP_BADARG(env, "Bad argument: 'Input'");
-    }
-    if (!enif_get_ulong(env, argv[2], &output_len)) {
-        (void)enif_free_env(work_env);
-        return EXCP_BADARG(env, "Bad argument: 'OutputLen'");
-    }
-    input = argv[1];
-    if (argc == 4) {
-        if (xof->kt_rate != 0) {
-            ErlNifBinary custom;
-            if (!enif_inspect_iolist_as_binary(env, argv[3], &custom)) {
-                (void)enif_free_env(work_env);
-                return EXCP_BADARG(env, "Customization must be iodata");
-            }
-            customization_len = custom.size;
-            input = enif_make_list2(env, input, argv[3]);
-        } else if (xof->turbo_rate == 0 || !enif_get_uint(env, argv[3], &domain) || domain < 1 || domain > 0x7F) {
-            (void)enif_free_env(work_env);
-            return EXCP_BADARG(env, "TurboSHAKE requires a domain byte in 1..127");
-        }
-    }
-    if (argc == 5) {
-        if (xof->cshake_rate == 0) {
-            (void)enif_free_env(work_env);
-            return EXCP_BADARG(env, "Algorithm does not support customization");
-        }
-        ERL_NIF_TERM prefix;
-        int status = libdecaf_nif_hash_xof_cshake_prefix(env, xof->cshake_rate, argv[3], argv[4], &prefix, &customized);
-        if (status != 1) {
-            (void)enif_free_env(work_env);
-            if (status == 0) {
-                return EXCP_BADARG(env, "FunctionName and Customization must be iodata");
-            }
-            return EXCP_ERROR(env, "Can't allocate cSHAKE prefix");
-        }
-        if (customized) {
-            input = enif_make_list2(env, prefix, input);
-        }
-    }
-
-    // Copy the input binary to the work environment so it will be kept when we are yielding.
-    input_term = enif_make_copy(work_env, input);
-    if (!enif_inspect_iolist_as_binary(work_env, input_term, &input_bin)) {
-        (void)enif_free_env(work_env);
-        return EXCP_BADARG(env, "Bad argument: 'Input'");
-    }
-
-    // Allocate xof context
-    ctx = (void *)enif_alloc(sizeof(libdecaf_nif_hash_xof_ctx_t));
-    if (ctx == NULL) {
-        (void)enif_free_env(work_env);
-        return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_xof_ctx_t");
-    }
-
-    if (old_ctx == NULL) {
-        ctx->type = xof->type;
-        ctx->squeezing = false;
-        (void)xof->init((void *)ctx);
-    } else {
-        memcpy(ctx, old_ctx, sizeof(*ctx));
-        customization_len = input_bin.size;
-    }
-    if (xof->kt_rate != 0) {
-        ((libdecaf_nif_hash_xof_kt_ctx_t *)ctx)->customization_len = customization_len;
-    }
-    if (xof->turbo_rate != 0) {
-        ((struct decaf_keccak_sponge_s *)ctx)->params->pad = (uint8_t)domain;
-    }
-    if (customized) {
-        ((struct decaf_keccak_sponge_s *)ctx)->params->pad = 0x04;
-    }
-
-    nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
-
-    is_yielded = (nr_of_reductions < input_bin.size);
-    slice_len = (is_yielded) ? nr_of_reductions : input_bin.size;
-    (void)xof->update((void *)ctx, input_bin.data, slice_len);
-    nr_of_reductions -= slice_len;
-
-    if (is_yielded) {
-        BUMP_ALL_REDS(env);
-        libdecaf_nif_hash_xof_absorb_trap_t *trap = (void *)enif_alloc_resource(libdecaf_nif_trap_resource_type, sizeof(*trap));
-        if (trap == NULL) {
-            (void)xof->destroy((void *)ctx);
-            (void)enif_free((void *)ctx);
-                (void)enif_free_env(work_env);
-            return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_xof_absorb_trap_t");
-        }
-        trap->super.type = LIBDECAF_NIF_TRAP_TYPE_XOF_ABSORB;
-        trap->super.dtor = libdecaf_nif_hash_xof_absorb_trap_dtor;
-        trap->super.work_env = work_env;
-        trap->xof = xof;
-        trap->ctx = ctx;
-        trap->input_bin = input_bin;
-        trap->input_off = slice_len;
-        trap->output_len = output_len;
-        ERL_NIF_TERM newargv[1];
-        newargv[0] = enif_make_resource(env, (void *)trap);
-        (void)enif_release_resource((void *)trap);
-        return enif_schedule_nif(env, "libdecaf_nif_hash_xof_absorb_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
-                                 libdecaf_nif_hash_xof_absorb_2_continue, 1, newargv);
-    } else {
-        // Allocate out binary
-        if (!enif_alloc_binary(output_len, &output_bin)) {
-            (void)xof->destroy((void *)ctx);
-            (void)enif_free((void *)ctx);
-            (void)enif_free_env(work_env);
-            return EXCP_ERROR(env, "Can't allocate 'Output' binary");
-        }
-
-        is_yielded = (nr_of_reductions < output_len);
-        slice_len = (is_yielded) ? nr_of_reductions : output_len;
-        ctx->squeezing = true;
-        (void)xof->output((void *)ctx, output_bin.data, slice_len);
-        nr_of_reductions -= slice_len;
-
-        if (is_yielded) {
-            BUMP_ALL_REDS(env);
-            libdecaf_nif_hash_xof_squeeze_trap_t *trap = (void *)enif_alloc_resource(libdecaf_nif_trap_resource_type, sizeof(*trap));
-            if (trap == NULL) {
-                (void)xof->destroy((void *)ctx);
-                (void)enif_free((void *)ctx);
-                (void)enif_release_binary(&output_bin);
-                (void)enif_free_env(work_env);
-                return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_xof_squeeze_trap_t");
-            }
-            trap->super.type = LIBDECAF_NIF_TRAP_TYPE_XOF_SQUEEZE;
-            trap->super.dtor = libdecaf_nif_hash_xof_squeeze_trap_dtor;
-            trap->super.work_env = NULL;
-            trap->xof = xof;
-            trap->ctx = ctx;
-            trap->output_bin = output_bin;
-            trap->output_off = slice_len;
-            trap->output_len = output_len;
-            ERL_NIF_TERM newargv[1];
-            newargv[0] = enif_make_resource(env, (void *)trap);
-            (void)enif_release_resource((void *)trap);
-            (void)enif_free_env(work_env);
-            return enif_schedule_nif(env, "libdecaf_nif_hash_xof_squeeze_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
-                                     libdecaf_nif_hash_xof_squeeze_2_continue, 1, newargv);
-        } else {
-            BUMP_REMAINING_REDS(env, nr_of_reductions);
-            (void)xof->destroy((void *)ctx);
-            (void)enif_free((void *)ctx);
-            (void)enif_free_env(work_env);
-            return enif_make_binary(env, &output_bin);
-        }
-    }
-}
-
-ERL_NIF_TERM
-libdecaf_nif_hash_xof_absorb_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    long nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
-    bool is_yielded = false;
-    size_t slice_len;
-    libdecaf_nif_hash_xof_absorb_trap_t *old_trap = NULL;
-    ErlNifBinary output_bin;
-
-    if (argc != 1) {
-        return EXCP_NOTSUP(env, "argc must be 1");
-    }
-    if (!enif_get_resource(env, argv[0], libdecaf_nif_trap_resource_type, (void **)&old_trap) ||
-        old_trap->super.type != LIBDECAF_NIF_TRAP_TYPE_XOF_ABSORB || old_trap->ctx == NULL ||
-        old_trap->xof->type != old_trap->ctx->type || old_trap->ctx->squeezing != false) {
-        return EXCP_BADARG(env, "Bad argument: 'Trap'");
-    }
-    is_yielded = (nr_of_reductions < (old_trap->input_bin.size - old_trap->input_off));
-    slice_len = (is_yielded) ? nr_of_reductions : (old_trap->input_bin.size - old_trap->input_off);
-    (void)old_trap->xof->update(old_trap->ctx, old_trap->input_bin.data + old_trap->input_off, slice_len);
-    old_trap->input_off += slice_len;
-    nr_of_reductions -= slice_len;
-    if (is_yielded) {
-        BUMP_ALL_REDS(env);
-        return enif_schedule_nif(env, "libdecaf_nif_hash_xof_absorb_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
-                                 libdecaf_nif_hash_xof_absorb_2_continue, argc, argv);
-    } else {
-        // Allocate out binary
-        if (!enif_alloc_binary(old_trap->output_len, &output_bin)) {
-            return EXCP_ERROR(env, "Can't allocate 'Output' binary");
-        }
-
-        is_yielded = (nr_of_reductions < old_trap->output_len);
-        slice_len = (is_yielded) ? nr_of_reductions : old_trap->output_len;
-        old_trap->ctx->squeezing = true;
-        (void)old_trap->xof->output((void *)old_trap->ctx, output_bin.data, slice_len);
-        nr_of_reductions -= slice_len;
-
-        if (is_yielded) {
-            BUMP_ALL_REDS(env);
-            libdecaf_nif_hash_xof_squeeze_trap_t *new_trap =
-                (void *)enif_alloc_resource(libdecaf_nif_trap_resource_type, sizeof(*new_trap));
-            if (new_trap == NULL) {
-                return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_xof_squeeze_trap_t");
-            }
-            new_trap->super.type = LIBDECAF_NIF_TRAP_TYPE_XOF_SQUEEZE;
-            new_trap->super.dtor = libdecaf_nif_hash_xof_squeeze_trap_dtor;
-            new_trap->super.work_env = NULL;
-            new_trap->xof = old_trap->xof;
-            new_trap->ctx = old_trap->ctx;
-            new_trap->output_bin = output_bin;
-            new_trap->output_off = slice_len;
-            new_trap->output_len = old_trap->output_len;
-            ERL_NIF_TERM newargv[1];
-            newargv[0] = enif_make_resource(env, (void *)new_trap);
-            (void)enif_release_resource((void *)new_trap);
-            old_trap->ctx = NULL;
-            (void)enif_free_env(old_trap->super.work_env);
-            old_trap->super.work_env = NULL;
-            return enif_schedule_nif(env, "libdecaf_nif_hash_xof_squeeze_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
-                                     libdecaf_nif_hash_xof_squeeze_2_continue, 1, newargv);
-        } else {
-            BUMP_REMAINING_REDS(env, nr_of_reductions);
-            (void)old_trap->xof->destroy((void *)old_trap->ctx);
-            (void)enif_free((void *)old_trap->ctx);
-            old_trap->ctx = NULL;
-            (void)enif_free_env(old_trap->super.work_env);
-            old_trap->super.work_env = NULL;
-            return enif_make_binary(env, &output_bin);
-        }
-    }
-}
-
-ERL_NIF_TERM
-libdecaf_nif_hash_xof_squeeze_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    long nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
-    bool is_yielded = false;
-    size_t slice_len;
-    libdecaf_nif_hash_xof_squeeze_trap_t *trap = NULL;
-
-    if (argc != 1) {
-        return EXCP_NOTSUP(env, "argc must be 1");
-    }
-    if (!enif_get_resource(env, argv[0], libdecaf_nif_trap_resource_type, (void **)&trap) ||
-        trap->super.type != LIBDECAF_NIF_TRAP_TYPE_XOF_SQUEEZE || trap->ctx == NULL || trap->xof->type != trap->ctx->type ||
-        trap->ctx->squeezing != true) {
-        return EXCP_BADARG(env, "Bad argument: 'Trap'");
-    }
-    is_yielded = (nr_of_reductions < (trap->output_len - trap->output_off));
-    slice_len = (is_yielded) ? nr_of_reductions : (trap->output_len - trap->output_off);
-    (void)trap->xof->output(trap->ctx, trap->output_bin.data + trap->output_off, slice_len);
-    trap->output_off += slice_len;
-    nr_of_reductions -= slice_len;
-    if (is_yielded) {
-        BUMP_ALL_REDS(env);
-        return enif_schedule_nif(env, "libdecaf_nif_hash_xof_squeeze_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
-                                 libdecaf_nif_hash_xof_squeeze_2_continue, argc, argv);
-    } else {
-        BUMP_REMAINING_REDS(env, nr_of_reductions);
-        (void)trap->xof->destroy((void *)trap->ctx);
-        (void)enif_free((void *)trap->ctx);
-        trap->ctx = NULL;
-        return enif_make_binary(env, &trap->output_bin);
-    }
-}
-
 
 ERL_NIF_TERM
 libdecaf_nif_hash_xof_init_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    return libdecaf_nif_hash_xof_init(env, argc, argv);
+    if (argc != 1) {
+        return EXCP_BADARG(env, "Invalid argument count");
+    }
+{% for function in ctx.xof_functions if function.operation == 'init' and function.arity == 1 %}
+    if ({% for name in function.algorithms %}enif_is_identical(argv[0], ATOM({{ name }})){% if not loop.last %} || {% endif %}{% endfor %}) {
+        return {{ function.c_name }}(env, argc, argv);
+    }
+{% endfor %}
+    return EXCP_BADARG(env, "Unsupported XOF algorithm for this function arity");
 }
 
 ERL_NIF_TERM
 libdecaf_nif_hash_xof_init_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    return libdecaf_nif_hash_xof_init(env, argc, argv);
+    if (argc != 2) {
+        return EXCP_BADARG(env, "Invalid argument count");
+    }
+{% for function in ctx.xof_functions if function.operation == 'init' and function.arity == 2 %}
+    if ({% for name in function.algorithms %}enif_is_identical(argv[0], ATOM({{ name }})){% if not loop.last %} || {% endif %}{% endfor %}) {
+        return {{ function.c_name }}(env, argc, argv);
+    }
+{% endfor %}
+    return EXCP_BADARG(env, "Unsupported XOF algorithm for this function arity");
 }
 
 ERL_NIF_TERM
 libdecaf_nif_hash_xof_init_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    return libdecaf_nif_hash_xof_init(env, argc, argv);
+    if (argc != 3) {
+        return EXCP_BADARG(env, "Invalid argument count");
+    }
+{% for function in ctx.xof_functions if function.operation == 'init' and function.arity == 3 %}
+    if ({% for name in function.algorithms %}enif_is_identical(argv[0], ATOM({{ name }})){% if not loop.last %} || {% endif %}{% endfor %}) {
+        return {{ function.c_name }}(env, argc, argv);
+    }
+{% endfor %}
+    return EXCP_BADARG(env, "Unsupported XOF algorithm for this function arity");
 }
-
-static ERL_NIF_TERM
-libdecaf_nif_hash_xof_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    libdecaf_nif_hash_xof_t *xof = NULL;
-    libdecaf_nif_hash_xof_ctx_t *ctx = NULL;
-    ERL_NIF_TERM ctx_term;
-    ERL_NIF_TERM prefix;
-    bool customized = false;
-    unsigned int domain = 0x1F;
-
-    if (argc != 1 && argc != 2 && argc != 3) {
-        return EXCP_NOTSUP(env, "argc must be 1, 2, or 3");
-    }
-
-    xof = libdecaf_nif_hash_xof_from_atom(env, argv[0]);
-    if (xof == NULL) {
-        return EXCP_BADARG(env, "Bad argument: 'Type'");
-    }
-    if (argc == 2 && (xof->turbo_rate == 0 || !enif_get_uint(env, argv[1], &domain) || domain < 1 || domain > 0x7F)) {
-        return EXCP_BADARG(env, "TurboSHAKE requires a domain byte in 1..127");
-    }
-    if (argc == 3) {
-        if (xof->cshake_rate == 0) {
-            return EXCP_BADARG(env, "Algorithm does not support customization");
-        }
-        int status = libdecaf_nif_hash_xof_cshake_prefix(env, xof->cshake_rate, argv[1], argv[2], &prefix, &customized);
-        if (status == 0) {
-            return EXCP_BADARG(env, "FunctionName and Customization must be iodata");
-        }
-        if (status == -1) {
-            return EXCP_ERROR(env, "Can't allocate cSHAKE prefix");
-        }
-    }
-
-    ctx = (void *)enif_alloc_resource(libdecaf_nif_hash_xof_resource_type, sizeof(libdecaf_nif_hash_xof_ctx_t));
-    if (ctx == NULL) {
-        return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_xof_ctx_t");
-    }
-    ctx->type = xof->type;
-    ctx->squeezing = false;
-    (void)xof->init((void *)ctx);
-    if (xof->turbo_rate != 0) {
-        ((struct decaf_keccak_sponge_s *)ctx)->params->pad = (uint8_t)domain;
-    }
-    if (customized) {
-        ((struct decaf_keccak_sponge_s *)ctx)->params->pad = 0x04;
-    }
-
-    ctx_term = enif_make_resource(env, (void *)ctx);
-    (void)enif_release_resource((void *)ctx);
-
-    if (customized) {
-        ERL_NIF_TERM args[2] = {ctx_term, prefix};
-        return libdecaf_nif_hash_xof_update_2(env, 2, args);
-    }
-    return ctx_term;
-}
-
 
 ERL_NIF_TERM
 libdecaf_nif_hash_xof_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    libdecaf_nif_hash_xof_t *xof = NULL;
-    libdecaf_nif_hash_xof_ctx_t *old_ctx = NULL;
-    libdecaf_nif_hash_xof_ctx_t *new_ctx = NULL;
-    ERL_NIF_TERM input_term;
-    ErlNifBinary input_bin;
-    ErlNifEnv *work_env = NULL;
-    long nr_of_reductions;
-    bool is_yielded = false;
-    size_t slice_len;
-    ERL_NIF_TERM new_ctx_term;
-
-    // Allocate work environment, we will use this if we need to yield.
-    work_env = enif_alloc_env();
-    if (work_env == NULL) {
-        return EXCP_ERROR(env, "Can't allocate work_env = enif_alloc_env()");
-    }
-
     if (argc != 2) {
-        (void)enif_free_env(work_env);
-        return EXCP_NOTSUP(env, "argc must be 2");
+        return EXCP_BADARG(env, "Invalid argument count");
     }
-
-    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_xof_resource_type, (void **)&old_ctx) || (xof = libdecaf_nif_hash_xof_from_type(old_ctx->type)) == NULL ||
-        old_ctx->squeezing != false) {
-        (void)enif_free_env(work_env);
-        return EXCP_BADARG(env, "Bad argument: 'Ctx'");
+    void *state;
+{% for function in ctx.xof_functions if function.operation == 'update' and function.arity == 2 %}
+    if (enif_get_resource(env, argv[0], libdecaf_nif_{{ function.name.removesuffix('_' + function.operation) }}_resource_type, &state)) {
+        return {{ function.c_name }}(env, argc, argv);
     }
-    if (!enif_is_binary(env, argv[1]) && !enif_is_list(env, argv[1])) {
-        (void)enif_free_env(work_env);
-        return EXCP_BADARG(env, "Bad argument: 'Input'");
-    }
-
-    // Copy the input binary to the work environment so it will be kept when we are yielding.
-    input_term = enif_make_copy(work_env, argv[1]);
-    if (!enif_inspect_iolist_as_binary(work_env, input_term, &input_bin)) {
-        (void)enif_free_env(work_env);
-        return EXCP_BADARG(env, "Bad argument: 'Input'");
-    }
-
-    // Allocate xof context
-    new_ctx = (void *)enif_alloc_resource(libdecaf_nif_hash_xof_resource_type, sizeof(libdecaf_nif_hash_xof_ctx_t));
-    if (new_ctx == NULL) {
-        (void)enif_free_env(work_env);
-        return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_xof_ctx_t");
-    }
-    (void)memcpy((void *)new_ctx, (void *)old_ctx, sizeof(libdecaf_nif_hash_xof_ctx_t));
-
-    nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
-
-    is_yielded = (nr_of_reductions < input_bin.size);
-    slice_len = (is_yielded) ? nr_of_reductions : input_bin.size;
-    (void)xof->update((void *)new_ctx, input_bin.data, slice_len);
-    nr_of_reductions -= slice_len;
-
-    if (is_yielded) {
-        BUMP_ALL_REDS(env);
-        libdecaf_nif_hash_xof_update_trap_t *trap = (void *)enif_alloc_resource(libdecaf_nif_trap_resource_type, sizeof(*trap));
-        if (trap == NULL) {
-            (void)enif_release_resource((void *)new_ctx);
-            (void)enif_free_env(work_env);
-            return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_xof_update_trap_t");
-        }
-        trap->super.type = LIBDECAF_NIF_TRAP_TYPE_XOF_UPDATE;
-        trap->super.dtor = libdecaf_nif_hash_xof_update_trap_dtor;
-        trap->super.work_env = work_env;
-        trap->xof = xof;
-        trap->new_ctx = new_ctx;
-        trap->input_bin = input_bin;
-        trap->input_off = slice_len;
-        ERL_NIF_TERM newargv[1];
-        newargv[0] = enif_make_resource(env, (void *)trap);
-        (void)enif_release_resource((void *)trap);
-        return enif_schedule_nif(env, "libdecaf_nif_hash_xof_update_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
-                                 libdecaf_nif_hash_xof_update_2_continue, 1, newargv);
-    } else {
-        BUMP_REMAINING_REDS(env, nr_of_reductions);
-        new_ctx_term = enif_make_resource(env, (void *)new_ctx);
-        (void)enif_release_resource((void *)new_ctx);
-        (void)enif_free_env(work_env);
-        return new_ctx_term;
-    }
+{% endfor %}
+    return EXCP_BADARG(env, "Invalid XOF state for this function arity");
 }
-
-ERL_NIF_TERM
-libdecaf_nif_hash_xof_update_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    long nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
-    bool is_yielded = false;
-    size_t slice_len;
-    libdecaf_nif_hash_xof_update_trap_t *trap = NULL;
-    ERL_NIF_TERM new_ctx_term;
-
-    if (argc != 1) {
-        return EXCP_NOTSUP(env, "argc must be 1");
-    }
-    if (!enif_get_resource(env, argv[0], libdecaf_nif_trap_resource_type, (void **)&trap) ||
-        trap->super.type != LIBDECAF_NIF_TRAP_TYPE_XOF_UPDATE || trap->new_ctx == NULL || trap->xof->type != trap->new_ctx->type ||
-        trap->new_ctx->squeezing != false) {
-        return EXCP_BADARG(env, "Bad argument: 'Trap'");
-    }
-    is_yielded = (nr_of_reductions < (trap->input_bin.size - trap->input_off));
-    slice_len = (is_yielded) ? nr_of_reductions : (trap->input_bin.size - trap->input_off);
-    (void)trap->xof->update(trap->new_ctx, trap->input_bin.data + trap->input_off, slice_len);
-    trap->input_off += slice_len;
-    nr_of_reductions -= slice_len;
-    if (is_yielded) {
-        BUMP_ALL_REDS(env);
-        return enif_schedule_nif(env, "libdecaf_nif_hash_xof_update_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
-                                 libdecaf_nif_hash_xof_update_2_continue, argc, argv);
-    } else {
-        BUMP_REMAINING_REDS(env, nr_of_reductions);
-        new_ctx_term = enif_make_resource(env, (void *)trap->new_ctx);
-        (void)enif_release_resource((void *)trap->new_ctx);
-        trap->new_ctx = NULL;
-        (void)enif_free_env(trap->super.work_env);
-        trap->super.work_env = NULL;
-        return new_ctx_term;
-    }
-}
-
 
 ERL_NIF_TERM
 libdecaf_nif_hash_xof_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    libdecaf_nif_hash_xof_t *xof = NULL;
-    libdecaf_nif_hash_xof_ctx_t *old_ctx = NULL;
-    libdecaf_nif_hash_xof_ctx_t *new_ctx = NULL;
-    unsigned long output_len;
-    ErlNifBinary output_bin;
-    long nr_of_reductions;
-    bool is_yielded = false;
-    size_t slice_len;
-
     if (argc != 2) {
-        return EXCP_NOTSUP(env, "argc must be 2");
+        return EXCP_BADARG(env, "Invalid argument count");
     }
-
-    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_xof_resource_type, (void **)&old_ctx) || (xof = libdecaf_nif_hash_xof_from_type(old_ctx->type)) == NULL) {
-        return EXCP_BADARG(env, "Bad argument: 'Ctx'");
+    void *state;
+{% for function in ctx.xof_functions if function.operation == 'final' and function.arity == 2 %}
+    if (enif_get_resource(env, argv[0], libdecaf_nif_{{ function.name.removesuffix('_' + function.operation) }}_resource_type, &state)) {
+        return {{ function.c_name }}(env, argc, argv);
     }
-    if (!enif_get_ulong(env, argv[1], &output_len)) {
-        return EXCP_BADARG(env, "Bad argument: 'OutputLen'");
-    }
-
-    // Allocate out binary
-    if (!enif_alloc_binary(output_len, &output_bin)) {
-        return EXCP_ERROR(env, "Can't allocate 'Output' binary");
-    }
-
-    // Allocate xof context
-    new_ctx = (void *)enif_alloc_resource(libdecaf_nif_hash_xof_resource_type, sizeof(libdecaf_nif_hash_xof_ctx_t));
-    if (new_ctx == NULL) {
-        (void)enif_release_binary(&output_bin);
-        return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_xof_ctx_t");
-    }
-    (void)memcpy((void *)new_ctx, (void *)old_ctx, sizeof(libdecaf_nif_hash_xof_ctx_t));
-
-    nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
-
-    is_yielded = (nr_of_reductions < output_len);
-    slice_len = (is_yielded) ? nr_of_reductions : output_len;
-    new_ctx->squeezing = true;
-    (void)xof->output((void *)new_ctx, output_bin.data, slice_len);
-    nr_of_reductions -= slice_len;
-
-    if (is_yielded) {
-        BUMP_ALL_REDS(env);
-        libdecaf_nif_hash_xof_output_trap_t *trap = (void *)enif_alloc_resource(libdecaf_nif_trap_resource_type, sizeof(*trap));
-        if (trap == NULL) {
-            (void)enif_release_resource((void *)new_ctx);
-            (void)enif_release_binary(&output_bin);
-            return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_xof_output_trap_t");
-        }
-        trap->super.type = LIBDECAF_NIF_TRAP_TYPE_XOF_OUTPUT;
-        trap->super.dtor = libdecaf_nif_hash_xof_output_trap_dtor;
-        trap->super.work_env = NULL;
-        trap->xof = xof;
-        trap->new_ctx = new_ctx;
-        trap->output_bin = output_bin;
-        trap->output_off = slice_len;
-        trap->output_len = output_len;
-        ERL_NIF_TERM newargv[1];
-        newargv[0] = enif_make_resource(env, (void *)trap);
-        (void)enif_release_resource((void *)trap);
-        return enif_schedule_nif(env, "libdecaf_nif_hash_xof_output_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
-                                 libdecaf_nif_hash_xof_output_2_continue, 1, newargv);
-    } else {
-        BUMP_REMAINING_REDS(env, nr_of_reductions);
-        (void)enif_release_resource((void *)new_ctx);
-        return enif_make_binary(env, &output_bin);
-    }
+{% endfor %}
+    return EXCP_BADARG(env, "Invalid XOF state for this function arity");
 }
 
 ERL_NIF_TERM
 libdecaf_nif_hash_xof_final_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    libdecaf_nif_hash_xof_ctx_t *ctx = NULL;
-    libdecaf_nif_hash_xof_t *xof = NULL;
     if (argc != 3) {
-        return EXCP_NOTSUP(env, "argc must be 3");
+        return EXCP_BADARG(env, "Invalid argument count");
     }
-    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_xof_resource_type, (void **)&ctx) ||
-        (xof = libdecaf_nif_hash_xof_from_type(ctx->type)) == NULL || xof->kt_rate == 0 || ctx->squeezing) {
-        return EXCP_BADARG(env, "State must be an absorbing KangarooTwelve resource");
+    void *state;
+{% for function in ctx.xof_functions if function.operation == 'final' and function.arity == 3 %}
+    if (enif_get_resource(env, argv[0], libdecaf_nif_{{ function.name.removesuffix('_' + function.operation) }}_resource_type, &state)) {
+        return {{ function.c_name }}(env, argc, argv);
     }
-    ERL_NIF_TERM args[3] = {argv[0], argv[2], argv[1]};
-    return libdecaf_nif_hash_xof_compute_from_state(env, 3, args, ctx);
-}
-
-ERL_NIF_TERM
-libdecaf_nif_hash_xof_output_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    long nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
-    bool is_yielded = false;
-    size_t slice_len;
-    libdecaf_nif_hash_xof_output_trap_t *trap = NULL;
-
-    if (argc != 1) {
-        return EXCP_NOTSUP(env, "argc must be 1");
-    }
-    if (!enif_get_resource(env, argv[0], libdecaf_nif_trap_resource_type, (void **)&trap) ||
-        trap->super.type != LIBDECAF_NIF_TRAP_TYPE_XOF_OUTPUT || trap->new_ctx == NULL || trap->xof->type != trap->new_ctx->type ||
-        trap->new_ctx->squeezing != true) {
-        return EXCP_BADARG(env, "Bad argument: 'Trap'");
-    }
-    is_yielded = (nr_of_reductions < (trap->output_len - trap->output_off));
-    slice_len = (is_yielded) ? nr_of_reductions : (trap->output_len - trap->output_off);
-    (void)trap->xof->output(trap->new_ctx, trap->output_bin.data + trap->output_off, slice_len);
-    trap->output_off += slice_len;
-    nr_of_reductions -= slice_len;
-    if (is_yielded) {
-        BUMP_ALL_REDS(env);
-        return enif_schedule_nif(env, "libdecaf_nif_hash_xof_output_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
-                                 libdecaf_nif_hash_xof_output_2_continue, argc, argv);
-    } else {
-        BUMP_REMAINING_REDS(env, nr_of_reductions);
-        (void)enif_release_resource((void *)trap->new_ctx);
-        trap->new_ctx = NULL;
-        return enif_make_binary(env, &trap->output_bin);
-    }
-}
-
-/* Grouped entry points share the native engine and enforce group identity. */
-{% for function in ctx.xof_functions %}
-ERL_NIF_TERM
-{{ function.c_name }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    if (argc != {{ function.arity }}) {
-        return EXCP_NOTSUP(env, "argc must be {{ function.arity }}");
-    }
-{% if function.selects_algorithm %}
-    if ({% for algorithm in function.algorithms %}!enif_is_identical(argv[0], ATOM({{ algorithm }})){% if not loop.last %} &&
-        {% endif %}{% endfor %}) {
-        return EXCP_BADARG(env, "Algorithm must belong to the {{ function.group }}");
-    }
-{% else %}
-    libdecaf_nif_hash_xof_ctx_t *ctx = NULL;
-    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_xof_resource_type, (void **)&ctx) ||
-        ({% for algorithm in function.algorithms %}ctx->type != LIBDECAF_NIF_HASH_XOF_TYPE_{{ algorithm | upper }}{% if not loop.last %} &&
-         {% endif %}{% endfor %})) {
-        return EXCP_BADARG(env, "State must belong to the {{ function.group }}");
-    }
-{% endif %}
-    return {{ function.delegate }}(env, argc, argv);
-}
 {% endfor %}
+    return EXCP_BADARG(env, "Invalid XOF state for this function arity");
+}
 /* clang-format on */ //-

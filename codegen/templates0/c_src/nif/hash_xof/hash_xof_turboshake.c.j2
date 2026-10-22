@@ -1,0 +1,74 @@
+/* clang-format off */ //-
+{% from 'c_src/nif/hash_xof/lifecycle.c.inc' import lifecycle %}
+{% from 'c_src/nif/hash_xof/entry_points.c.inc' import entry_points %}
+{% set group = 'turboshake' %}
+{% set p = 'libdecaf_nif_hash_xof_turboshake' %}
+{% set profile = ctx.schema.nif.xof.values() | selectattr('group', 'equalto', group) | first %}
+#include <keccak_internal.h>
+#include "hash_xof_turboshake.h"
+
+typedef decaf_keccak_sponge_s {{ p }}_ctx_t;
+
+{% for name, algorithm in ctx.schema.nif.xof | dictsort if algorithm.group == group %}
+static void
+{{ algorithm.init }}({{ p }}_ctx_t *state)
+{
+    static const decaf_kparams_s params = {0, 'A', {{ algorithm.turbo_rate }}, 12, 0x1F, 0x80, 0xFF, 0xFF};
+    decaf_sha3_init(state, &params);
+}
+{% endfor %}
+
+static bool
+{{ p }}_select(ErlNifEnv *env, ERL_NIF_TERM algorithm, {{ p }}_ctx_t *state)
+{
+{% for name, profile in ctx.schema.nif.xof | dictsort if profile.group == group %}
+    if (enif_is_identical(algorithm, ATOM({{ name }}))) {
+        {{ profile.init }}(state);
+        return true;
+    }
+{% endfor %}
+    return false;
+}
+
+{{ lifecycle(p, profile.update, profile.output, profile.destroy) }}
+{{ entry_points(p, 'hash_xof_' + group, profile.destroy) }}
+
+/* TurboSHAKE's extra parameter is always a domain byte. */
+ERL_NIF_TERM
+{{ p }}_init_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned int domain;
+    if (argc != 2 || !enif_get_uint(env, argv[1], &domain) || domain < 1 || domain > 127) {
+        return EXCP_BADARG(env, "Domain must be an integer in 1..127");
+    }
+    {{ p }}_ctx_t state;
+    if (!{{ p }}_select(env, argv[0], &state)) {
+        return EXCP_BADARG(env, "Algorithm must be turboshake128 or turboshake256");
+    }
+    state.params->pad = (uint8_t)domain;
+    ERL_NIF_TERM result = {{ p }}_make_state(env, &state, 0, REDUCTIONS_UNTIL_YCF_YIELD());
+    decaf_sha3_destroy(&state);
+    return result;
+}
+
+ERL_NIF_TERM
+{{ p }}_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned int domain;
+    if (argc != 4 || !enif_get_uint(env, argv[3], &domain) || domain < 1 || domain > 127) {
+        return EXCP_BADARG(env, "Domain must be an integer in 1..127");
+    }
+    unsigned long output_len;
+    if (!enif_get_ulong(env, argv[2], &output_len)) {
+        return EXCP_BADARG(env, "OutputLen must be a non-negative integer");
+    }
+    {{ p }}_ctx_t state;
+    if (!{{ p }}_select(env, argv[0], &state)) {
+        return EXCP_BADARG(env, "Algorithm must be turboshake128 or turboshake256");
+    }
+    state.params->pad = (uint8_t)domain;
+    ERL_NIF_TERM result = {{ p }}_absorb(env, &state, argv[1], {{ p }}_squeeze, output_len);
+    decaf_sha3_destroy(&state);
+    return result;
+}
+/* clang-format on */ //-

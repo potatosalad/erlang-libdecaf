@@ -1,0 +1,26 @@
+/* clang-format off */ //-
+{% set group = 'kt' %}
+#ifndef LIBDECAF_NIF_HASH_XOF_KT_H
+#define LIBDECAF_NIF_HASH_XOF_KT_H
+
+#include "../libdecaf_nif.h"
+#include <stdbool.h>
+#include <decaf/shake.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern ErlNifResourceType *libdecaf_nif_hash_xof_kt_resource_type;
+int libdecaf_nif_hash_xof_kt_load(ErlNifEnv *env);
+
+{% for function in ctx.xof_functions if function.algorithms and ctx.schema.nif.xof[function.algorithms[0]].group == group %}
+ERL_NIF_TERM {{ function.c_name }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+{% endfor %}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+/* clang-format on */ //-
