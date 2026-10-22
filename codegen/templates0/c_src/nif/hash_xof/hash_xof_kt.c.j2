@@ -42,7 +42,7 @@ static void
 libdecaf_nif_hash_xof_kt_init(libdecaf_nif_hash_xof_kt_ctx_t *ctx, size_t rate)
 {
     decaf_kparams_s params = {0, 'A', (uint8_t)rate, 12, 0x07, 0x80, 0xFF, 0xFF};
-    memset(ctx, 0, sizeof(*ctx));
+    decaf_bzero(ctx, sizeof(*ctx));
     ctx->rate = rate;
     ctx->chaining_len = 200 - rate;
     decaf_sha3_init(&ctx->root, &params);

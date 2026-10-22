@@ -65,7 +65,7 @@ libdecaf_nif_hash_xof_cshake_prefix(ErlNifEnv *env, size_t rate, ERL_NIF_TERM fu
         if (data == NULL) {
             return -1;
         }
-        memset(data, 0, padding_len);
+        decaf_bzero(data, padding_len);
     }
     *prefix = enif_make_list_from_array(env, parts, 5);
     return 1;
