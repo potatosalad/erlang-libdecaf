@@ -30,6 +30,7 @@
 -export([ed448ph/1]).
 -export([x25519/1]).
 -export([x448/1]).
+-export([x25519_high_bit/1, x25519_noncanonical/1, x25519_low_order/1, mismatched_keypairs/1]).
 
 %% Macros.
 -define(tv_ok(T, M, F, A, E),
@@ -53,7 +54,11 @@ groups() ->
 			ed25519,
 			ed25519ctx,
 			ed25519ph,
-			x25519
+			x25519,
+			x25519_high_bit,
+			x25519_noncanonical,
+			x25519_low_order,
+			mismatched_keypairs
 		]},
 		{'curve448', [parallel], [
 			curve448,
@@ -871,3 +876,45 @@ x448_vector({AliceSK, AlicePK, BobSK, BobPK, Shared}) ->
 	?tv_ok(T1, libdecaf_curve448, x448, [BobSK], BobPK),
 	?tv_ok(T2, libdecaf_curve448, x448, [AliceSK, BobPK], Shared),
 	?tv_ok(T3, libdecaf_curve448, x448, [BobSK, AlicePK], Shared).
+
+%% RFC 7748 requires ignoring the high bit of an X25519 input coordinate.
+x25519_high_bit(_Config) ->
+	Scalar = hexstr2bin("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"),
+	Public = hexstr2bin("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f"),
+	Expected = hexstr2bin("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"),
+	<<Prefix:31/binary, Last>> = Public,
+	Expected = libdecaf_curve25519:x25519(Scalar, Public),
+	Expected = libdecaf_curve25519:x25519(Scalar, <<Prefix/binary, (Last bor 128)>>),
+	ok.
+
+%% Non-canonical coordinates must be reduced modulo 2^255-19.
+x25519_noncanonical(_Config) ->
+	Scalar = <<42:256>>,
+	P = (1 bsl 255) - 19,
+	lists:foreach(fun(U) ->
+		Canonical = libdecaf:x25519(<<U:256/little>>, Scalar),
+		Canonical = libdecaf:x25519(<<(P+U):256/little>>, Scalar)
+	end, [2, 9, 18]),
+	ok.
+
+x25519_low_order(_Config) ->
+	Scalar = <<42:256>>,
+	P = (1 bsl 255) - 19,
+	lists:foreach(fun(U) ->
+		error = libdecaf:x25519(<<U:256/little>>, Scalar)
+	end, [0, 1, P-1, P, P+1, 1 bsl 255, (1 bsl 255)+1]),
+	ok.
+
+mismatched_keypairs(_Config) ->
+	lists:foreach(fun({Curve, Bytes, Sign, Prehash}) ->
+		Secret = binary:copy(<<1>>, Bytes),
+		Public = Curve:eddsa_secret_to_pk(binary:copy(<<2>>, Bytes)),
+		SK = <<Secret/binary, Public/binary>>,
+		lists:foreach(fun(F) ->
+			try Curve:F(<<"message">>, SK) of
+				_ -> ct:fail(mismatched_keypair_accepted)
+			catch error:{error, _, _} -> ok end
+		end, [Sign, Prehash])
+	end, [{libdecaf_curve25519, 32, ed25519_sign, ed25519ph_sign},
+		{libdecaf_curve448, 57, ed448_sign, ed448ph_sign}]),
+	ok.

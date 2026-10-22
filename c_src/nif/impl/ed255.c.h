@@ -71,6 +71,7 @@ libdecaf_nif_ed25519_sign_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     (void)decaf_ed25519_derive_keypair(keypair, privkey.data);
     (void)decaf_ed25519_keypair_extract_public_key(rederived_pubkey, keypair);
     if (decaf_memeq(rederived_pubkey, pubkey.data, sizeof(rederived_pubkey)) != DECAF_TRUE) {
+        (void)decaf_ed25519_keypair_destroy(keypair);
         return EXCP_ERROR(
             env,
             "UNSAFE: Privkey and Pubkey are not part of the same keypair. See: https://github.com/MystenLabs/ed25519-unsafe-libs");
@@ -120,6 +121,7 @@ libdecaf_nif_ed25519_sign_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     (void)decaf_ed25519_derive_keypair(keypair, privkey.data);
     (void)decaf_ed25519_keypair_extract_public_key(rederived_pubkey, keypair);
     if (decaf_memeq(rederived_pubkey, pubkey.data, sizeof(rederived_pubkey)) != DECAF_TRUE) {
+        (void)decaf_ed25519_keypair_destroy(keypair);
         return EXCP_ERROR(
             env,
             "UNSAFE: Privkey and Pubkey are not part of the same keypair. See: https://github.com/MystenLabs/ed25519-unsafe-libs");
