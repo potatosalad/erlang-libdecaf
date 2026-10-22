@@ -101,7 +101,18 @@ def test_invalid_name_configuration_is_rejected(field, names):
 
 def test_algorithm_names_seed_atoms_without_literal_references(tmp_path):
     codegen, nif, _ = generator(tmp_path, "")
-    Path(codegen.config_file).write_text("nif:\n  hash: [sha2_512]\n  xof: [shake256]\n")
+    root = Path(__file__).resolve().parents[2]
+    profiles = yaml.safe_load((root / "codegen/config.yaml").read_text())["nif"]
+    Path(codegen.config_file).write_text(
+        yaml.safe_dump(
+            {
+                "nif": {
+                    "hash": {"sha2_512": profiles["hash"]["sha2_512"]},
+                    "xof": {"shake256": profiles["xof"]["shake256"]},
+                }
+            }
+        )
+    )
     codegen = CodeGenerator(codegen.config_file, codegen.output_path, codegen.templates0_path, codegen.templates1_path)
     codegen.render()
     assert atom_names(nif) == ["sha2_512", "shake256"]
@@ -139,3 +150,19 @@ def test_erlang_native_bindings_match_the_c_registration_table():
         native.update((group + operation, int(arity)) for operation, arity in group_operations)
     generated = {(function.name, function.arity) for function in functions(schema.nif)}
     assert generated == native
+
+
+def test_hash_default_output_cannot_exceed_maximum():
+    root = Path(__file__).resolve().parents[2]
+    config = yaml.safe_load((root / "codegen/config.yaml").read_text())
+    config["nif"]["hash"]["sha2_512"]["default_output_len"] = 65
+    with pytest.raises(ValidationError, match="Default hash output length"):
+        Root.model_validate(config)
+
+
+def test_native_algorithm_type_ids_must_be_unique():
+    root = Path(__file__).resolve().parents[2]
+    config = yaml.safe_load((root / "codegen/config.yaml").read_text())
+    config["nif"]["hash"]["sha3_224"]["id"] = config["nif"]["hash"]["sha2_512"]["id"]
+    with pytest.raises(ValidationError, match="type IDs must be unique"):
+        Root.model_validate(config)

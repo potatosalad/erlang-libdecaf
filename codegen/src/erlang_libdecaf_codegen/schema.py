@@ -1,8 +1,8 @@
 """Validated configuration for libdecaf's generated NIF sources."""
 
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 CIdentifier = Annotated[str, Field(pattern=r"^[a-z][a-zA-Z0-9_]*$")]
 
@@ -11,17 +11,50 @@ class Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class Algorithm(Model):
+    id: int = Field(ge=0, le=255)
+    context: CIdentifier
+    init: CIdentifier
+    update: CIdentifier
+    destroy: CIdentifier
+
+
+class Hash(Algorithm):
+    default_output_len: int = Field(gt=0)
+    max_output_len: int = Field(gt=0)
+    final: CIdentifier
+    legacy_keccak_rate: int | None = Field(default=None, gt=0, le=200)
+
+    @model_validator(mode="after")
+    def valid_output_lengths(self) -> Self:
+        if self.default_output_len > self.max_output_len:
+            raise ValueError("Default hash output length must not exceed its maximum")
+        return self
+
+
+class XOF(Algorithm):
+    output: CIdentifier
+
+
 class NIF(Model):
     atoms: list[CIdentifier] = Field(default_factory=list)
-    hash: list[CIdentifier] = Field(default_factory=list)
-    xof: list[CIdentifier] = Field(default_factory=list)
+    hash: dict[CIdentifier, Hash] = Field(default_factory=dict)
+    xof: dict[CIdentifier, XOF] = Field(default_factory=dict)
 
-    @field_validator("atoms", "hash", "xof")
+    @field_validator("atoms")
     @classmethod
     def unique_names(cls, names: list[str]) -> list[str]:
         if len(names) != len(set(names)):
-            raise ValueError("Names must be unique within each list")
+            raise ValueError("Atom names must be unique")
         return names
+
+    @field_validator("hash", "xof")
+    @classmethod
+    def unique_type_ids(cls, profiles: dict[str, Algorithm]) -> dict[str, Algorithm]:
+        ids = [profile.id for profile in profiles.values()]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Native algorithm type IDs must be unique within each family")
+        return profiles
 
 
 class Root(Model):

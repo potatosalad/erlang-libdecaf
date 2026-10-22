@@ -1,5 +1,77 @@
 {
   "$defs": {
+    "Hash": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maximum": 255,
+          "minimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "context": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Context",
+          "type": "string"
+        },
+        "init": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Init",
+          "type": "string"
+        },
+        "update": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Update",
+          "type": "string"
+        },
+        "destroy": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Destroy",
+          "type": "string"
+        },
+        "default_output_len": {
+          "exclusiveMinimum": 0,
+          "title": "Default Output Len",
+          "type": "integer"
+        },
+        "max_output_len": {
+          "exclusiveMinimum": 0,
+          "title": "Max Output Len",
+          "type": "integer"
+        },
+        "final": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Final",
+          "type": "string"
+        },
+        "legacy_keccak_rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 200,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Legacy Keccak Rate"
+        }
+      },
+      "required": [
+        "id",
+        "context",
+        "init",
+        "update",
+        "destroy",
+        "default_output_len",
+        "max_output_len",
+        "final"
+      ],
+      "title": "Hash",
+      "type": "object"
+    },
     "NIF": {
       "additionalProperties": false,
       "properties": {
@@ -12,23 +84,71 @@
           "type": "array"
         },
         "hash": {
-          "items": {
-            "pattern": "^[a-z][a-zA-Z0-9_]*$",
-            "type": "string"
+          "patternProperties": {
+            "^[a-z][a-zA-Z0-9_]*$": {
+              "$ref": "#/$defs/Hash"
+            }
           },
           "title": "Hash",
-          "type": "array"
+          "type": "object"
         },
         "xof": {
-          "items": {
-            "pattern": "^[a-z][a-zA-Z0-9_]*$",
-            "type": "string"
+          "patternProperties": {
+            "^[a-z][a-zA-Z0-9_]*$": {
+              "$ref": "#/$defs/XOF"
+            }
           },
           "title": "Xof",
-          "type": "array"
+          "type": "object"
         }
       },
       "title": "NIF",
+      "type": "object"
+    },
+    "XOF": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maximum": 255,
+          "minimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "context": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Context",
+          "type": "string"
+        },
+        "init": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Init",
+          "type": "string"
+        },
+        "update": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Update",
+          "type": "string"
+        },
+        "destroy": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Destroy",
+          "type": "string"
+        },
+        "output": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Output",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "context",
+        "init",
+        "update",
+        "destroy",
+        "output"
+      ],
+      "title": "XOF",
       "type": "object"
     }
   },
