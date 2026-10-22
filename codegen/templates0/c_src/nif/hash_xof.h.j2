@@ -9,67 +9,67 @@
 extern "C" {
 #endif
 
-typedef struct libdecaf_nif_xof_table_s libdecaf_nif_xof_table_t;
-typedef struct libdecaf_nif_xof_s libdecaf_nif_xof_t;
-typedef enum libdecaf_nif_xof_type_t libdecaf_nif_xof_type_t;
-typedef struct libdecaf_nif_xof_ctx_s libdecaf_nif_xof_ctx_t;
+typedef struct libdecaf_nif_hash_xof_table_s libdecaf_nif_hash_xof_table_t;
+typedef struct libdecaf_nif_hash_xof_s libdecaf_nif_hash_xof_t;
+typedef enum libdecaf_nif_hash_xof_type_t libdecaf_nif_hash_xof_type_t;
+typedef struct libdecaf_nif_hash_xof_ctx_s libdecaf_nif_hash_xof_ctx_t;
 
-enum libdecaf_nif_xof_type_t {
+enum libdecaf_nif_hash_xof_type_t {
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-    LIBDECAF_NIF_XOF_TYPE_{{ name | upper }},
+    LIBDECAF_NIF_HASH_XOF_TYPE_{{ name | upper }},
 {% endfor %}
 };
 
-struct libdecaf_nif_xof_s {
-    libdecaf_nif_xof_type_t type;
+struct libdecaf_nif_hash_xof_s {
+    libdecaf_nif_hash_xof_type_t type;
     void (*init)(void *ctx);
     void (*update)(void *ctx, const uint8_t *input, size_t input_len);
     void (*output)(void *ctx, uint8_t *output, size_t output_len);
     void (*destroy)(void *ctx);
 };
 
-struct libdecaf_nif_xof_ctx_s {
+struct libdecaf_nif_hash_xof_ctx_s {
     union {
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}
         struct {{ algorithm.context }} {{ name }};
 {% endfor %}
     } u;
-    libdecaf_nif_xof_type_t type;
+    libdecaf_nif_hash_xof_type_t type;
     bool squeezing;
 };
 
-struct libdecaf_nif_xof_table_s {
+struct libdecaf_nif_hash_xof_table_s {
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-    libdecaf_nif_xof_t {{ name }};
+    libdecaf_nif_hash_xof_t {{ name }};
 {% endfor %}
 };
 
-extern libdecaf_nif_xof_table_t *libdecaf_nif_xof_table;
+extern libdecaf_nif_hash_xof_table_t *libdecaf_nif_hash_xof_table;
 
 extern ERL_NIF_TERM libdecaf_nif_hash_xof_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_hash_xof_init_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_hash_xof_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_hash_xof_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
-static inline libdecaf_nif_xof_t *
-libdecaf_nif_xof_from_type(libdecaf_nif_xof_type_t type)
+static inline libdecaf_nif_hash_xof_t *
+libdecaf_nif_hash_xof_from_type(libdecaf_nif_hash_xof_type_t type)
 {
     switch (type) {
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}
-    case LIBDECAF_NIF_XOF_TYPE_{{ name | upper }}:
-        return &libdecaf_nif_xof_table->{{ name }};
+    case LIBDECAF_NIF_HASH_XOF_TYPE_{{ name | upper }}:
+        return &libdecaf_nif_hash_xof_table->{{ name }};
 {% endfor %}
     default:
         return NULL;
     }
 }
 
-static inline libdecaf_nif_xof_t *
-libdecaf_nif_xof_from_atom(ErlNifEnv *env, ERL_NIF_TERM atom)
+static inline libdecaf_nif_hash_xof_t *
+libdecaf_nif_hash_xof_from_atom(ErlNifEnv *env, ERL_NIF_TERM atom)
 {
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}
     if (enif_is_identical(atom, ATOM({{ name }}))) {
-        return &libdecaf_nif_xof_table->{{ name }};
+        return &libdecaf_nif_hash_xof_table->{{ name }};
     }
 {% endfor %}
     return NULL;

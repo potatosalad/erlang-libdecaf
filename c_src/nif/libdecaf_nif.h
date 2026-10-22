@@ -48,7 +48,7 @@ extern ErlNifResourceType *libdecaf_nif_csprng_resource_type;
 extern ErlNifResourceType *libdecaf_nif_ed25519_keypair_resource_type;
 extern ErlNifResourceType *libdecaf_nif_ed448_keypair_resource_type;
 extern ErlNifResourceType *libdecaf_nif_hash_resource_type;
-extern ErlNifResourceType *libdecaf_nif_xof_resource_type;
+extern ErlNifResourceType *libdecaf_nif_hash_xof_resource_type;
 
 /* NIF Utility Macros and Functions */
 
