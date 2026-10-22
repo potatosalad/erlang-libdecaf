@@ -10,6 +10,56 @@
 %%%-------------------------------------------------------------------
 -module(libdecaf_nif).
 
+%% Prime-order groups (RFC 9496).
+-export([
+	ristretto255_identity/0,
+	ristretto255_base/0,
+	ristretto255_point_is_valid/1,
+	ristretto255_point_eq/2,
+	ristretto255_point_add/2,
+	ristretto255_point_sub/2,
+	ristretto255_point_negate/1,
+	ristretto255_point_double/1,
+	ristretto255_point_scalarmul/2,
+	ristretto255_base_scalarmul/1,
+	ristretto255_point_double_scalarmul/4,
+	ristretto255_point_from_hash/1,
+	ristretto255_point_from_hash_nonuniform/1,
+	ristretto255_precompute/1,
+	ristretto255_precomputed_scalarmul/2,
+	ristretto255_scalar_is_canonical/1,
+	ristretto255_scalar_reduce/1,
+	ristretto255_scalar_add/2,
+	ristretto255_scalar_sub/2,
+	ristretto255_scalar_mul/2,
+	ristretto255_scalar_negate/1,
+	ristretto255_scalar_halve/1,
+	ristretto255_scalar_invert/1,
+	decaf448_identity/0,
+	decaf448_base/0,
+	decaf448_point_is_valid/1,
+	decaf448_point_eq/2,
+	decaf448_point_add/2,
+	decaf448_point_sub/2,
+	decaf448_point_negate/1,
+	decaf448_point_double/1,
+	decaf448_point_scalarmul/2,
+	decaf448_base_scalarmul/1,
+	decaf448_point_double_scalarmul/4,
+	decaf448_point_from_hash/1,
+	decaf448_point_from_hash_nonuniform/1,
+	decaf448_precompute/1,
+	decaf448_precomputed_scalarmul/2,
+	decaf448_scalar_is_canonical/1,
+	decaf448_scalar_reduce/1,
+	decaf448_scalar_add/2,
+	decaf448_scalar_sub/2,
+	decaf448_scalar_mul/2,
+	decaf448_scalar_negate/1,
+	decaf448_scalar_halve/1,
+	decaf448_scalar_invert/1
+]).
+
 %% decaf/ed255.h
 -export([
 	ed25519_derive_keypair/1,
@@ -604,3 +654,141 @@ spongerng_stir(Ctx, Input) ->
 init() ->
 	SoName = filename:join(libdecaf:priv_dir(), ?MODULE_STRING),
 	erlang:load_nif(SoName, 0).
+
+ristretto255_identity() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_base() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_point_is_valid(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_point_eq(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_point_add(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_point_sub(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_point_negate(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_point_double(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_point_scalarmul(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_base_scalarmul(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_point_double_scalarmul(_A1, _A2, _A3, _A4) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_point_from_hash(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_point_from_hash_nonuniform(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_precompute(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_precomputed_scalarmul(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_scalar_is_canonical(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_scalar_reduce(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_scalar_add(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_scalar_sub(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_scalar_mul(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_scalar_negate(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_scalar_halve(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+ristretto255_scalar_invert(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_identity() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_base() ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_point_is_valid(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_point_eq(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_point_add(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_point_sub(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_point_negate(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_point_double(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_point_scalarmul(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_base_scalarmul(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_point_double_scalarmul(_A1, _A2, _A3, _A4) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_point_from_hash(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_point_from_hash_nonuniform(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_precompute(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_precomputed_scalarmul(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_scalar_is_canonical(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_scalar_reduce(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_scalar_add(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_scalar_sub(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_scalar_mul(_A1, _A2) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_scalar_negate(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_scalar_halve(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).
+
+decaf448_scalar_invert(_A1) ->
+	erlang:nif_error({nif_not_loaded, ?MODULE}).

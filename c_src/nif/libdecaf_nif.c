@@ -8,6 +8,7 @@
 #include "ed448.h"
 #include "hash.h"
 #include "xof.h"
+#include "groups.h"
 
 #include <unistd.h>
 
@@ -243,6 +244,8 @@ XOF_DEFINITION(shake256)
 /* NIF Callbacks */
 
 static ErlNifFunc libdecaf_nif_funcs[] = {
+    LIBDECAF_GROUP_NIFS(ristretto255),
+    LIBDECAF_GROUP_NIFS(decaf448),
     /* decaf/ed255.h */
     {"ed25519_derive_keypair", 1, libdecaf_nif_ed25519_derive_keypair_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"ed25519_derive_public_key", 1, libdecaf_nif_ed25519_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
@@ -365,6 +368,7 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     LOAD_RESOURCE_TYPE(hash);
     LOAD_RESOURCE_TYPE(xof);
 #undef LOAD_RESOURCE_TYPE
+    if (libdecaf_nif_groups_load(env) != 0) return -1;
     /* Initialize common atoms */
     (void)libdecaf_nif_make_atoms(env);
     return retval;
@@ -391,6 +395,7 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
     UPGRADE_RESOURCE_TYPE(hash);
     UPGRADE_RESOURCE_TYPE(xof);
 #undef UPGRADE_RESOURCE_TYPE
+    if (libdecaf_nif_groups_load(env) != 0) return -1;
     /* Initialize common atoms */
     (void)libdecaf_nif_make_atoms(env);
     return retval;

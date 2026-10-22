@@ -10,6 +10,56 @@
 %%%-------------------------------------------------------------------
 -module(libdecaf).
 
+%% Prime-order groups (RFC 9496).
+-export([
+	ristretto255_identity/0,
+	ristretto255_base/0,
+	ristretto255_point_is_valid/1,
+	ristretto255_point_eq/2,
+	ristretto255_point_add/2,
+	ristretto255_point_sub/2,
+	ristretto255_point_negate/1,
+	ristretto255_point_double/1,
+	ristretto255_point_scalarmul/2,
+	ristretto255_base_scalarmul/1,
+	ristretto255_point_double_scalarmul/4,
+	ristretto255_point_from_hash/1,
+	ristretto255_point_from_hash_nonuniform/1,
+	ristretto255_precompute/1,
+	ristretto255_precomputed_scalarmul/2,
+	ristretto255_scalar_is_canonical/1,
+	ristretto255_scalar_reduce/1,
+	ristretto255_scalar_add/2,
+	ristretto255_scalar_sub/2,
+	ristretto255_scalar_mul/2,
+	ristretto255_scalar_negate/1,
+	ristretto255_scalar_halve/1,
+	ristretto255_scalar_invert/1,
+	decaf448_identity/0,
+	decaf448_base/0,
+	decaf448_point_is_valid/1,
+	decaf448_point_eq/2,
+	decaf448_point_add/2,
+	decaf448_point_sub/2,
+	decaf448_point_negate/1,
+	decaf448_point_double/1,
+	decaf448_point_scalarmul/2,
+	decaf448_base_scalarmul/1,
+	decaf448_point_double_scalarmul/4,
+	decaf448_point_from_hash/1,
+	decaf448_point_from_hash_nonuniform/1,
+	decaf448_precompute/1,
+	decaf448_precomputed_scalarmul/2,
+	decaf448_scalar_is_canonical/1,
+	decaf448_scalar_reduce/1,
+	decaf448_scalar_add/2,
+	decaf448_scalar_sub/2,
+	decaf448_scalar_mul/2,
+	decaf448_scalar_negate/1,
+	decaf448_scalar_halve/1,
+	decaf448_scalar_invert/1
+]).
+
 %% API
 -export([start/0]).
 %% decaf/ed255.h
@@ -495,3 +545,141 @@ priv_dir() ->
 %%%-------------------------------------------------------------------
 %%% Internal functions
 %%%-------------------------------------------------------------------
+
+ristretto255_identity() ->
+	libdecaf_nif:ristretto255_identity().
+
+ristretto255_base() ->
+	libdecaf_nif:ristretto255_base().
+
+ristretto255_point_is_valid(A1) ->
+	libdecaf_nif:ristretto255_point_is_valid(A1).
+
+ristretto255_point_eq(A1, A2) ->
+	libdecaf_nif:ristretto255_point_eq(A1, A2).
+
+ristretto255_point_add(A1, A2) ->
+	libdecaf_nif:ristretto255_point_add(A1, A2).
+
+ristretto255_point_sub(A1, A2) ->
+	libdecaf_nif:ristretto255_point_sub(A1, A2).
+
+ristretto255_point_negate(A1) ->
+	libdecaf_nif:ristretto255_point_negate(A1).
+
+ristretto255_point_double(A1) ->
+	libdecaf_nif:ristretto255_point_double(A1).
+
+ristretto255_point_scalarmul(A1, A2) ->
+	libdecaf_nif:ristretto255_point_scalarmul(A1, A2).
+
+ristretto255_base_scalarmul(A1) ->
+	libdecaf_nif:ristretto255_base_scalarmul(A1).
+
+ristretto255_point_double_scalarmul(A1, A2, A3, A4) ->
+	libdecaf_nif:ristretto255_point_double_scalarmul(A1, A2, A3, A4).
+
+ristretto255_point_from_hash(A1) ->
+	libdecaf_nif:ristretto255_point_from_hash(A1).
+
+ristretto255_point_from_hash_nonuniform(A1) ->
+	libdecaf_nif:ristretto255_point_from_hash_nonuniform(A1).
+
+ristretto255_precompute(A1) ->
+	libdecaf_nif:ristretto255_precompute(A1).
+
+ristretto255_precomputed_scalarmul(A1, A2) ->
+	libdecaf_nif:ristretto255_precomputed_scalarmul(A1, A2).
+
+ristretto255_scalar_is_canonical(A1) ->
+	libdecaf_nif:ristretto255_scalar_is_canonical(A1).
+
+ristretto255_scalar_reduce(A1) ->
+	libdecaf_nif:ristretto255_scalar_reduce(A1).
+
+ristretto255_scalar_add(A1, A2) ->
+	libdecaf_nif:ristretto255_scalar_add(A1, A2).
+
+ristretto255_scalar_sub(A1, A2) ->
+	libdecaf_nif:ristretto255_scalar_sub(A1, A2).
+
+ristretto255_scalar_mul(A1, A2) ->
+	libdecaf_nif:ristretto255_scalar_mul(A1, A2).
+
+ristretto255_scalar_negate(A1) ->
+	libdecaf_nif:ristretto255_scalar_negate(A1).
+
+ristretto255_scalar_halve(A1) ->
+	libdecaf_nif:ristretto255_scalar_halve(A1).
+
+ristretto255_scalar_invert(A1) ->
+	libdecaf_nif:ristretto255_scalar_invert(A1).
+
+decaf448_identity() ->
+	libdecaf_nif:decaf448_identity().
+
+decaf448_base() ->
+	libdecaf_nif:decaf448_base().
+
+decaf448_point_is_valid(A1) ->
+	libdecaf_nif:decaf448_point_is_valid(A1).
+
+decaf448_point_eq(A1, A2) ->
+	libdecaf_nif:decaf448_point_eq(A1, A2).
+
+decaf448_point_add(A1, A2) ->
+	libdecaf_nif:decaf448_point_add(A1, A2).
+
+decaf448_point_sub(A1, A2) ->
+	libdecaf_nif:decaf448_point_sub(A1, A2).
+
+decaf448_point_negate(A1) ->
+	libdecaf_nif:decaf448_point_negate(A1).
+
+decaf448_point_double(A1) ->
+	libdecaf_nif:decaf448_point_double(A1).
+
+decaf448_point_scalarmul(A1, A2) ->
+	libdecaf_nif:decaf448_point_scalarmul(A1, A2).
+
+decaf448_base_scalarmul(A1) ->
+	libdecaf_nif:decaf448_base_scalarmul(A1).
+
+decaf448_point_double_scalarmul(A1, A2, A3, A4) ->
+	libdecaf_nif:decaf448_point_double_scalarmul(A1, A2, A3, A4).
+
+decaf448_point_from_hash(A1) ->
+	libdecaf_nif:decaf448_point_from_hash(A1).
+
+decaf448_point_from_hash_nonuniform(A1) ->
+	libdecaf_nif:decaf448_point_from_hash_nonuniform(A1).
+
+decaf448_precompute(A1) ->
+	libdecaf_nif:decaf448_precompute(A1).
+
+decaf448_precomputed_scalarmul(A1, A2) ->
+	libdecaf_nif:decaf448_precomputed_scalarmul(A1, A2).
+
+decaf448_scalar_is_canonical(A1) ->
+	libdecaf_nif:decaf448_scalar_is_canonical(A1).
+
+decaf448_scalar_reduce(A1) ->
+	libdecaf_nif:decaf448_scalar_reduce(A1).
+
+decaf448_scalar_add(A1, A2) ->
+	libdecaf_nif:decaf448_scalar_add(A1, A2).
+
+decaf448_scalar_sub(A1, A2) ->
+	libdecaf_nif:decaf448_scalar_sub(A1, A2).
+
+decaf448_scalar_mul(A1, A2) ->
+	libdecaf_nif:decaf448_scalar_mul(A1, A2).
+
+decaf448_scalar_negate(A1) ->
+	libdecaf_nif:decaf448_scalar_negate(A1).
+
+decaf448_scalar_halve(A1) ->
+	libdecaf_nif:decaf448_scalar_halve(A1).
+
+decaf448_scalar_invert(A1) ->
+	libdecaf_nif:decaf448_scalar_invert(A1).
