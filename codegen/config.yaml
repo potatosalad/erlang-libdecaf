@@ -17,7 +17,7 @@ nif:
       context: decaf_keccak_sponge_s
       default_output_len: 28
       max_output_len: 28
-      init: libdecaf_nif_keccak_224_init
+      init: libdecaf_nif_hash_keccak_224_init
       update: decaf_sha3_update
       final: decaf_sha3_final
       destroy: decaf_sha3_destroy
@@ -26,7 +26,7 @@ nif:
       context: decaf_keccak_sponge_s
       default_output_len: 32
       max_output_len: 32
-      init: libdecaf_nif_keccak_256_init
+      init: libdecaf_nif_hash_keccak_256_init
       update: decaf_sha3_update
       final: decaf_sha3_final
       destroy: decaf_sha3_destroy
@@ -35,7 +35,7 @@ nif:
       context: decaf_keccak_sponge_s
       default_output_len: 48
       max_output_len: 48
-      init: libdecaf_nif_keccak_384_init
+      init: libdecaf_nif_hash_keccak_384_init
       update: decaf_sha3_update
       final: decaf_sha3_final
       destroy: decaf_sha3_destroy
@@ -44,7 +44,7 @@ nif:
       context: decaf_keccak_sponge_s
       default_output_len: 64
       max_output_len: 64
-      init: libdecaf_nif_keccak_512_init
+      init: libdecaf_nif_hash_keccak_512_init
       update: decaf_sha3_update
       final: decaf_sha3_final
       destroy: decaf_sha3_destroy

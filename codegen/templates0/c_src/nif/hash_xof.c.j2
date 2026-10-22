@@ -122,25 +122,25 @@ static void
 /* Typed adapters keep the upstream function signatures intact. */
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}
 static void
-libdecaf_nif_{{ name }}_init_adapter(void *ctx)
+libdecaf_nif_hash_xof_{{ name }}_init_adapter(void *ctx)
 {
     {{ algorithm.init }}((struct {{ algorithm.context }} *)ctx);
 }
 
 static void
-libdecaf_nif_{{ name }}_update_adapter(void *ctx, const uint8_t *input, size_t input_len)
+libdecaf_nif_hash_xof_{{ name }}_update_adapter(void *ctx, const uint8_t *input, size_t input_len)
 {
     {{ algorithm.update }}((struct {{ algorithm.context }} *)ctx, input, input_len);
 }
 
 static void
-libdecaf_nif_{{ name }}_output_adapter(void *ctx, uint8_t *output, size_t output_len)
+libdecaf_nif_hash_xof_{{ name }}_output_adapter(void *ctx, uint8_t *output, size_t output_len)
 {
     {{ algorithm.output }}((struct {{ algorithm.context }} *)ctx, output, output_len);
 }
 
 static void
-libdecaf_nif_{{ name }}_destroy_adapter(void *ctx)
+libdecaf_nif_hash_xof_{{ name }}_destroy_adapter(void *ctx)
 {
     {{ algorithm.destroy }}((struct {{ algorithm.context }} *)ctx);
 }
@@ -152,10 +152,10 @@ static libdecaf_nif_hash_xof_table_t libdecaf_nif_hash_xof_table_internal = {
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}
     .{{ name }} = {
         .type = LIBDECAF_NIF_HASH_XOF_TYPE_{{ name | upper }},
-        .init = libdecaf_nif_{{ name }}_init_adapter,
-        .update = libdecaf_nif_{{ name }}_update_adapter,
-        .output = libdecaf_nif_{{ name }}_output_adapter,
-        .destroy = libdecaf_nif_{{ name }}_destroy_adapter,
+        .init = libdecaf_nif_hash_xof_{{ name }}_init_adapter,
+        .update = libdecaf_nif_hash_xof_{{ name }}_update_adapter,
+        .output = libdecaf_nif_hash_xof_{{ name }}_output_adapter,
+        .destroy = libdecaf_nif_hash_xof_{{ name }}_destroy_adapter,
     },
 {% endfor %}
 };

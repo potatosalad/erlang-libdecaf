@@ -74,25 +74,25 @@ static void
 /* Typed adapters keep the upstream function signatures intact. */
 {% for name, algorithm in ctx.schema.nif.hash | dictsort %}
 static void
-libdecaf_nif_{{ name }}_init_adapter(void *ctx)
+libdecaf_nif_hash_{{ name }}_init_adapter(void *ctx)
 {
     {{ algorithm.init }}((struct {{ algorithm.context }} *)ctx);
 }
 
 static void
-libdecaf_nif_{{ name }}_update_adapter(void *ctx, const uint8_t *input, size_t input_len)
+libdecaf_nif_hash_{{ name }}_update_adapter(void *ctx, const uint8_t *input, size_t input_len)
 {
     {{ algorithm.update }}((struct {{ algorithm.context }} *)ctx, input, input_len);
 }
 
 static void
-libdecaf_nif_{{ name }}_final_adapter(void *ctx, uint8_t *output, size_t output_len)
+libdecaf_nif_hash_{{ name }}_final_adapter(void *ctx, uint8_t *output, size_t output_len)
 {
     {{ algorithm.final }}((struct {{ algorithm.context }} *)ctx, output, output_len);
 }
 
 static void
-libdecaf_nif_{{ name }}_destroy_adapter(void *ctx)
+libdecaf_nif_hash_{{ name }}_destroy_adapter(void *ctx)
 {
     {{ algorithm.destroy }}((struct {{ algorithm.context }} *)ctx);
 }
@@ -106,10 +106,10 @@ static libdecaf_nif_hash_table_t libdecaf_nif_hash_table_internal = {
         .type = LIBDECAF_NIF_HASH_TYPE_{{ name | upper }},
         .default_output_len = {{ algorithm.default_output_len }},
         .max_output_len = {{ algorithm.max_output_len }},
-        .init = libdecaf_nif_{{ name }}_init_adapter,
-        .update = libdecaf_nif_{{ name }}_update_adapter,
-        .final = libdecaf_nif_{{ name }}_final_adapter,
-        .destroy = libdecaf_nif_{{ name }}_destroy_adapter,
+        .init = libdecaf_nif_hash_{{ name }}_init_adapter,
+        .update = libdecaf_nif_hash_{{ name }}_update_adapter,
+        .final = libdecaf_nif_hash_{{ name }}_final_adapter,
+        .destroy = libdecaf_nif_hash_{{ name }}_destroy_adapter,
     },
 {% endfor %}
 };
