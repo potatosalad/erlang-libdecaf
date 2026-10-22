@@ -4,31 +4,24 @@ on: [push, pull_request]
 
 jobs:
   test:
-    name: Test
+    name: OTP ${{ matrix.otp }}
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - erlang: 25.0.4-alpine-3.16.1
-          # - erlang: 24.3.4.4-alpine-3.16.1 # appears to have a broken 'ssl' library
-          - erlang: 23.3.4.16-alpine-3.16.0
-
+        otp: ['28', '29']
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Setup
-        run: |
-          make docker-setup DOCKER_OTP_VERSION=${{matrix.erlang}}
-
+      - uses: actions/checkout@v7
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ matrix.otp }}
+      - name: Build
+        run: make -j2
       - name: Test
-        run: |
-          make docker-test DOCKER_OTP_VERSION=${{matrix.erlang}}
-
+        run: make tests
       - name: Logs
-        uses: actions/upload-artifact@v2-preview
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: ct-logs-${{matrix.erlang}}
+          name: ct-logs-${{ matrix.otp }}
           path: logs/*
