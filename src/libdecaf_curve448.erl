@@ -59,6 +59,9 @@
 	x448_keypair/1
 ]).
 
+%% Streaming prehash EdDSA
+-export([ed448ph_sign_init/1, ed448ph_sign_init/2, ed448ph_sign_update/2, ed448ph_sign_final/1, ed448ph_verify_init/2, ed448ph_verify_init/3, ed448ph_verify_update/2, ed448ph_verify_final/1]).
+
 %% Macro
 % EdDSA
 -define(EdDSA_SECRET_BYTES,  57).
@@ -242,3 +245,28 @@ x448_keypair(Secret)
 %%%-------------------------------------------------------------------
 %%% Internal functions
 %%%-------------------------------------------------------------------
+
+%% Streaming prehash EdDSA. Keypair is a resource from keypair_derive/1.
+ed448ph_sign_init(Keypair) ->
+	{ed448ph_sign, libdecaf_eddsa:sign_init(ed448ph, Keypair)}.
+
+ed448ph_sign_init(Keypair, Context) ->
+	{ed448ph_sign, libdecaf_eddsa:sign_init(ed448ph, Keypair, Context)}.
+
+ed448ph_sign_update({ed448ph_sign, State}, Input) ->
+	{ed448ph_sign, libdecaf_eddsa:sign_update(State, Input)}.
+
+ed448ph_sign_final({ed448ph_sign, State}) ->
+	libdecaf_eddsa:sign_final(State).
+
+ed448ph_verify_init(Signature, PublicKey) ->
+	{ed448ph_verify, libdecaf_eddsa:verify_init(ed448ph, Signature, PublicKey)}.
+
+ed448ph_verify_init(Signature, PublicKey, Context) ->
+	{ed448ph_verify, libdecaf_eddsa:verify_init(ed448ph, Signature, PublicKey, Context)}.
+
+ed448ph_verify_update({ed448ph_verify, State}, Input) ->
+	{ed448ph_verify, libdecaf_eddsa:verify_update(State, Input)}.
+
+ed448ph_verify_final({ed448ph_verify, State}) ->
+	libdecaf_eddsa:verify_final(State).

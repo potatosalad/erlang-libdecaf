@@ -796,7 +796,8 @@ ed25519ph_vector({Secret, PK, Message, Signature}) ->
 	KP = libdecaf_curve25519:keypair_derive(Secret),
 	?tv_ok(T3, libdecaf_curve25519, keypair_extract_private_key, [KP], Secret),
 	?tv_ok(T4, libdecaf_curve25519, keypair_extract_public_key, [KP], PK),
-	?tv_ok(T5, libdecaf_curve25519, ed25519ph_keypair_sign, [Message, KP], Signature).
+	?tv_ok(T5, libdecaf_curve25519, ed25519ph_keypair_sign, [Message, KP], Signature),
+	stream_vector(ed25519ph, KP, PK, Message, <<>>, Signature).
 
 %% @private
 ed448_vector({Secret, PK, Message, Signature}) ->
@@ -827,7 +828,8 @@ ed448ph_vector({Secret, PK, Message, Signature}) ->
 	KP = libdecaf_curve448:keypair_derive(Secret),
 	?tv_ok(T3, libdecaf_curve448, keypair_extract_private_key, [KP], Secret),
 	?tv_ok(T4, libdecaf_curve448, keypair_extract_public_key, [KP], PK),
-	?tv_ok(T5, libdecaf_curve448, ed448ph_keypair_sign, [Message, KP], Signature);
+	?tv_ok(T5, libdecaf_curve448, ed448ph_keypair_sign, [Message, KP], Signature),
+	stream_vector(ed448ph, KP, PK, Message, <<>>, Signature);
 ed448ph_vector({Secret, PK, Message, Context, Signature}) ->
 	SK = << Secret/binary, PK/binary >>,
 	?tv_ok(T0, libdecaf_curve448, eddsa_secret_to_pk, [Secret], PK),
@@ -836,7 +838,8 @@ ed448ph_vector({Secret, PK, Message, Context, Signature}) ->
 	KP = libdecaf_curve448:keypair_derive(Secret),
 	?tv_ok(T3, libdecaf_curve448, keypair_extract_private_key, [KP], Secret),
 	?tv_ok(T4, libdecaf_curve448, keypair_extract_public_key, [KP], PK),
-	?tv_ok(T5, libdecaf_curve448, ed448ph_keypair_sign, [Message, KP, Context], Signature).
+	?tv_ok(T5, libdecaf_curve448, ed448ph_keypair_sign, [Message, KP, Context], Signature),
+	stream_vector(ed448ph, KP, PK, Message, Context, Signature).
 
 %% @private
 hexstr2bin(S) ->
@@ -917,4 +920,17 @@ mismatched_keypairs(_Config) ->
 		end, [Sign, Prehash])
 	end, [{libdecaf_curve25519, 32, ed25519_sign, ed25519ph_sign},
 		{libdecaf_curve448, 57, ed448_sign, ed448ph_sign}]),
+	ok.
+
+stream_vector(Algorithm, Keypair, PublicKey, Message, Context, Signature) ->
+	Split = byte_size(Message) div 2,
+	<<A:Split/binary, B/binary>> = Message,
+	S0 = libdecaf_eddsa:sign_init(Algorithm, Keypair, Context),
+	S1 = libdecaf_eddsa:sign_update(S0, [<<>>, A]),
+	S2 = libdecaf_eddsa:sign_update(S1, B),
+	Signature = libdecaf_eddsa:sign_final(S2),
+	V0 = libdecaf_eddsa:verify_init(Algorithm, Signature, PublicKey, Context),
+	V1 = libdecaf_eddsa:verify_update(V0, A),
+	V2 = libdecaf_eddsa:verify_update(V1, [B, <<>>]),
+	true = libdecaf_eddsa:verify_final(V2),
 	ok.

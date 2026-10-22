@@ -65,6 +65,9 @@
 	x25519_keypair/1
 ]).
 
+%% Streaming prehash EdDSA
+-export([ed25519ph_sign_init/1, ed25519ph_sign_init/2, ed25519ph_sign_update/2, ed25519ph_sign_final/1, ed25519ph_verify_init/2, ed25519ph_verify_init/3, ed25519ph_verify_update/2, ed25519ph_verify_final/1]).
+
 %% Macro
 % EdDSA
 -define(EdDSA_SECRET_BYTES, 32).
@@ -255,3 +258,28 @@ x25519_keypair(Secret)
 %%%-------------------------------------------------------------------
 %%% Internal functions
 %%%-------------------------------------------------------------------
+
+%% Streaming prehash EdDSA. Keypair is a resource from keypair_derive/1.
+ed25519ph_sign_init(Keypair) ->
+	{ed25519ph_sign, libdecaf_eddsa:sign_init(ed25519ph, Keypair)}.
+
+ed25519ph_sign_init(Keypair, Context) ->
+	{ed25519ph_sign, libdecaf_eddsa:sign_init(ed25519ph, Keypair, Context)}.
+
+ed25519ph_sign_update({ed25519ph_sign, State}, Input) ->
+	{ed25519ph_sign, libdecaf_eddsa:sign_update(State, Input)}.
+
+ed25519ph_sign_final({ed25519ph_sign, State}) ->
+	libdecaf_eddsa:sign_final(State).
+
+ed25519ph_verify_init(Signature, PublicKey) ->
+	{ed25519ph_verify, libdecaf_eddsa:verify_init(ed25519ph, Signature, PublicKey)}.
+
+ed25519ph_verify_init(Signature, PublicKey, Context) ->
+	{ed25519ph_verify, libdecaf_eddsa:verify_init(ed25519ph, Signature, PublicKey, Context)}.
+
+ed25519ph_verify_update({ed25519ph_verify, State}, Input) ->
+	{ed25519ph_verify, libdecaf_eddsa:verify_update(State, Input)}.
+
+ed25519ph_verify_final({ed25519ph_verify, State}) ->
+	libdecaf_eddsa:verify_final(State).
