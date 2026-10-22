@@ -3,6 +3,7 @@
 #define LIBDECAF_NIF_HASH_XOF_H
 
 #include "libdecaf_nif.h"
+#include "hash_xof_kt.h"
 #include <decaf/shake.h>
 
 #ifdef __cplusplus
@@ -24,6 +25,7 @@ struct libdecaf_nif_hash_xof_s {
     libdecaf_nif_hash_xof_type_t type;
     size_t cshake_rate;
     size_t turbo_rate;
+    size_t kt_rate;
     void (*init)(void *ctx);
     void (*update)(void *ctx, const uint8_t *input, size_t input_len);
     void (*output)(void *ctx, uint8_t *output, size_t output_len);
@@ -56,6 +58,7 @@ extern ERL_NIF_TERM libdecaf_nif_hash_xof_init_2(ErlNifEnv *env, int argc, const
 extern ERL_NIF_TERM libdecaf_nif_hash_xof_init_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_hash_xof_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_hash_xof_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+extern ERL_NIF_TERM libdecaf_nif_hash_xof_final_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 static inline libdecaf_nif_hash_xof_t *
 libdecaf_nif_hash_xof_from_type(libdecaf_nif_hash_xof_type_t type)

@@ -1,6 +1,6 @@
 """Validated configuration for libdecaf's generated NIF sources."""
 
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -36,10 +36,11 @@ class XOF(Algorithm):
     legacy_keccak_rate: int | None = Field(default=None, gt=0, lt=200)
     cshake_rate: int | None = Field(default=None, gt=0, lt=200)
     turbo_rate: int | None = Field(default=None, gt=0, lt=200)
+    kt_rate: Literal[136, 168] | None = None
 
     @model_validator(mode="after")
     def valid_padding(self) -> Self:
-        if sum(rate is not None for rate in (self.legacy_keccak_rate, self.cshake_rate, self.turbo_rate)) > 1:
+        if sum(rate is not None for rate in (self.legacy_keccak_rate, self.cshake_rate, self.turbo_rate, self.kt_rate)) > 1:
             raise ValueError("An XOF can select only one sponge initialization mode")
         return self
 

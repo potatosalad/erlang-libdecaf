@@ -167,6 +167,22 @@
           ],
           "default": null,
           "title": "Turbo Rate"
+        },
+        "kt_rate": {
+          "anyOf": [
+            {
+              "enum": [
+                136,
+                168
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kt Rate"
         }
       },
       "required": [

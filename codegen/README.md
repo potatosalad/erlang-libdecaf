@@ -57,6 +57,14 @@ They use the last 12 Keccak-p rounds as specified in RFC 9861. `hash_xof/3`
 and `hash_xof_init/1` use domain `0x1f`; `hash_xof/4` and `hash_xof_init/2`
 accept an explicit domain byte in `1..127`.
 
+`kt128` and `kt256` set `kt_rate` to 168 and 136 bytes. The generated
+`hash_xof_kt.{c,h}` implements RFC 9861 tree hashing with 8192-byte chunks,
+32/64-byte chaining values, and two fixed-size sponge states. `hash_xof/4`
+takes a customization string as its fourth argument for KT algorithms.
+Incremental hashing uses `hash_xof_init/1`, `hash_xof_update/2`, and
+`hash_xof_final/3`, which appends customization and its RFC length encoding.
+The existing `hash_xof/3` and `hash_xof_final/2` use empty customization.
+
 The generated C contains typed upstream adapters, algorithm tables, resource
 layouts, and lookups by atom or resource type. Only the generic `hash`,
 `hash_init`, `hash_update`, `hash_final`, and corresponding `hash_xof*` NIFs are

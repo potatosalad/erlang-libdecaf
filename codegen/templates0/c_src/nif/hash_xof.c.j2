@@ -163,6 +163,7 @@ static libdecaf_nif_hash_xof_table_t libdecaf_nif_hash_xof_table_internal = {
         .type = LIBDECAF_NIF_HASH_XOF_TYPE_{{ name | upper }},
         .cshake_rate = {{ algorithm.cshake_rate or 0 }},
         .turbo_rate = {{ algorithm.turbo_rate or 0 }},
+        .kt_rate = {{ algorithm.kt_rate or 0 }},
         .init = libdecaf_nif_hash_xof_{{ name }}_init_adapter,
         .update = libdecaf_nif_hash_xof_{{ name }}_update_adapter,
         .output = libdecaf_nif_hash_xof_{{ name }}_output_adapter,
@@ -180,6 +181,7 @@ static ERL_NIF_TERM libdecaf_nif_hash_xof_squeeze_2_continue(ErlNifEnv *env, int
 static ERL_NIF_TERM libdecaf_nif_hash_xof_update_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM libdecaf_nif_hash_xof_output_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_hash_xof_compute_from_state(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[], const libdecaf_nif_hash_xof_ctx_t *old_ctx);
 static ERL_NIF_TERM libdecaf_nif_hash_xof_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 /* SP 800-185 encodes lengths in bits, with the integer's byte count first. */
@@ -268,10 +270,17 @@ libdecaf_nif_hash_xof_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM
 libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
+    return libdecaf_nif_hash_xof_compute_from_state(env, argc, argv, NULL);
+}
+
+static ERL_NIF_TERM
+libdecaf_nif_hash_xof_compute_from_state(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[], const libdecaf_nif_hash_xof_ctx_t *old_ctx)
+{
     libdecaf_nif_hash_xof_t *xof = NULL;
     ERL_NIF_TERM input;
     bool customized = false;
     unsigned int domain = 0x1F;
+    size_t customization_len = 0;
     ERL_NIF_TERM input_term;
     ErlNifBinary input_bin;
     unsigned long output_len;
@@ -292,7 +301,7 @@ libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         (void)enif_free_env(work_env);
         return EXCP_NOTSUP(env, "argc must be 3, 4, or 5");
     }
-    xof = libdecaf_nif_hash_xof_from_atom(env, argv[0]);
+    xof = old_ctx == NULL ? libdecaf_nif_hash_xof_from_atom(env, argv[0]) : libdecaf_nif_hash_xof_from_type(old_ctx->type);
     if (xof == NULL) {
         (void)enif_free_env(work_env);
         return EXCP_BADARG(env, "Bad argument: 'Type'");
@@ -307,7 +316,15 @@ libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
     }
     input = argv[1];
     if (argc == 4) {
-        if (xof->turbo_rate == 0 || !enif_get_uint(env, argv[3], &domain) || domain < 1 || domain > 0x7F) {
+        if (xof->kt_rate != 0) {
+            ErlNifBinary custom;
+            if (!enif_inspect_iolist_as_binary(env, argv[3], &custom)) {
+                (void)enif_free_env(work_env);
+                return EXCP_BADARG(env, "Customization must be iodata");
+            }
+            customization_len = custom.size;
+            input = enif_make_list2(env, input, argv[3]);
+        } else if (xof->turbo_rate == 0 || !enif_get_uint(env, argv[3], &domain) || domain < 1 || domain > 0x7F) {
             (void)enif_free_env(work_env);
             return EXCP_BADARG(env, "TurboSHAKE requires a domain byte in 1..127");
         }
@@ -345,9 +362,17 @@ libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_xof_ctx_t");
     }
 
-    ctx->type = xof->type;
-    ctx->squeezing = false;
-    (void)xof->init((void *)ctx);
+    if (old_ctx == NULL) {
+        ctx->type = xof->type;
+        ctx->squeezing = false;
+        (void)xof->init((void *)ctx);
+    } else {
+        memcpy(ctx, old_ctx, sizeof(*ctx));
+        customization_len = input_bin.size;
+    }
+    if (xof->kt_rate != 0) {
+        ((libdecaf_nif_hash_xof_kt_ctx_t *)ctx)->customization_len = customization_len;
+    }
     if (xof->turbo_rate != 0) {
         ((struct decaf_keccak_sponge_s *)ctx)->params->pad = (uint8_t)domain;
     }
@@ -812,6 +837,22 @@ libdecaf_nif_hash_xof_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         (void)enif_release_resource((void *)new_ctx);
         return enif_make_binary(env, &output_bin);
     }
+}
+
+ERL_NIF_TERM
+libdecaf_nif_hash_xof_final_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    libdecaf_nif_hash_xof_ctx_t *ctx = NULL;
+    libdecaf_nif_hash_xof_t *xof = NULL;
+    if (argc != 3) {
+        return EXCP_NOTSUP(env, "argc must be 3");
+    }
+    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_xof_resource_type, (void **)&ctx) ||
+        (xof = libdecaf_nif_hash_xof_from_type(ctx->type)) == NULL || xof->kt_rate == 0 || ctx->squeezing) {
+        return EXCP_BADARG(env, "State must be an absorbing KangarooTwelve resource");
+    }
+    ERL_NIF_TERM args[3] = {argv[0], argv[2], argv[1]};
+    return libdecaf_nif_hash_xof_compute_from_state(env, 3, args, ctx);
 }
 
 ERL_NIF_TERM

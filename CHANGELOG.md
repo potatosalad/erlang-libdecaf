@@ -8,6 +8,7 @@
   * Preserve legacy Keccak support in the NIF using the upstream sponge API.
   * Fix native dependency ordering and rebuilds, and update macOS linking flags.
 * Library Support
+  * RFC 9861 KangarooTwelve KT128 and KT256 with one-shot and incremental customization support.
   * RFC 9861 TurboSHAKE128 and TurboSHAKE256 with configurable domain separation bytes.
   * cSHAKE128 and cSHAKE256 with SP 800-185 function-name and customization strings.
     * `libdecaf:hash_xof/5` and `libdecaf:hash_xof_init/3`, using `cshake128` or `cshake256`.

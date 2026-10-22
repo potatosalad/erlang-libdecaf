@@ -259,9 +259,14 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         ),
         (
             "hash_xof",
-            [("Type", "hash_xof_domain_algorithm()"), ("Input", "iodata()"), ("Length", "non_neg_integer()"), ("Domain", "1..127")],
+            [
+                ("Type", "hash_xof_domain_algorithm() | hash_xof_tree_algorithm()"),
+                ("Input", "iodata()"),
+                ("Length", "non_neg_integer()"),
+                ("Parameter", "1..127 | iodata()"),
+            ],
             "binary()",
-            "Hash iodata with TurboSHAKE using an explicit domain byte in 1..127. Length is in bytes.",
+            "Hash iodata with a TurboSHAKE domain byte in 1..127 or a KangarooTwelve customization string. Length is in bytes.",
         ),
         (
             "hash_xof",
@@ -310,6 +315,12 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
             [("State", "hash_xof_state()"), ("Length", "non_neg_integer()")],
             "binary()",
             "Return Length XOF bytes without changing the input state. Repeated finalization returns the same output prefix.",
+        ),
+        (
+            "hash_xof_final",
+            [("State", "hash_xof_state()"), ("Length", "non_neg_integer()"), ("Customization", "iodata()")],
+            "binary()",
+            "Finalize a KangarooTwelve state with a customization string. The input state remains reusable.",
         ),
     ]
     for name, arguments, returns, doc in hash_operations:
@@ -370,6 +381,11 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
             "TurboSHAKE algorithms accepting an explicit domain byte.",
         ),
         ("prehashed", "0 | 1", "Select an ordinary message (`0`) or an already computed 64-byte prehash (`1`)."),
+        (
+            "hash_xof_tree_algorithm",
+            " | ".join(sorted(name for name, algorithm in schema.xof.items() if algorithm.kt_rate is not None)) or "none()",
+            "KangarooTwelve algorithms accepting a customization string at finalization.",
+        ),
         (
             "ed25519_context",
             "no_context | binary()",

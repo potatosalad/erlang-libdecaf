@@ -6,7 +6,8 @@
 Cryptographic primitives backed by libdecaf.
 
 Provides Ed25519/Ed448 signatures, X25519/X448 key agreement,
-Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, cSHAKE, Keccak XOFs, and the sponge PRNG.
+Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, cSHAKE,
+Keccak XOFs, TurboSHAKE, KangarooTwelve, and the sponge PRNG.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2016-02-06", modified => "2026-10-22"}.
@@ -27,6 +28,7 @@ Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, cSHAKE, Kecc
     hash_xof/4,
     hash_xof/5,
     hash_xof_final/2,
+    hash_xof_final/3,
     hash_xof_init/1,
     hash_xof_init/2,
     hash_xof_init/3,
@@ -38,7 +40,8 @@ Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, cSHAKE, Kecc
     hash_xof_algorithm/0,
     hash_xof_custom_algorithm/0,
     hash_xof_domain_algorithm/0,
-    hash_xof_state/0
+    hash_xof_state/0,
+    hash_xof_tree_algorithm/0
 ]).
 
 % %% Prime-order groups (RFC 9496).
@@ -247,6 +250,8 @@ capacities of 256 and 512 bits, respectively. `shake128` and `shake256` use
 the FIPS 202 domain separation suffix.
 `cshake128` and `cshake256` support SP 800-185 function-name and customization
 strings; empty strings for both make them equivalent to SHAKE.
+`turboshake128` and `turboshake256` use the last 12 Keccak-p rounds.
+`kt128` and `kt256` use RFC 9861 KangarooTwelve tree hashing.
 """.
 -type hash_xof_algorithm() ::
 ~J{ for name in xof_algorithms }.
@@ -268,6 +273,11 @@ An immutable native XOF resource containing its algorithm and context.
 Updates return new resources; finalization leaves the input resource reusable.
 """.
 -opaque hash_xof_state() :: libdecaf_nif:hash_xof_state().
+
+-doc """
+KangarooTwelve algorithms accepting a customization string at finalization.
+""".
+-type hash_xof_tree_algorithm() :: libdecaf_nif:hash_xof_tree_algorithm().
 
 %%%=============================================================================
 %%% Hash API functions
@@ -350,6 +360,7 @@ Hash iodata with an extendable-output function and return `Length` bytes.
 The output length may be any nonnegative number of bytes.
 For cSHAKE, this uses empty function-name and customization strings.
 TurboSHAKE uses its default domain byte `16#1f`.
+KangarooTwelve uses an empty customization string.
 
 ```erlang
 libdecaf:hash_xof(shake256, <<"abc">>, 64).
@@ -363,15 +374,21 @@ hash_xof(Type, Data, Length) ->
     libdecaf_nif:hash_xof(Type, Data, Length).
 
 -doc """
-Hash iodata with TurboSHAKE using a domain byte in `1..127`.
-The output length is in bytes.
+Hash iodata with an algorithm-specific parameter and return `Length` bytes.
+For TurboSHAKE, `Parameter` is a domain byte in `1..127`.
+For KangarooTwelve, `Parameter` is a customization string accepting iodata.
+
+```erlang
+libdecaf:hash_xof(turboshake128, <<"abc">>, 32, 16#1f).
+libdecaf:hash_xof(kt256, <<"abc">>, 64, <<"my protocol">>).
+```
 """.
 -doc #{group => <<"Hash XOF API">>}.
--spec hash_xof(Type, Data, Length, Domain) -> Output when
-    Type :: hash_xof_domain_algorithm(), Data :: iodata(), Length :: non_neg_integer(),
-    Domain :: 1..127, Output :: binary().
-hash_xof(Type, Data, Length, Domain) ->
-    libdecaf_nif:hash_xof(Type, Data, Length, Domain).
+-spec hash_xof(Type, Data, Length, Parameter) -> Output when
+    Type :: hash_xof_domain_algorithm() | hash_xof_tree_algorithm(), Data :: iodata(), Length :: non_neg_integer(),
+    Parameter :: 1..127 | iodata(), Output :: binary().
+hash_xof(Type, Data, Length, Parameter) ->
+    libdecaf_nif:hash_xof(Type, Data, Length, Parameter).
 
 -doc """
 Hash iodata with cSHAKE and return `Length` bytes.
@@ -400,6 +417,23 @@ position; request a larger length to obtain a longer output prefix.
     State :: hash_xof_state(), Length :: non_neg_integer(), Output :: binary().
 hash_xof_final(State, Length) ->
     libdecaf_nif:hash_xof_final(State, Length).
+
+-doc """
+Finalize a KangarooTwelve state with a customization string and return `Length` bytes.
+Customization is appended after the message as specified in RFC 9861.
+The input state remains reusable with the same or a different customization string.
+
+```erlang
+S0 = libdecaf:hash_xof_init(kt128),
+S1 = libdecaf:hash_xof_update(S0, <<"abc">>),
+Output = libdecaf:hash_xof_final(S1, 32, <<"my protocol">>).
+```
+""".
+-doc #{group => <<"Hash XOF API">>}.
+-spec hash_xof_final(State, Length, Customization) -> Output when
+    State :: hash_xof_state(), Length :: non_neg_integer(), Customization :: iodata(), Output :: binary().
+hash_xof_final(State, Length, Customization) ->
+    libdecaf_nif:hash_xof_final(State, Length, Customization).
 
 -doc """
 Initialize an incremental extendable-output hash.

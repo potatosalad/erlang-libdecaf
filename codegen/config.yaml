@@ -118,6 +118,20 @@ nif:
       output: decaf_sha3_output
       destroy: decaf_sha3_destroy
       legacy_keccak_rate: 136
+    kt128:
+      context: libdecaf_nif_hash_xof_kt_ctx_s
+      init: libdecaf_nif_hash_xof_kt128_init
+      update: libdecaf_nif_hash_xof_kt_update
+      output: libdecaf_nif_hash_xof_kt_output
+      destroy: libdecaf_nif_hash_xof_kt_destroy
+      kt_rate: 168
+    kt256:
+      context: libdecaf_nif_hash_xof_kt_ctx_s
+      init: libdecaf_nif_hash_xof_kt256_init
+      update: libdecaf_nif_hash_xof_kt_update
+      output: libdecaf_nif_hash_xof_kt_output
+      destroy: libdecaf_nif_hash_xof_kt_destroy
+      kt_rate: 136
     shake128:
       context: decaf_shake128_ctx_s
       init: decaf_shake128_init
