@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright 2017 John-Mark Gurney.
+# Copyright 2017, 2022 John-Mark Gurney.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,10 +33,11 @@ of signing due to the complexity of integration w/ the library, and
 that things should be more simple to use.'''
 
 __author__ = 'John-Mark Gurney'
-__copyright__ = 'Copyright 2017 John-Mark Gurney'''
-__license__ = 'BSD'
-__version__ = '0.1'
-__status__ = 'alpha'
+__copyright__ = 'Copyright 2017, 2022 John-Mark Gurney'''
+__license__ = 'BSD-2-Clause'
+__version__ = '1.0'
+
+__all__ = [ 'EDDSA448', 'generate' ]
 
 import array
 import os
@@ -94,13 +95,7 @@ def _makeba(s):
 	return r
 
 def _makestr(a):
-	# XXX - because python3 sucks, and unittest doesn't offer
-	# ability to silence stupid warnings, hide the tostring
-	# DeprecationWarning.
-	with warnings.catch_warnings():
-		warnings.simplefilter('ignore')
-		return array.array('B', a).tostring()
-
+	return bytes(a)
 
 def _ed448_privkey():
 	return _makeba(os.urandom(DECAF_EDDSA_448_PRIVATE_BYTES))
@@ -286,7 +281,46 @@ class TestEd448(unittest.TestCase):
 		# Make sure it fails w/ invalid/different context
 		self.assertRaises(ValueError, key.verify, sig, message, ctx + b'a')
 
+# https://www.rfc-editor.org/rfc/rfc8032#section-7.4
+# secret key, public key, message, context, signature
+_rfc8032testvectors = [
+	('6c82a562cb808d10d632be89c8513ebf6c929f34ddfa8c9f63c9960ef6e348a3528c8a3fcc2f044e39a3fc5b94492f8f032e7549a20098f95b',
+	'5fd7449b59b461fd2ce787ec616ad46a1da1342485a70e1f8a0ea75d80e96778edf124769b46c7061bd6783df1e50f6cd1fa1abeafe8256180',
+	'',
+	'',
+	'533a37f6bbe457251f023c0d88f976ae2dfb504a843e34d2074fd823d41a591f2b233f034f628281f2fd7a22ddd47d7828c59bd0a21bfd3980ff0d2028d4b18a9df63e006c5d1c2d345b925d8dc00b4104852db99ac5c7cdda8530a113a0f4dbb61149f05a7363268c71d95808ff2e652600'),
+	('c4eab05d357007c632f3dbb48489924d552b08fe0c353a0d4a1f00acda2c463afbea67c5e8d2877c5e3bc397a659949ef8021e954e0a12274e',
+	'43ba28f430cdff456ae531545f7ecd0ac834a55d9358c0372bfa0c6c6798c0866aea01eb00742802b8438ea4cb82169c235160627b4c3a9480',
+	'03',
+	'666f6f',
+	'd4f8f6131770dd46f40867d6fd5d5055de43541f8c5e35abbcd001b32a89f7d2151f7647f11d8ca2ae279fb842d607217fce6e042f6815ea000c85741de5c8da1144a6a1aba7f96de42505d7a7298524fda538fccbbb754f578c1cad10d54d0d5428407e85dcbc98a49155c13764e66c3c00'),
+]
+
 class TestBasicLib(unittest.TestCase):
+	def test_kat(self):
+		for idx, (key, pubkey, msg, ctx, checksig) in \
+		    enumerate(map(bytes.fromhex, x) for x in
+		    _rfc8032testvectors):
+			with self.subTest(idx=idx):
+				priv = _makeba(key)
+				pub = ed448_pubkey_t()
+
+				decaf.decaf_ed448_derive_public_key(pub, priv)
+
+				self.assertEqual(pubkey, _makestr(pub))
+
+				sig = ed448_sig_t()
+				if not ctx:
+					ctx = None
+				ctxargs = EDDSA448._makectxargs(ctx)
+
+				decaf.decaf_ed448_sign(sig, priv, pub, _makeba(msg), len(msg), 0, *ctxargs)
+
+				self.assertEqual(checksig, _makestr(sig))
+
+				r = decaf.decaf_ed448_verify(sig, pub, _makeba(msg), len(msg), 0, *ctxargs)
+				self.assertTrue(r)
+
 	def test_basic(self):
 		priv = _ed448_privkey()
 		pub = ed448_pubkey_t()

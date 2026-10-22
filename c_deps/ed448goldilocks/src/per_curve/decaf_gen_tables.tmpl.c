@@ -58,7 +58,9 @@ int main(int argc, char **argv) {
     }
     
     API_NS(precomputed_s) *pre;
-    ret = posix_memalign((void**)&pre, API_NS(alignof_precomputed_s), API_NS(sizeof_precomputed_s));
+    size_t pre_align = API_NS(alignof_precomputed_s);
+    pre_align = pre_align < sizeof(void*) ? sizeof(void*) : pre_align;
+    ret = posix_memalign((void**)&pre, pre_align, API_NS(sizeof_precomputed_s));
     if (ret || !pre) {
         fprintf(stderr, "Can't allocate space for precomputed table\n");
         return 1;
@@ -66,7 +68,7 @@ int main(int argc, char **argv) {
     API_NS(precompute)(pre, real_point_base);
     
     struct niels_s *pre_wnaf;
-    ret = posix_memalign((void**)&pre_wnaf, API_NS(alignof_precomputed_s), API_NS(sizeof_precomputed_wnafs));
+    ret = posix_memalign((void**)&pre_wnaf, pre_align, API_NS(sizeof_precomputed_wnafs));
     if (ret || !pre_wnaf) {
         fprintf(stderr, "Can't allocate space for precomputed WNAF table\n");
         return 1;

@@ -1256,7 +1256,15 @@ decaf_error_t decaf_x$(gf_shortname) (
     const uint8_t scalar[X_PRIVATE_BYTES]
 ) {
     gf x1, x2, z2, x3, z3, t1, t2;
-    ignore_result(gf_deserialize(x1,base,0));
+    /* mask off top bits of the input x-coordinate
+     * per RFC 7748 section 5 */
+    uint8_t mask;
+    if (GF_BITS % 8 == 0) {
+        mask = 0;
+    } else {
+        mask = -(1<<(GF_BITS % 8));
+    }
+    ignore_result(gf_deserialize(x1,base,mask));
     gf_copy(x2,ONE);
     gf_copy(z2,ZERO);
     gf_copy(x3,x1);
@@ -1451,7 +1459,11 @@ static int recode_wnaf (
             uint32_t pos = __builtin_ctz((uint32_t)current), odd = (uint32_t)current >> pos;
             int32_t delta = odd & mask;
             if (odd & 1<<(table_bits+1)) delta -= (1<<(table_bits+1));
-            current -= delta << pos;
+	    if (delta >= 0) {
+	            current -= delta << pos;
+            } else {
+		    current += (-delta) << pos;
+	    }
             control[position].power = pos + 16*(w-1);
             control[position].addend = delta;
             position--;

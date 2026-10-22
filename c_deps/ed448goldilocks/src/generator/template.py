@@ -70,8 +70,8 @@ for name in args.files:
     # Extract doxygenation
     m = re.match(r"^\s*/\*\*([^*]|\*[^/])+\*/[ \t]*\n",template)
     if m:
-        doc = re.sub("^\s*/?\*+/?[ \t]*","",m.group(),flags=re.MULTILINE)
-        doc = re.sub("\\s*\*/","",doc)
+        doc = re.sub(r"^\s*/?\*+/?[ \t]*","",m.group(),flags=re.MULTILINE)
+        doc = re.sub(r"\s*\*/\s*$","",doc)
         template = template[m.end():]
     else: doc = ""
 

@@ -294,7 +294,7 @@ static __inline__ void mrs(__uint128_t *acc, const uint64_t *a, const uint64_t *
 }
 
 static __inline__ uint64_t word_is_zero(uint64_t x) {
-  __asm__ volatile("neg %0; sbb %0, %0;" : "+r"(x));
+  __asm__ volatile("neg %0; sbb %0, %0;" : "+r"(x) :: "cc");
   return ~x;
 }
 

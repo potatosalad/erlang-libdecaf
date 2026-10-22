@@ -433,6 +433,13 @@ static void test_ec() {
     }
 }
 
+typedef struct {
+    uint8_t scalar [DhLadder::PRIVATE_BYTES];
+    uint8_t pubkey [DhLadder::PUBLIC_BYTES];
+    uint8_t shared [DhLadder::PUBLIC_BYTES];
+} rfc7748_tv_t;
+
+static const rfc7748_tv_t rfc7748_explicit[2];
 static const uint8_t rfc7748_1[DhLadder::PUBLIC_BYTES];
 static const uint8_t rfc7748_1000[DhLadder::PUBLIC_BYTES];
 static const uint8_t rfc7748_1000000[DhLadder::PUBLIC_BYTES];
@@ -553,25 +560,36 @@ static void test_cfrg_vectors() {
                 eddsa_verify_should_succeed[t] ? "pass" : "fail");
         }
     }
+
+    /* X25519/X448 explicit */
+    for (int i=0; i<2 && test.passing_now; i++) {
+        SecureBuffer scalar(FixedBlock<DhLadder::PRIVATE_BYTES>(rfc7748_explicit[i].scalar));
+        SecureBuffer pubkey(FixedBlock<DhLadder::PUBLIC_BYTES >(rfc7748_explicit[i].pubkey));
+        SecureBuffer shared(FixedBlock<DhLadder::PUBLIC_BYTES >(rfc7748_explicit[i].shared));
+        if (!memeq(shared,DhLadder::shared_secret(pubkey,scalar))) {
+            test.fail();
+            printf("    Explicit test vectors disagree at %d.\n", i);
+        }
+    }
     
-    /* X25519/X448 */
+    /* X25519/X448 iterative */
     for (int i=0; i<the_ntests && test.passing_now; i++) {
         SecureBuffer n = DhLadder::shared_secret(u,k);
         u = k; k = n;
         if (i==1-1) {
             if (!memeq(k,SecureBuffer(FixedBlock<DhLadder::PUBLIC_BYTES>(rfc7748_1)))) {
                 test.fail();
-                printf("    Test vectors disagree at 1.");
+                printf("    Test vectors disagree at 1.\n");
             }
         } else if (i==1000-1) {
             if (!memeq(k,SecureBuffer(FixedBlock<DhLadder::PUBLIC_BYTES>(rfc7748_1000)))) {
                 test.fail();
-                printf("    Test vectors disagree at 1000.");
+                printf("    Test vectors disagree at 1000.\n");
             }
         } else if (i==1000000-1) {
             if (!memeq(k,SecureBuffer(FixedBlock<DhLadder::PUBLIC_BYTES>(rfc7748_1000000)))) {
                 test.fail();
-                printf("    Test vectors disagree at 1000000.");
+                printf("    Test vectors disagree at 1000000.\n");
             }
         }
     }

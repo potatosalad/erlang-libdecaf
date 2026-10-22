@@ -1,3 +1,25 @@
+September 21, 2026:
+    Fix a git snafu.  Tagged as v1.0.4a.  But on second thought (and thoughts
+    by Johan Pascal) maybe this version number will confuse version control
+    tools.  Let's call it v1.0.5.
+    
+September 20, 2026:
+    Fix an RFC compliance mistake reported by Ryan Culpepper.
+
+    RFC 7748 mandates that the last bit of an x25519 public key u-coordinate
+    be masked off, in case the protocol is using this for something else.
+    I have fixed this bug and added a test to verify that it is fixed.
+
+    Release v1.0.4.
+
+June 25, 2025:
+    I'm writing this summary in 2026, having noticed that it's missing from
+    HISTORY.txt, so I may have forgotten something.
+
+    Update libdecaf to support more modern compilers.
+
+    Release v1.0.3.
+
 July 13, 2022:
     Fix a security bug and an issue.
 

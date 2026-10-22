@@ -97,10 +97,11 @@ See https://www.ristretto.group for details, once that site is up.
 
 ## Build and Install
 
- cmake -DCMAKE_INSTALL_PREFIX=<Install path> <path to root directory>
- make
- make test
- make install
+```
+cmake -DCMAKE_INSTALL_PREFIX=<Install path> <path to root directory>
+make
+make install
+```
 
 Most C source code is generated through a python script during the build.
 Some files holding tables are generated in one more step building an
@@ -108,12 +109,16 @@ executable to generate them. They are thus stored in the source tree to help
 cross-compilation. The build script update them when their dependencies
 are modified, to build only these files:
 
- make decaf_tables
+```
+make decaf_tables
+```
 
 Doxygen generated documentation is located in ./doc directory in the
 binary tree after running
 
- make doc
+```
+make doc
+```
 
 ## Licensing
 

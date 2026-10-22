@@ -5,17 +5,18 @@
 #
 ############################################################################
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.22)
 project(DECAF VERSION 1.0 LANGUAGES C CXX)
 
 set(DECAF_SO_VERSION "0")
 
-find_package(PythonInterp 3 REQUIRED)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 option(ENABLE_SHARED "Build shared library." ON)
 option(ENABLE_STATIC "Build static library." ON)
 option(ENABLE_STRICT "Build with strict compile options." YES)
-option(ENABLE_TESTS  "Enable compilation of tests." OFF)
+option(ENABLE_TESTS  "Enable compilation of tests." ON)
+option(ENABLE_SANITIZER  "Enable address and UB sanitizer." OFF)
 option(GENERATED_SOURCE_PATH "Where the generated source code is stored, default in the building tree" OFF)
 if (CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -nostdlib")
@@ -64,8 +65,20 @@ else()
 	endif()
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${STRICT_OPTIONS_C} ${STRICT_OPTIONS_CPP}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STRICT_OPTIONS_CXX} ${STRICT_OPTIONS_CPP}")
+set (SANITIZE_FLAG )
+set (SANITIZE_LINKER_FLAGS )
+if (ENABLE_SANITIZER)
+	if(MSVC)
+		set(SANITIZE_FLAGS "/fsanitize=address /Oy-")
+		set(SANITIZE_LINKER_FLAGS "")
+	else()
+		set(SANITIZE_FLAGS "-fsanitize=address,undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+		set(SANITIZE_LINKER_FLAGS "-fsanitize=address,undefined")
+	endif()
+endif()
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${STRICT_OPTIONS_C} ${STRICT_OPTIONS_CPP} ${SANITIZE_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STRICT_OPTIONS_CXX} ${STRICT_OPTIONS_CPP} ${SANITIZE_FLAGS}")
 
 add_subdirectory(src)
 
@@ -98,10 +111,10 @@ install(FILES
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
 	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
-	add_custom_target(doc
+	add_custom_target(decaf-doc
 		${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-		DEPENDS generatedCode
+		DEPENDS decaf-generated-code
 		COMMENT "Generating API documentation with Doxygen" VERBATIM
 )
 endif()

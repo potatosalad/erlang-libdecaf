@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include <cstddef>
 #include <limits>
+#include <string.h> /* for memcpy and strlen */
 
 #if defined(_MSC_VER)  // MSVC does not have built in posix_memalign
 #define posix_memalign(p, a, s) (((*(p)) = _aligned_malloc((s), (a))), *(p) ?0 :errno)
@@ -245,7 +246,6 @@ private:
     inline decaf_bool_t operator<=(const Block &b) const DECAF_NOEXCEPT DECAF_DELETE;
     inline decaf_bool_t operator> (const Block &b) const DECAF_NOEXCEPT DECAF_DELETE;
     inline decaf_bool_t operator< (const Block &b) const DECAF_NOEXCEPT DECAF_DELETE;
-    inline void operator= (const Block &b) const DECAF_NOEXCEPT DECAF_DELETE;
     /** @endcond */
 };
 
@@ -351,17 +351,17 @@ public:
     
     /** Copy constructor */
     inline explicit FixedArrayBuffer(const FixedBlock<Size> &b) DECAF_NOEXCEPT : FixedBuffer<Size>(storage,true) {
-        memcpy(storage,b.data(),Size);
+	    std::copy(b.data(),b.data()+Size,storage);
     }
     
     /** Copy operator */
     inline FixedArrayBuffer& operator=(const FixedBlock<Size> &b) DECAF_NOEXCEPT {
-        memcpy(storage,b.data(),Size); return *this;
+	std::copy(b.data(),b.data()+Size,storage); return *this;
     }
     
     /** Copy operator */
     inline FixedArrayBuffer& operator=(const FixedArrayBuffer<Size> &b) DECAF_NOEXCEPT {
-        memcpy(storage,b.data(),Size); return *this;
+	std::copy(b.data(),b.data()+Size,storage); return *this;
     }
     
     /** Copy operator */
@@ -372,12 +372,12 @@ public:
     /** Copy constructor */
     inline explicit FixedArrayBuffer(const Block &b) /*throw(LengthException)*/ : FixedBuffer<Size>(storage,true) {
         if (b.size() != Size) throw LengthException();
-        memcpy(storage,b.data(),Size);
+	std::copy(b.data(),b.data()+Size,storage);
     }
     
     /** Copy constructor */
     inline explicit FixedArrayBuffer(const FixedArrayBuffer<Size> &b) DECAF_NOEXCEPT : FixedBuffer<Size>(storage,true) {
-        memcpy(storage,b.data(),Size);
+	std::copy(b.data(),b.data()+Size,storage);
     }
     
     /** Destroy the buffer */
@@ -445,7 +445,7 @@ protected:
        if (this == &it) return *(T*)this;
        if (it.is_mine) {
            alloc();
-           memcpy(ours.mine,it.ours.mine,T::size());
+	   memcpy(ours.mine, it.ours.mine, T::size());
        } else {
            clear();
            ours.yours = it.ours.yours;

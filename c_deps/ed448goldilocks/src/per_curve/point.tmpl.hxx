@@ -17,7 +17,6 @@
 #define _XOPEN_SOURCE 600
 #endif
 #include <stdlib.h>
-#include <string.h> /* for memcpy */
 
 #include <decaf/point_$(gf_bits).h>
 #include <decaf/ed$(gf_bits).h>
@@ -401,13 +400,13 @@ public:
     inline void set_to_hash( const Block &s ) DECAF_NOEXCEPT {
         if (s.size() < HASH_BYTES) {
             SecureBuffer b(HASH_BYTES);
-            memcpy(b.data(), s.data(), s.size());
+	    std::copy(s.data(), s.data() + s.size(), b.data());
             $(c_ns)_point_from_hash_nonuniform(p,b.data());
         } else if (s.size() == HASH_BYTES) {
             $(c_ns)_point_from_hash_nonuniform(p,s.data());
         } else if (s.size() < 2*HASH_BYTES) {
             SecureBuffer b(2*HASH_BYTES);
-            memcpy(b.data(), s.data(), s.size());
+	    std::copy(s.data(), s.data() + s.size(), b.data());
             $(c_ns)_point_from_hash_uniform(p,b.data());
         } else {
             $(c_ns)_point_from_hash_uniform(p,s.data());
@@ -533,7 +532,7 @@ public:
     ) const DECAF_NOEXCEPT {
         unsigned char buf2[2*HASH_BYTES];
         memset(buf2,0,sizeof(buf2));
-        memcpy(buf2,buf.data(),(buf.size() > 2*HASH_BYTES) ? 2*HASH_BYTES : buf.size());
+        std::copy(buf.data(), buf.data() + std::min(buf.size(), 2*HASH_BYTES), buf2);
         decaf_bool_t ret;
         if (buf.size() > HASH_BYTES) {
             ret = decaf_successful($(c_ns)_invert_elligator_uniform(buf2, p, hint));
@@ -659,7 +658,12 @@ public:
     /** @cond internal */
     friend class OwnedOrUnowned<Precomputed,Precomputed_U>;
     static inline size_t size() DECAF_NOEXCEPT { return $(c_ns)_sizeof_precomputed_s; }
-    static inline size_t alignment() DECAF_NOEXCEPT { return $(c_ns)_alignof_precomputed_s; }
+    static inline size_t alignment() DECAF_NOEXCEPT {
+      if ($(c_ns)_alignof_precomputed_s < sizeof(void*)) {
+        return sizeof(void*);
+      }
+      return $(c_ns)_alignof_precomputed_s;
+    }
     static inline const Precomputed_U * default_value() DECAF_NOEXCEPT { return $(c_ns)_precomputed_base; }
     /** @endcond */
 };

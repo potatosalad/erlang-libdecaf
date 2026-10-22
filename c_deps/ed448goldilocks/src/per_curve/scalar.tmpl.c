@@ -134,7 +134,9 @@ decaf_error_t API_NS(scalar_invert) (
             w-=2;
         }
         
-        residue = (residue<<1) | ((w>>(i%WBITS))&1);
+        unsigned ii = i & (WBITS-1);
+        residue = (residue << 1) | ((w>>ii)&1);
+
         if (residue>>SCALAR_WINDOW_BITS != 0) {
             assert(trailing == 0);
             trailing = residue;
@@ -256,7 +258,7 @@ void API_NS(scalar_decode_long)(
     const unsigned char *ser,
     size_t ser_len
 ) {
-    if (ser_len == 0) {
+    if (ser_len == 0 || ser == NULL) {
         API_NS(scalar_copy)(s, API_NS(scalar_zero));
         return;
     }

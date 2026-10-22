@@ -168,7 +168,7 @@ void DECAF_API_VIS decaf_ed$(gf_shortname)_sign_prehash (
     const decaf_ed$(gf_shortname)_prehash_ctx_t hash,
     const uint8_t *context,
     uint8_t context_len
-) __attribute__((nonnull(1,2,3,4))) DECAF_NOINLINE
+) __attribute__((nonnull(1,2,3))) DECAF_NOINLINE
 #if DECAF_EDDSA_NON_KEYPAIR_API_IS_DEPRECATED
   DECAF_DEPRECATED("Passing the pubkey and privkey separately is unsafe, use decaf_ed$(gf_shortname)_keypair_sign_prehash")
 #endif
@@ -210,7 +210,7 @@ void DECAF_API_VIS decaf_ed$(gf_shortname)_keypair_sign_prehash (
     const decaf_ed$(gf_shortname)_prehash_ctx_t hash,
     const uint8_t *context,
     uint8_t context_len
-) __attribute__((nonnull(1,2,3,4))) DECAF_NOINLINE;
+) __attribute__((nonnull(1,2,3))) DECAF_NOINLINE;
     
 /**
  * @brief Prehash initialization, with contexts if supported.

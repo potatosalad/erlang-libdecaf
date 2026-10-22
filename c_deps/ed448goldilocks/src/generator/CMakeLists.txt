@@ -6,21 +6,21 @@
 ############################################################################
 # global include files
 add_custom_command(
-    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=global --guard=decaf.h -o ${GSOURCE_PATH}/include/decaf.h ${PROJECT_SOURCE_DIR}/src/public_include/decaf.tmpl.h
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=global --guard=decaf.h -o ${GSOURCE_PATH}/include/decaf.h ${PROJECT_SOURCE_DIR}/src/public_include/decaf.tmpl.h
     DEPENDS ${PROJECT_SOURCE_DIR}/src/generator/template.py ${PROJECT_SOURCE_DIR}/src/public_include/decaf.tmpl.h
     OUTPUT ${GSOURCE_PATH}/include/decaf.h
     COMMENT "Generating code for include/decaf.h"
 )
 
 add_custom_command(
-    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=global --guard=decaf/eddsa.hxx -o ${GSOURCE_PATH}/include/decaf/eddsa.hxx ${PROJECT_SOURCE_DIR}/src/public_include/decaf/eddsa.tmpl.hxx
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=global --guard=decaf/eddsa.hxx -o ${GSOURCE_PATH}/include/decaf/eddsa.hxx ${PROJECT_SOURCE_DIR}/src/public_include/decaf/eddsa.tmpl.hxx
     DEPENDS ${PROJECT_SOURCE_DIR}/src/generator/template.py ${PROJECT_SOURCE_DIR}/src/public_include/decaf/eddsa.tmpl.hxx
     OUTPUT ${GSOURCE_PATH}/include/decaf/eddsa.hxx
     COMMENT "Generating code for include/decaf/eddsa.hxx"
 )
 
 add_custom_command(
-    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=global --guard=decaf.hxx -o ${GSOURCE_PATH}/include/decaf.hxx ${PROJECT_SOURCE_DIR}/src/public_include/decaf.tmpl.hxx
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=global --guard=decaf.hxx -o ${GSOURCE_PATH}/include/decaf.hxx ${PROJECT_SOURCE_DIR}/src/public_include/decaf.tmpl.hxx
 
     DEPENDS ${PROJECT_SOURCE_DIR}/src/generator/template.py ${PROJECT_SOURCE_DIR}/src/public_include/decaf.tmpl.hxx
     OUTPUT ${GSOURCE_PATH}/include/decaf.hxx
@@ -28,7 +28,7 @@ add_custom_command(
 )
 
 add_custom_command(
-    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=global --guard=decaf/crypto.hxx -o ${GSOURCE_PATH}/c/decaf/crypto.hxx ${PROJECT_SOURCE_DIR}/src/include/decaf/crypto.tmpl.hxx
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=global --guard=decaf/crypto.hxx -o ${GSOURCE_PATH}/c/decaf/crypto.hxx ${PROJECT_SOURCE_DIR}/src/include/decaf/crypto.tmpl.hxx
 
     DEPENDS ${PROJECT_SOURCE_DIR}/src/generator/template.py ${PROJECT_SOURCE_DIR}/src/include/decaf/crypto.tmpl.hxx
     OUTPUT ${GSOURCE_PATH}/c/decaf/crypto.hxx
@@ -99,30 +99,30 @@ add_custom_command(
 )
 
 
-#these files shall be part of generatorCurve25519 and generatorEd448goldilocks targets but they are both included through decaf.h in a source file
+#these files shall be part of decaf-generator-curve25519 and decaf-generator-ed448goldilocks targets but they are both included through decaf.h in a source file
 add_custom_command(
-    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=curve --item=curve25519 --guard=decaf/point_255.h -o ${GSOURCE_PATH}/include/decaf/point_255.h ${PROJECT_SOURCE_DIR}/src/per_curve/point.tmpl.h
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=curve --item=curve25519 --guard=decaf/point_255.h -o ${GSOURCE_PATH}/include/decaf/point_255.h ${PROJECT_SOURCE_DIR}/src/per_curve/point.tmpl.h
     DEPENDS ${PROJECT_SOURCE_DIR}/src/generator/template.py ${PROJECT_SOURCE_DIR}/src/per_curve/point.tmpl.h
     OUTPUT ${GSOURCE_PATH}/include/decaf/point_255.h
     COMMENT "Generating code for decaf/point_255.h"
 )
 
 add_custom_command(
-    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=curve --item=curve25519 --guard=decaf/ed255.h -o ${GSOURCE_PATH}/include/decaf/ed255.h ${PROJECT_SOURCE_DIR}/src/per_curve/eddsa.tmpl.h
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=curve --item=curve25519 --guard=decaf/ed255.h -o ${GSOURCE_PATH}/include/decaf/ed255.h ${PROJECT_SOURCE_DIR}/src/per_curve/eddsa.tmpl.h
     DEPENDS ${PROJECT_SOURCE_DIR}/src/generator/template.py ${PROJECT_SOURCE_DIR}/src/per_curve/eddsa.tmpl.h
     OUTPUT ${GSOURCE_PATH}/include/decaf/ed255.h
     COMMENT "Generating code for decaf/ed255.h"
 )
 
 add_custom_command(
-    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=curve --item=ed448goldilocks --guard=decaf/point_448.h -o ${GSOURCE_PATH}/include/decaf/point_448.h ${PROJECT_SOURCE_DIR}/src/per_curve/point.tmpl.h
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=curve --item=ed448goldilocks --guard=decaf/point_448.h -o ${GSOURCE_PATH}/include/decaf/point_448.h ${PROJECT_SOURCE_DIR}/src/per_curve/point.tmpl.h
     DEPENDS ${PROJECT_SOURCE_DIR}/src/generator/template.py ${PROJECT_SOURCE_DIR}/src/per_curve/point.tmpl.h
     OUTPUT ${GSOURCE_PATH}/include/decaf/point_448.h
     COMMENT "Generating code for decaf/point_448.h"
 )
 
 add_custom_command(
-    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=curve --item=ed448goldilocks --guard=decaf/ed448.h -o ${GSOURCE_PATH}/include/decaf/ed448.h ${PROJECT_SOURCE_DIR}/src/per_curve/eddsa.tmpl.h
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/generator/template.py --per=curve --item=ed448goldilocks --guard=decaf/ed448.h -o ${GSOURCE_PATH}/include/decaf/ed448.h ${PROJECT_SOURCE_DIR}/src/per_curve/eddsa.tmpl.h
     DEPENDS ${PROJECT_SOURCE_DIR}/src/generator/template.py ${PROJECT_SOURCE_DIR}/src/per_curve/eddsa.tmpl.h
     OUTPUT ${GSOURCE_PATH}/include/decaf/ed448.h
     COMMENT "Generating code for decaf/ed448.h"
@@ -130,7 +130,7 @@ add_custom_command(
 
 
 
-add_custom_target(generatorCommonCode DEPENDS
+add_custom_target(decaf-generator-common-code DEPENDS
 	${GSOURCE_PATH}/include/decaf.h
 	${GSOURCE_PATH}/include/decaf/eddsa.hxx
 	${GSOURCE_PATH}/include/decaf.hxx
@@ -153,13 +153,13 @@ add_custom_target(generatorCommonCode DEPENDS
 add_subdirectory(curve25519)
 add_subdirectory(ed448goldilocks)
 
-add_custom_target(decaf_tables DEPENDS
-	decaf_tables_curve25519
-	decaf_tables_ed448goldilocks
+add_custom_target(decaf-tables DEPENDS
+	decaf-tables-curve25519
+	decaf-tables-ed448goldilocks
 	)
 
-add_custom_target(generatedCode DEPENDS 
-	generatorCommonCode
-	generatorEd448goldilocks
-	generatorCurve25519
+add_custom_target(decaf-generated-code DEPENDS 
+	decaf-generator-common-code
+	decaf-generator-ed448goldilocks
+	decaf-generator-curve25519
 	)

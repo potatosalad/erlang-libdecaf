@@ -135,7 +135,7 @@ void DECAF_API_VIS $(c_ns)_scalar_decode_long (
     $(c_ns)_scalar_t out,
     const unsigned char *ser,
     size_t ser_len
-) DECAF_NONNULL DECAF_NOINLINE;
+) DECAF_NOINLINE;
     
 /**
  * @brief Serialize a scalar to wire format.

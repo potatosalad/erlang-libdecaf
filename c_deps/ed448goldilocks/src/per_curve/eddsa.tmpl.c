@@ -66,7 +66,9 @@ static void hash_init_with_dom(
     const uint8_t dom[2] = {2+word_is_zero(prehashed)+word_is_zero(for_prehash), context_len};
     hash_update(hash,(const unsigned char *)dom_s, strlen(dom_s));
     hash_update(hash,dom,2);
-    hash_update(hash,context,context_len);
+    if (context_len>0) {
+	    hash_update(hash,context,context_len);
+    }
 }
 
 void decaf_ed$(gf_shortname)_prehash_init (
