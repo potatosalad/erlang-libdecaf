@@ -5,6 +5,9 @@
     algorithm/0,
     domain/0,
     fixed_state/0,
+    public_algorithm/0,
+    public_domain/0,
+    public_xof_state/0,
     xof_state/0
 ]).
 
@@ -25,3 +28,16 @@ fixed_state() ->
 xof_state() ->
     State = libdecaf_nif:hash_xof_kt_init(kt128),
     libdecaf_nif:hash_xof_sha3_update(State, <<"abc">>).
+
+-spec public_algorithm() -> libdecaf:hash_xof_kt_state().
+public_algorithm() ->
+    libdecaf:hash_xof_kt_init(shake128).
+
+-spec public_domain() -> libdecaf:hash_xof_turboshake_state().
+public_domain() ->
+    libdecaf:hash_xof_turboshake_init(turboshake128, <<31>>).
+
+-spec public_xof_state() -> libdecaf:hash_xof_sha3_state().
+public_xof_state() ->
+    State = libdecaf:hash_xof_kt_init(kt128),
+    libdecaf:hash_xof_sha3_update(State, <<"abc">>).

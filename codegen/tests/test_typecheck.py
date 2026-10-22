@@ -78,13 +78,14 @@ def test_dialyzer_rejects_wrong_groups_and_parameters(project):
     assert invalid.returncode == 2, invalid.stdout
     for function in ("hash_sha3_update", "hash_xof_sha3_update", "hash_xof_turboshake_init", "hash_xof_kt_init"):
         assert function in invalid.stdout, invalid.stdout
+    assert "libdecaf:hash_xof_sha3_update" in invalid.stdout, invalid.stdout
     assert "breaks the contract" in invalid.stdout, invalid.stdout
 
 
 def test_eqwalizer_rejects_wrong_algorithms_and_parameters(project):
     directory, _, elp, build_info = project
     base = (elp, "eqwalize", "--project", build_info, "--no-connect", "--bail-on-error", "--format", "json")
-    valid = run(*base, "libdecaf_nif", "hash_valid", cwd=directory)
+    valid = run(*base, "libdecaf_nif", "libdecaf", "hash_valid", cwd=directory)
     assert valid.returncode == 0, valid.stdout
     invalid = run(*base, "hash_invalid", cwd=directory)
     assert invalid.returncode != 0, invalid.stdout
