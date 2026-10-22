@@ -98,6 +98,6 @@ init() ->
     erlang:load_nif(SoName, 0).
 
 -doc false.
--spec nif_stub_error(Line :: pos_integer()) -> any().
+-spec nif_stub_error(Line :: pos_integer()) -> dynamic().
 nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded, module, ?MODULE, line, Line}).

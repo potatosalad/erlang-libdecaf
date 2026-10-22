@@ -35,7 +35,7 @@ The first stage generates `c_src/nif/hash.{c,h}`, `c_src/nif/hash_xof.{c,h}`,
 and the native registration table in `c_src/nif/libdecaf_nif.c`.
 
 `nif.hash` and `nif.xof` are mappings from algorithm names to metadata. Each
-entry gives the upstream context struct and operation symbols. Fixed-output hashes
+entry gives its API `group`, upstream context struct, and operation symbols. Fixed-output hashes
 also specify `default_output_len` and `max_output_len` in bytes. Legacy Keccak entries give
 their sponge rate. The schema rejects default lengths that exceed the maximum.
 
@@ -66,15 +66,43 @@ Incremental hashing uses `hash_xof_init/1`, `hash_xof_update/2`, and
 The existing `hash_xof/3` and `hash_xof_final/2` use empty customization.
 
 The generated C contains typed upstream adapters, algorithm tables, resource
-layouts, and lookups by atom or resource type. Only the generic `hash`,
-`hash_init`, `hash_update`, `hash_final`, and corresponding `hash_xof*` NIFs are
-exported. Resources retain the selected algorithm, so updates and finalization
-need neither an extra algorithm argument nor an Erlang record wrapper.
-Scheduling and immutable state copying remain in the generated C implementation.
+layouts, and lookups by atom or resource type. Each configured group generates
+one-shot, init, update, and final NIFs. Fixed-output groups are `hash_keccak`,
+`hash_sha2`, and `hash_sha3`; XOF groups are `hash_xof_cshake`, `hash_xof_keccak`,
+`hash_xof_kt`, `hash_xof_sha3` (SHAKE), and `hash_xof_turboshake`.
+An algorithm atom selects a variant during initialization or one-shot hashing.
+Each group has its own opaque Erlang state type, and native entry points reject
+algorithms and states from other groups. Resources retain the selected algorithm,
+so updates and finalization need neither an extra algorithm argument nor an
+Erlang record wrapper. The entry points are defined in `hash.c`/`hash_xof.c`
+and declared in their corresponding headers; `libdecaf_nif.c` registers them.
+Scheduling and immutable state copying remain in the shared native engines.
+
+The cSHAKE group accepts function-name and customization iodata in
+`hash_xof_cshake/5` and `hash_xof_cshake_init/3`. The TurboSHAKE group accepts an
+integer domain in `hash_xof_turboshake/4` and `hash_xof_turboshake_init/2`.
+KT accepts customization iodata in `hash_xof_kt/4` and `hash_xof_kt_final/3`.
+Each group also provides an overload using its default parameters.
 
 `templates0/src/libdecaf.erl.j2` generates the public Erlang API. Its hash
 functions delegate directly to the generic NIFs. Algorithm types still come
 from the same configuration; state types are opaque native resource handles.
+These existing generic convenience APIs remain available alongside the grouped NIFs.
+
+Dialyzer distinguishes the opaque state types and rejects calls that mix groups.
+The current Eqwalizer treats these resource-backed opaque types structurally;
+it checks algorithm atoms and parameter types, but does not distinguish the state
+groups. Native checks enforce group isolation regardless of the static analyzer.
+To run positive and deliberately invalid examples through both analyzers:
+
+```sh
+cd codegen
+LIBDECAF_TYPECHECK=1 poetry run pytest tests/test_typecheck.py
+```
+
+This requires `gmake elp` and an installed Dialyzer. It builds a temporary OTP PLT;
+set `LIBDECAF_TYPECHECK_PLT` to reuse an existing PLT for the current OTP version.
+The regular Python test run leaves these integration checks disabled.
 
 `templates0/src/libdecaf_nif.erl.j2` generates the Erlang NIF module, using
 `src/erlang_libdecaf_codegen/context/functions.py` for native exports, specs, and
