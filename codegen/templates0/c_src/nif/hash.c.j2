@@ -1,0 +1,490 @@
+/* clang-format off */ //-
+// -*- mode: c; tab-width: 4; indent-tabs-mode: nil; st-rulers: [132] -*-
+// vim: ts=4 sw=4 ft=c et
+
+#include <keccak_internal.h>
+
+#include "hash.h"
+
+/* Trap Definitions */
+
+typedef struct libdecaf_nif_hash_trap_s libdecaf_nif_hash_trap_t;
+static void libdecaf_nif_hash_trap_dtor(ErlNifEnv *caller_env, void *obj);
+
+struct libdecaf_nif_hash_trap_s {
+    libdecaf_nif_trap_t super;
+    libdecaf_nif_hash_t *hash;
+    libdecaf_nif_hash_ctx_t *ctx;
+    ErlNifBinary input_bin;
+    size_t input_off;
+    ErlNifBinary output_bin;
+    size_t output_off;
+    size_t output_len;
+};
+
+void
+libdecaf_nif_hash_trap_dtor(ErlNifEnv *caller_env, void *obj)
+{
+    libdecaf_nif_hash_trap_t *trap = (void *)obj;
+    if (trap != NULL && trap->ctx != NULL) {
+        XNIF_TRACE_F("libdecaf_nif_hash_trap_dtor:%s:%d\n", __FILE__, __LINE__);
+        (void)trap->hash->destroy((void *)trap->ctx);
+        (void)enif_free((void *)trap->ctx);
+        trap->ctx = NULL;
+        (void)enif_release_binary(&trap->output_bin);
+    }
+    return;
+}
+
+typedef struct libdecaf_nif_hash_update_trap_s libdecaf_nif_hash_update_trap_t;
+static void libdecaf_nif_hash_update_trap_dtor(ErlNifEnv *caller_env, void *obj);
+
+struct libdecaf_nif_hash_update_trap_s {
+    libdecaf_nif_trap_t super;
+    libdecaf_nif_hash_t *hash;
+    libdecaf_nif_hash_ctx_t *new_ctx;
+    ErlNifBinary input_bin;
+    size_t input_off;
+};
+
+void
+libdecaf_nif_hash_update_trap_dtor(ErlNifEnv *caller_env, void *obj)
+{
+    libdecaf_nif_hash_update_trap_t *trap = (void *)obj;
+    if (trap != NULL && trap->new_ctx != NULL) {
+        XNIF_TRACE_F("libdecaf_nif_hash_update_trap_dtor:%s:%d\n", __FILE__, __LINE__);
+        (void)enif_release_resource((void *)trap->new_ctx);
+        trap->new_ctx = NULL;
+    }
+    return;
+}
+
+/* Legacy Keccak sponge parameters. */
+{% for name, algorithm in ctx.schema.nif.hash | dictsort %}
+{% if algorithm.legacy_keccak_rate is not none %}
+static void
+{{ algorithm.init }}(struct {{ algorithm.context }} *sponge)
+{
+    static const decaf_kparams_s params = {0, 'A', {{ algorithm.legacy_keccak_rate }}, 0, 0x01, 0x80, {{ algorithm.max_output_len }}, {{ algorithm.max_output_len }}};
+    decaf_sha3_init(sponge, &params);
+}
+{% endif %}
+{% endfor %}
+
+/* Typed adapters keep the upstream function signatures intact. */
+{% for name, algorithm in ctx.schema.nif.hash | dictsort %}
+static void
+libdecaf_nif_{{ name }}_init_adapter(void *ctx)
+{
+    {{ algorithm.init }}((struct {{ algorithm.context }} *)ctx);
+}
+
+static void
+libdecaf_nif_{{ name }}_update_adapter(void *ctx, const uint8_t *input, size_t input_len)
+{
+    {{ algorithm.update }}((struct {{ algorithm.context }} *)ctx, input, input_len);
+}
+
+static void
+libdecaf_nif_{{ name }}_final_adapter(void *ctx, uint8_t *output, size_t output_len)
+{
+    {{ algorithm.final }}((struct {{ algorithm.context }} *)ctx, output, output_len);
+}
+
+static void
+libdecaf_nif_{{ name }}_destroy_adapter(void *ctx)
+{
+    {{ algorithm.destroy }}((struct {{ algorithm.context }} *)ctx);
+}
+{% endfor %}
+
+/* Global Variables */
+
+static libdecaf_nif_hash_table_t libdecaf_nif_hash_table_internal = {
+{% for name, algorithm in ctx.schema.nif.hash | dictsort %}
+    .{{ name }} = {
+        .type = LIBDECAF_NIF_HASH_TYPE_{{ name | upper }},
+        .default_output_len = {{ algorithm.default_output_len }},
+        .max_output_len = {{ algorithm.max_output_len }},
+        .init = libdecaf_nif_{{ name }}_init_adapter,
+        .update = libdecaf_nif_{{ name }}_update_adapter,
+        .final = libdecaf_nif_{{ name }}_final_adapter,
+        .destroy = libdecaf_nif_{{ name }}_destroy_adapter,
+    },
+{% endfor %}
+};
+
+libdecaf_nif_hash_table_t *libdecaf_nif_hash_table = &libdecaf_nif_hash_table_internal;
+
+/* Function Declarations */
+
+static ERL_NIF_TERM libdecaf_nif_hash_3_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_hash_update_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+
+/* Function Definitions */
+
+
+ERL_NIF_TERM
+libdecaf_nif_hash_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    libdecaf_nif_hash_t *hash = NULL;
+    ERL_NIF_TERM input_term;
+    ErlNifBinary input_bin;
+    unsigned long output_len;
+    ErlNifBinary output_bin;
+    libdecaf_nif_hash_ctx_t *ctx = NULL;
+    ErlNifEnv *work_env = NULL;
+    long nr_of_reductions;
+    bool is_yielded = false;
+    size_t slice_len;
+
+    // Allocate work environment, we will use this if we need to yield.
+    work_env = enif_alloc_env();
+    if (work_env == NULL) {
+        return EXCP_ERROR(env, "Can't allocate work_env = enif_alloc_env()");
+    }
+
+    if (argc != 3) {
+        (void)enif_free_env(work_env);
+        return EXCP_NOTSUP(env, "argc must be 3");
+    }
+    hash = libdecaf_nif_hash_from_atom(env, argv[0]);
+    if (hash == NULL) {
+        (void)enif_free_env(work_env);
+        return EXCP_BADARG(env, "Bad argument: 'Type'");
+    }
+    if (!enif_is_binary(env, argv[1]) && !enif_is_list(env, argv[1])) {
+        (void)enif_free_env(work_env);
+        return EXCP_BADARG(env, "Bad argument: 'Input'");
+    }
+    if (!enif_get_ulong(env, argv[2], &output_len) || output_len > hash->max_output_len) {
+        (void)enif_free_env(work_env);
+        return EXCP_BADARG(env, "Bad argument: 'OutputLen'");
+    }
+
+    // Copy the input binary to the work environment so it will be kept when we are yielding.
+    input_term = enif_make_copy(work_env, argv[1]);
+    if (!enif_inspect_iolist_as_binary(work_env, input_term, &input_bin)) {
+        (void)enif_free_env(work_env);
+        return EXCP_BADARG(env, "Bad argument: 'Input'");
+    }
+
+    // Allocate out binary
+    if (!enif_alloc_binary(output_len, &output_bin)) {
+        (void)enif_free_env(work_env);
+        return EXCP_ERROR(env, "Can't allocate 'Output' binary");
+    }
+
+    // Allocate hash context
+    ctx = (void *)enif_alloc(sizeof(libdecaf_nif_hash_ctx_t));
+    if (ctx == NULL) {
+        (void)enif_release_binary(&output_bin);
+        (void)enif_free_env(work_env);
+        return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_ctx_t");
+    }
+
+    ctx->type = hash->type;
+    (void)hash->init((void *)ctx);
+
+    nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
+
+    is_yielded = (nr_of_reductions < input_bin.size);
+    slice_len = (is_yielded) ? nr_of_reductions : input_bin.size;
+    (void)hash->update((void *)ctx, input_bin.data, slice_len);
+    nr_of_reductions -= slice_len;
+
+    if (is_yielded) {
+        BUMP_ALL_REDS(env);
+        libdecaf_nif_hash_trap_t *trap = (void *)enif_alloc_resource(libdecaf_nif_trap_resource_type, sizeof(*trap));
+        if (trap == NULL) {
+            (void)hash->destroy((void *)ctx);
+            (void)enif_free((void *)ctx);
+            (void)enif_release_binary(&output_bin);
+            (void)enif_free_env(work_env);
+            return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_trap_t");
+        }
+        trap->super.type = LIBDECAF_NIF_TRAP_TYPE_HASH;
+        trap->super.dtor = libdecaf_nif_hash_trap_dtor;
+        trap->super.work_env = work_env;
+        trap->hash = hash;
+        trap->ctx = ctx;
+        trap->input_bin = input_bin;
+        trap->input_off = slice_len;
+        trap->output_bin = output_bin;
+        trap->output_off = 0;
+        trap->output_len = output_len;
+        ERL_NIF_TERM newargv[1];
+        newargv[0] = enif_make_resource(env, (void *)trap);
+        (void)enif_release_resource((void *)trap);
+        return enif_schedule_nif(env, "libdecaf_nif_hash_3_continue", ERL_NIF_NORMAL_JOB_BOUND, libdecaf_nif_hash_3_continue, 1,
+                                 newargv);
+    } else {
+        BUMP_REMAINING_REDS(env, nr_of_reductions);
+        (void)hash->final((void *)ctx, output_bin.data, output_len);
+        (void)hash->destroy((void *)ctx);
+        (void)enif_free((void *)ctx);
+        (void)enif_free_env(work_env);
+        return enif_make_binary(env, &output_bin);
+    }
+}
+
+ERL_NIF_TERM
+libdecaf_nif_hash_3_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    long nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
+    bool is_yielded = false;
+    size_t slice_len;
+    libdecaf_nif_hash_trap_t *trap = NULL;
+
+    if (argc != 1) {
+        return EXCP_NOTSUP(env, "argc must be 1");
+    }
+    if (!enif_get_resource(env, argv[0], libdecaf_nif_trap_resource_type, (void **)&trap) ||
+        trap->super.type != LIBDECAF_NIF_TRAP_TYPE_HASH || trap->ctx == NULL || trap->hash->type != trap->ctx->type) {
+        return EXCP_BADARG(env, "Bad argument: 'Trap'");
+    }
+    is_yielded = (nr_of_reductions < (trap->input_bin.size - trap->input_off));
+    slice_len = (is_yielded) ? nr_of_reductions : (trap->input_bin.size - trap->input_off);
+    (void)trap->hash->update(trap->ctx, trap->input_bin.data + trap->input_off, slice_len);
+    trap->input_off += slice_len;
+    nr_of_reductions -= slice_len;
+    if (is_yielded) {
+        BUMP_ALL_REDS(env);
+        return enif_schedule_nif(env, "libdecaf_nif_hash_3_continue", ERL_NIF_NORMAL_JOB_BOUND, libdecaf_nif_hash_3_continue, argc,
+                                 argv);
+    } else {
+        BUMP_REMAINING_REDS(env, nr_of_reductions);
+        (void)trap->hash->final((void *)trap->ctx, trap->output_bin.data, trap->output_len);
+        (void)trap->hash->destroy((void *)trap->ctx);
+        (void)enif_free((void *)trap->ctx);
+        trap->ctx = NULL;
+        (void)enif_free_env(trap->super.work_env);
+        trap->super.work_env = NULL;
+        return enif_make_binary(env, &trap->output_bin);
+    }
+}
+
+
+ERL_NIF_TERM
+libdecaf_nif_hash_init_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    libdecaf_nif_hash_t *hash = NULL;
+    libdecaf_nif_hash_ctx_t *ctx = NULL;
+    ERL_NIF_TERM ctx_term;
+
+    if (argc != 1) {
+        return EXCP_NOTSUP(env, "argc must be 1");
+    }
+
+    hash = libdecaf_nif_hash_from_atom(env, argv[0]);
+    if (hash == NULL) {
+        return EXCP_BADARG(env, "Bad argument: 'Type'");
+    }
+
+    ctx = (void *)enif_alloc_resource(libdecaf_nif_hash_resource_type, sizeof(libdecaf_nif_hash_ctx_t));
+    if (ctx == NULL) {
+        return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_ctx_t");
+    }
+    ctx->type = hash->type;
+    (void)hash->init((void *)ctx);
+
+    ctx_term = enif_make_resource(env, (void *)ctx);
+    (void)enif_release_resource((void *)ctx);
+
+    return ctx_term;
+}
+
+
+ERL_NIF_TERM
+libdecaf_nif_hash_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    libdecaf_nif_hash_t *hash = NULL;
+    libdecaf_nif_hash_ctx_t *old_ctx = NULL;
+    libdecaf_nif_hash_ctx_t *new_ctx = NULL;
+    ERL_NIF_TERM input_term;
+    ErlNifBinary input_bin;
+    ErlNifEnv *work_env = NULL;
+    long nr_of_reductions;
+    bool is_yielded = false;
+    size_t slice_len;
+    ERL_NIF_TERM new_ctx_term;
+
+    // Allocate work environment, we will use this if we need to yield.
+    work_env = enif_alloc_env();
+    if (work_env == NULL) {
+        return EXCP_ERROR(env, "Can't allocate work_env = enif_alloc_env()");
+    }
+
+    if (argc != 2) {
+        (void)enif_free_env(work_env);
+        return EXCP_NOTSUP(env, "argc must be 2");
+    }
+
+    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_resource_type, (void **)&old_ctx) || (hash = libdecaf_nif_hash_from_type(old_ctx->type)) == NULL) {
+        (void)enif_free_env(work_env);
+        return EXCP_BADARG(env, "Bad argument: 'Ctx'");
+    }
+    if (!enif_is_binary(env, argv[1]) && !enif_is_list(env, argv[1])) {
+        (void)enif_free_env(work_env);
+        return EXCP_BADARG(env, "Bad argument: 'Input'");
+    }
+
+    // Copy the input binary to the work environment so it will be kept when we are yielding.
+    input_term = enif_make_copy(work_env, argv[1]);
+    if (!enif_inspect_iolist_as_binary(work_env, input_term, &input_bin)) {
+        (void)enif_free_env(work_env);
+        return EXCP_BADARG(env, "Bad argument: 'Input'");
+    }
+
+    // Allocate hash context
+    new_ctx = (void *)enif_alloc_resource(libdecaf_nif_hash_resource_type, sizeof(libdecaf_nif_hash_ctx_t));
+    if (new_ctx == NULL) {
+        (void)enif_free_env(work_env);
+        return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_ctx_t");
+    }
+    (void)memcpy((void *)new_ctx, (void *)old_ctx, sizeof(libdecaf_nif_hash_ctx_t));
+
+    nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
+
+    is_yielded = (nr_of_reductions < input_bin.size);
+    slice_len = (is_yielded) ? nr_of_reductions : input_bin.size;
+    (void)hash->update((void *)new_ctx, input_bin.data, slice_len);
+    nr_of_reductions -= slice_len;
+
+    if (is_yielded) {
+        BUMP_ALL_REDS(env);
+        libdecaf_nif_hash_update_trap_t *trap = (void *)enif_alloc_resource(libdecaf_nif_trap_resource_type, sizeof(*trap));
+        if (trap == NULL) {
+            (void)enif_release_resource((void *)new_ctx);
+            (void)enif_free_env(work_env);
+            return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_update_trap_t");
+        }
+        trap->super.type = LIBDECAF_NIF_TRAP_TYPE_HASH_UPDATE;
+        trap->super.dtor = libdecaf_nif_hash_update_trap_dtor;
+        trap->super.work_env = work_env;
+        trap->hash = hash;
+        trap->new_ctx = new_ctx;
+        trap->input_bin = input_bin;
+        trap->input_off = slice_len;
+        ERL_NIF_TERM newargv[1];
+        newargv[0] = enif_make_resource(env, (void *)trap);
+        (void)enif_release_resource((void *)trap);
+        return enif_schedule_nif(env, "libdecaf_nif_hash_update_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
+                                 libdecaf_nif_hash_update_2_continue, 1, newargv);
+    } else {
+        BUMP_REMAINING_REDS(env, nr_of_reductions);
+        new_ctx_term = enif_make_resource(env, (void *)new_ctx);
+        (void)enif_release_resource((void *)new_ctx);
+        (void)enif_free_env(work_env);
+        return new_ctx_term;
+    }
+}
+
+ERL_NIF_TERM
+libdecaf_nif_hash_update_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    long nr_of_reductions = REDUCTIONS_UNTIL_YCF_YIELD();
+    bool is_yielded = false;
+    size_t slice_len;
+    libdecaf_nif_hash_update_trap_t *trap = NULL;
+    ERL_NIF_TERM new_ctx_term;
+
+    if (argc != 1) {
+        return EXCP_NOTSUP(env, "argc must be 1");
+    }
+    if (!enif_get_resource(env, argv[0], libdecaf_nif_trap_resource_type, (void **)&trap) ||
+        trap->super.type != LIBDECAF_NIF_TRAP_TYPE_HASH_UPDATE || trap->new_ctx == NULL ||
+        trap->hash->type != trap->new_ctx->type) {
+        return EXCP_BADARG(env, "Bad argument: 'Trap'");
+    }
+    is_yielded = (nr_of_reductions < (trap->input_bin.size - trap->input_off));
+    slice_len = (is_yielded) ? nr_of_reductions : (trap->input_bin.size - trap->input_off);
+    (void)trap->hash->update(trap->new_ctx, trap->input_bin.data + trap->input_off, slice_len);
+    trap->input_off += slice_len;
+    nr_of_reductions -= slice_len;
+    if (is_yielded) {
+        BUMP_ALL_REDS(env);
+        return enif_schedule_nif(env, "libdecaf_nif_hash_update_2_continue", ERL_NIF_NORMAL_JOB_BOUND,
+                                 libdecaf_nif_hash_update_2_continue, argc, argv);
+    } else {
+        BUMP_REMAINING_REDS(env, nr_of_reductions);
+        new_ctx_term = enif_make_resource(env, (void *)trap->new_ctx);
+        (void)enif_release_resource((void *)trap->new_ctx);
+        trap->new_ctx = NULL;
+        (void)enif_free_env(trap->super.work_env);
+        trap->super.work_env = NULL;
+        return new_ctx_term;
+    }
+}
+
+
+ERL_NIF_TERM
+libdecaf_nif_hash_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    libdecaf_nif_hash_t *hash = NULL;
+    libdecaf_nif_hash_ctx_t *old_ctx = NULL;
+    libdecaf_nif_hash_ctx_t *new_ctx = NULL;
+    unsigned long output_len;
+    ErlNifBinary output_bin;
+
+    if (argc != 2) {
+        return EXCP_NOTSUP(env, "argc must be 2");
+    }
+
+    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_resource_type, (void **)&old_ctx) || (hash = libdecaf_nif_hash_from_type(old_ctx->type)) == NULL) {
+        return EXCP_BADARG(env, "Bad argument: 'Ctx'");
+    }
+    if (!enif_get_ulong(env, argv[1], &output_len) || output_len > hash->max_output_len) {
+        return EXCP_BADARG(env, "Bad argument: 'OutputLen'");
+    }
+
+    // Allocate out binary
+    if (!enif_alloc_binary(output_len, &output_bin)) {
+        return EXCP_ERROR(env, "Can't allocate 'Output' binary");
+    }
+
+    // Allocate hash context
+    new_ctx = (void *)enif_alloc(sizeof(libdecaf_nif_hash_ctx_t));
+    if (new_ctx == NULL) {
+        (void)enif_release_binary(&output_bin);
+        return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_ctx_t");
+    }
+    (void)memcpy((void *)new_ctx, (void *)old_ctx, sizeof(libdecaf_nif_hash_ctx_t));
+
+    (void)hash->final((void *)new_ctx, output_bin.data, output_len);
+    (void)hash->destroy((void *)new_ctx);
+    (void)enif_free((void *)new_ctx);
+    return enif_make_binary(env, &output_bin);
+}
+
+/* Default digest lengths live in the configured native algorithm table. */
+ERL_NIF_TERM
+libdecaf_nif_hash_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    if (argc != 2) {
+        return EXCP_NOTSUP(env, "argc must be 2");
+    }
+    libdecaf_nif_hash_t *hash = libdecaf_nif_hash_from_atom(env, argv[0]);
+    if (hash == NULL) {
+        return EXCP_BADARG(env, "Bad argument: 'Type'");
+    }
+    ERL_NIF_TERM args[3] = {argv[0], argv[1], enif_make_ulong(env, hash->default_output_len)};
+    return libdecaf_nif_hash_3(env, 3, args);
+}
+
+ERL_NIF_TERM
+libdecaf_nif_hash_final_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    libdecaf_nif_hash_ctx_t *ctx = NULL;
+    libdecaf_nif_hash_t *hash = NULL;
+    if (argc != 1) {
+        return EXCP_NOTSUP(env, "argc must be 1");
+    }
+    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_resource_type, (void **)&ctx) ||
+        (hash = libdecaf_nif_hash_from_type(ctx->type)) == NULL) {
+        return EXCP_BADARG(env, "Bad argument: 'Ctx'");
+    }
+    ERL_NIF_TERM args[2] = {argv[0], enif_make_ulong(env, hash->default_output_len)};
+    return libdecaf_nif_hash_final_2(env, 2, args);
+}
+/* clang-format on */ //-

@@ -23,4 +23,4 @@ class Context:
 
     @property
     def types(self) -> tuple[tuple[str, str, str], ...]:
-        return types()
+        return types(self.schema.nif)

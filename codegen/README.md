@@ -31,30 +31,29 @@ Change the templates or configuration and run `just codegen`; generated C is
 committed so ordinary builds do not run the generator. Generated files carry a
 content signature applied after formatting, and repeated generation is stable.
 
-The first stage also generates `c_src/nif/libdecaf_nif.c`. Its hash and XOF
-declarations, wrappers, and NIF registrations come from `nif.hash` and
-`nif.xof` in `config.yaml`. The committed C contains explicit functions and
-registration entries, so debuggers and sanitizer reports can refer to each
-wrapper's own source lines. Algorithm names also seed the atom table.
+The first stage generates `c_src/nif/hash.{c,h}`, `c_src/nif/hash_xof.{c,h}`,
+and the native registration table in `c_src/nif/libdecaf_nif.c`.
 
-`templates0/src/libdecaf_nif.erl.j2` generates the Erlang NIF module. The codegen
-recipe formats both C and Erlang output before applying content signatures.
+`nif.hash` and `nif.xof` are mappings from algorithm names to metadata. Each
+entry gives the upstream context struct and operation symbols. Fixed-output hashes
+also specify `default_output_len` and `max_output_len` in bytes. Legacy Keccak entries give
+their sponge rate. The schema rejects default lengths that exceed the maximum.
 
-`templates0/src/libdecaf.erl.j2` generates the public hash API from `nif.hash`.
-The algorithm union, per-algorithm records and opaque state types, and all hash
-operations share that list. Add or remove an algorithm there and regenerate;
-the one-shot, init, update, final, and digest-size clauses stay in sync.
-The `hash_xof/3`, `hash_xof_init/1`, `hash_xof_update/2`, and `hash_xof_final/2`
-APIs use `nif.xof` in the same way, including per-algorithm records and opaque
-states. XOF output lengths are in bytes, and finalization returns the requested
-binary without changing the input state.
+The generated C contains typed upstream adapters, algorithm tables, resource
+layouts, and lookups by atom or resource type. Only the generic `hash`,
+`hash_init`, `hash_update`, `hash_final`, and corresponding `hash_xof*` NIFs are
+exported. Resources retain the selected algorithm, so updates and finalization
+need neither an extra algorithm argument nor an Erlang record wrapper.
+Scheduling and immutable state copying remain in the generated C implementation.
 
-The Erlang module's native exports, entry points, documentation, and specs are
-rendered from `src/erlang_libdecaf_codegen/context/functions.py`. Module
-initialization is written directly in the Erlang template, in an internal section
-below the native functions. Native API definitions and exports are sorted by
-name and arity. Hash and SHAKE profiles use
-the same singular `nif.hash` and `nif.xof` configuration as C. Keep
-resource contracts and native argument/return behavior in sync when adding an
-operation. Native Markdown documentation requires Erlang/OTP 27 or later;
-CI exercises the latest OTP 28 and OTP 29 releases.
+`templates0/src/libdecaf.erl.j2` generates the public Erlang API. Its hash
+functions delegate directly to the generic NIFs. Algorithm types still come
+from the same configuration; state types are opaque native resource handles.
+
+`templates0/src/libdecaf_nif.erl.j2` generates the Erlang NIF module, using
+`src/erlang_libdecaf_codegen/context/functions.py` for native exports, specs, and
+documentation. Module initialization is written directly in the template's final
+internal section. Definitions, types, and exports are sorted by name and arity.
+The codegen recipe formats C and Erlang output before applying content signatures.
+Native Markdown documentation requires OTP 27 or later; CI exercises the latest
+OTP 28 and OTP 29 releases.

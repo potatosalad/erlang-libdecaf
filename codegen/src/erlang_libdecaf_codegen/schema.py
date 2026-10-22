@@ -12,7 +12,6 @@ class Model(BaseModel):
 
 
 class Algorithm(Model):
-    id: int = Field(ge=0, le=255)
     context: CIdentifier
     init: CIdentifier
     update: CIdentifier
@@ -47,14 +46,6 @@ class NIF(Model):
         if len(names) != len(set(names)):
             raise ValueError("Atom names must be unique")
         return names
-
-    @field_validator("hash", "xof")
-    @classmethod
-    def unique_type_ids(cls, profiles: dict[str, Algorithm]) -> dict[str, Algorithm]:
-        ids = [profile.id for profile in profiles.values()]
-        if len(ids) != len(set(ids)):
-            raise ValueError("Native algorithm type IDs must be unique within each family")
-        return profiles
 
 
 class Root(Model):

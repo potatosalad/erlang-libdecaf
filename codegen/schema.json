@@ -3,12 +3,6 @@
     "Hash": {
       "additionalProperties": false,
       "properties": {
-        "id": {
-          "maximum": 255,
-          "minimum": 0,
-          "title": "Id",
-          "type": "integer"
-        },
         "context": {
           "pattern": "^[a-z][a-zA-Z0-9_]*$",
           "title": "Context",
@@ -60,7 +54,6 @@
         }
       },
       "required": [
-        "id",
         "context",
         "init",
         "update",
@@ -108,12 +101,6 @@
     "XOF": {
       "additionalProperties": false,
       "properties": {
-        "id": {
-          "maximum": 255,
-          "minimum": 0,
-          "title": "Id",
-          "type": "integer"
-        },
         "context": {
           "pattern": "^[a-z][a-zA-Z0-9_]*$",
           "title": "Context",
@@ -141,7 +128,6 @@
         }
       },
       "required": [
-        "id",
         "context",
         "init",
         "update",

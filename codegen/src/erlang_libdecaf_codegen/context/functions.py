@@ -214,58 +214,70 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
             "Diffie-Hellman",
         )
 
-    for name in schema.hash:
-        size = int(name.rsplit("_", 1)[1]) // 8
-        limit = f"0..{size}"
-        group = "Legacy Keccak" if name.startswith("keccak_") else "Hashing"
-        operations = [
-            (
-                "hash",
-                [("Input", "iodata()"), ("OutputLen", limit)],
-                "binary()",
-                f"Hash iodata with `{name}` and return `OutputLen` bytes.\nThe output length is between 0 and {size} bytes.",
-            ),
-            ("hash_init", [], "hash_state()", f"Create an immutable `{name}` hash state."),
-            (
-                "hash_update",
-                [("State", "hash_state()"), ("Input", "iodata()")],
-                "hash_state()",
-                f"Absorb iodata into a `{name}` state and return a new state.\nThe original state remains reusable.",
-            ),
-            (
-                "hash_final",
-                [("State", "hash_state()"), ("OutputLen", limit)],
-                "binary()",
-                f"Finalize a `{name}` state and return between 0 and {size} digest bytes.\nThe original state remains reusable.",
-            ),
-        ]
-        for operation, arguments, returns, doc in operations:
-            add(f"{name}_{operation}", arguments, returns, doc, group)
-
-    for name in schema.xof:
-        operations = [
-            (
-                "xof",
-                [("Input", "iodata()"), ("OutputLen", "non_neg_integer()")],
-                "binary()",
-                f"Absorb iodata with `{name}` and return `OutputLen` output bytes.",
-            ),
-            ("xof_init", [], "xof_state()", f"Create an immutable `{name}` state in its absorbing phase."),
-            (
-                "xof_update",
-                [("State", "xof_state()"), ("Input", "iodata()")],
-                "xof_state()",
-                f"Absorb iodata into a `{name}` state and return a new state.\nUpdates require a state that has not started squeezing output.",
-            ),
-            (
-                "xof_output",
-                [("State", "xof_state()"), ("OutputLen", "non_neg_integer()")],
-                "{xof_state(), binary()}",
-                f"Squeeze `OutputLen` bytes and return the new `{name}` state with the bytes.\nContinue squeezing from the returned state; the original state remains reusable.",
-            ),
-        ]
-        for operation, arguments, returns, doc in operations:
-            add(f"{name}_{operation}", arguments, returns, doc, "SHAKE")
+    hash_operations = [
+        (
+            "hash",
+            [("Type", "hash_algorithm()"), ("Input", "iodata()")],
+            "binary()",
+            "Hash iodata using the configured default digest length.",
+        ),
+        (
+            "hash",
+            [("Type", "hash_algorithm()"), ("Input", "iodata()"), ("Length", "non_neg_integer()")],
+            "binary()",
+            "Hash iodata and return Length bytes. The length must not exceed the configured maximum for the algorithm.",
+        ),
+        (
+            "hash_init",
+            [("Type", "hash_algorithm()")],
+            "hash_state()",
+            "Create an immutable native hash state. The resource retains the algorithm and its default digest length.",
+        ),
+        (
+            "hash_update",
+            [("State", "hash_state()"), ("Input", "iodata()")],
+            "hash_state()",
+            "Absorb iodata and return a new native hash state. The original state remains reusable.",
+        ),
+        (
+            "hash_final",
+            [("State", "hash_state()")],
+            "binary()",
+            "Return the digest using the state's configured default length. The input state remains reusable.",
+        ),
+        (
+            "hash_final",
+            [("State", "hash_state()"), ("Length", "non_neg_integer()")],
+            "binary()",
+            "Return Length digest bytes without changing the input state. The length must not exceed the configured maximum.",
+        ),
+        (
+            "hash_xof",
+            [("Type", "hash_xof_algorithm()"), ("Input", "iodata()"), ("Length", "non_neg_integer()")],
+            "binary()",
+            "Hash iodata with an extendable-output function and return Length bytes.",
+        ),
+        (
+            "hash_xof_init",
+            [("Type", "hash_xof_algorithm()")],
+            "hash_xof_state()",
+            "Create an immutable native XOF state. The resource retains the selected algorithm.",
+        ),
+        (
+            "hash_xof_update",
+            [("State", "hash_xof_state()"), ("Input", "iodata()")],
+            "hash_xof_state()",
+            "Absorb iodata and return a new native XOF state. The input state remains reusable.",
+        ),
+        (
+            "hash_xof_final",
+            [("State", "hash_xof_state()"), ("Length", "non_neg_integer()")],
+            "binary()",
+            "Return Length XOF bytes without changing the input state. Repeated finalization returns the same output prefix.",
+        ),
+    ]
+    for name, arguments, returns, doc in hash_operations:
+        add(name, arguments, returns, doc, "Hashing" if not name.startswith("hash_xof") else "SHAKE")
 
     rng = [
         (
@@ -307,8 +319,10 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
     return tuple(sorted(result, key=lambda function: (function.name, function.arity)))
 
 
-def types() -> tuple[tuple[str, str, str], ...]:
+def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
     result = [
+        ("hash_algorithm", " | ".join(sorted(schema.hash)) or "none()", "Configured fixed-output hash algorithms."),
+        ("hash_xof_algorithm", " | ".join(sorted(schema.xof)) or "none()", "Configured extendable-output hash algorithms."),
         ("prehashed", "0 | 1", "Select an ordinary message (`0`) or an already computed 64-byte prehash (`1`)."),
         (
             "ed25519_context",
@@ -316,7 +330,7 @@ def types() -> tuple[tuple[str, str, str], ...]:
             "Use `no_context` for pure Ed25519, or a context binary of at most 255 bytes.",
         ),
         ("hash_state", "erlang:nif_resource()", "An immutable hash resource. Use it with the algorithm that created it."),
-        ("xof_state", "erlang:nif_resource()", "An immutable SHAKE resource in its absorbing or squeezing phase."),
+        ("hash_xof_state", "erlang:nif_resource()", "An immutable native XOF resource."),
         ("spongerng_state", "erlang:nif_resource()", "A sponge PRNG resource. Continue with each operation's returned state."),
     ]
     for curve, size in [("ed25519", 32), ("ed448", 57)]:

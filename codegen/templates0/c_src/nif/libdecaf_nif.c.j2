@@ -7,7 +7,7 @@
 #include "ed25519.h"
 #include "ed448.h"
 #include "hash.h"
-#include "xof.h"
+#include "hash_xof.h"
 #include "groups.h"
 
 #include <unistd.h>
@@ -137,25 +137,6 @@ static ERL_NIF_TERM libdecaf_nif_x25519_2(ErlNifEnv *env, int argc, const ERL_NI
 /* decaf/point_448.h */
 static ERL_NIF_TERM libdecaf_nif_x448_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM libdecaf_nif_x448_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-/* decaf/sha512.h */
-/* decaf/shake.h */
-/* clang-format off */ //-
-{% for name in ctx.schema.nif.hash %}
-static ERL_NIF_TERM libdecaf_nif_{{ name }}_hash_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_{{ name }}_hash_init_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_{{ name }}_hash_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_{{ name }}_hash_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-{% endfor %}
-/* clang-format on */ //-
-/* clang-format off */ //-
-{% for name in ctx.schema.nif.xof %}
-static ERL_NIF_TERM libdecaf_nif_{{ name }}_xof_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_{{ name }}_xof_init_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_{{ name }}_xof_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM libdecaf_nif_{{ name }}_xof_output_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-{% endfor %}
-/* clang-format on */ //-
-
 /* NIF Function Definitions */
 
 /* decaf/ed255.h */
@@ -166,63 +147,6 @@ static ERL_NIF_TERM libdecaf_nif_{{ name }}_xof_output_2(ErlNifEnv *env, int arg
 #include "impl/point_255.c.h"
 /* decaf/point_448.h */
 #include "impl/point_448.c.h"
-/* decaf/sha512.h */
-/* decaf/shake.h */
-/* clang-format off */ //-
-{% for name in ctx.schema.nif.hash %}
-ERL_NIF_TERM
-libdecaf_nif_{{ name }}_hash_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    return libdecaf_nif_hash_2(&libdecaf_nif_hash_table->{{ name }}, env, argc, argv);
-}
-
-ERL_NIF_TERM
-libdecaf_nif_{{ name }}_hash_init_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    return libdecaf_nif_hash_init_0(&libdecaf_nif_hash_table->{{ name }}, env, argc, argv);
-}
-
-ERL_NIF_TERM
-libdecaf_nif_{{ name }}_hash_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    return libdecaf_nif_hash_update_2(&libdecaf_nif_hash_table->{{ name }}, env, argc, argv);
-}
-
-ERL_NIF_TERM
-libdecaf_nif_{{ name }}_hash_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    return libdecaf_nif_hash_final_2(&libdecaf_nif_hash_table->{{ name }}, env, argc, argv);
-}
-{% endfor %}
-/* clang-format on */ //-
-/* clang-format off */ //-
-{% for name in ctx.schema.nif.xof %}
-ERL_NIF_TERM
-libdecaf_nif_{{ name }}_xof_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    return libdecaf_nif_xof_2(&libdecaf_nif_xof_table->{{ name }}, env, argc, argv);
-}
-
-ERL_NIF_TERM
-libdecaf_nif_{{ name }}_xof_init_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    return libdecaf_nif_xof_init_0(&libdecaf_nif_xof_table->{{ name }}, env, argc, argv);
-}
-
-ERL_NIF_TERM
-libdecaf_nif_{{ name }}_xof_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    return libdecaf_nif_xof_update_2(&libdecaf_nif_xof_table->{{ name }}, env, argc, argv);
-}
-
-ERL_NIF_TERM
-libdecaf_nif_{{ name }}_xof_output_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    return libdecaf_nif_xof_output_2(&libdecaf_nif_xof_table->{{ name }}, env, argc, argv);
-}
-{% endfor %}
-/* clang-format on */ //-
-
 /* NIF Callbacks */
 
 static ErlNifFunc libdecaf_nif_funcs[] = {
@@ -259,24 +183,17 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"x25519", 2, libdecaf_nif_x25519_2, ERL_NIF_NORMAL_JOB_BOUND},
     {"x448_derive_public_key", 1, libdecaf_nif_x448_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"x448", 2, libdecaf_nif_x448_2, ERL_NIF_NORMAL_JOB_BOUND},
-/* decaf/sha512.h */
-/* decaf/shake.h */
-/* clang-format off */ //-
-{% for name in ctx.schema.nif.hash %}
-{"{{ name }}_hash", 2, libdecaf_nif_{{ name }}_hash_2, ERL_NIF_NORMAL_JOB_BOUND},
-{"{{ name }}_hash_init", 0, libdecaf_nif_{{ name }}_hash_init_0, ERL_NIF_NORMAL_JOB_BOUND},
-{"{{ name }}_hash_update", 2, libdecaf_nif_{{ name }}_hash_update_2, ERL_NIF_NORMAL_JOB_BOUND},
-{"{{ name }}_hash_final", 2, libdecaf_nif_{{ name }}_hash_final_2, ERL_NIF_NORMAL_JOB_BOUND},
-{% endfor %}
-/* clang-format on */ //-
-/* clang-format off */ //-
-{% for name in ctx.schema.nif.xof %}
-{"{{ name }}_xof", 2, libdecaf_nif_{{ name }}_xof_2, ERL_NIF_NORMAL_JOB_BOUND},
-{"{{ name }}_xof_init", 0, libdecaf_nif_{{ name }}_xof_init_0, ERL_NIF_NORMAL_JOB_BOUND},
-{"{{ name }}_xof_update", 2, libdecaf_nif_{{ name }}_xof_update_2, ERL_NIF_NORMAL_JOB_BOUND},
-{"{{ name }}_xof_output", 2, libdecaf_nif_{{ name }}_xof_output_2, ERL_NIF_NORMAL_JOB_BOUND},
-{% endfor %}
-/* clang-format on */ //-
+    /* Generic hash and XOF APIs. */
+    {"hash", 2, libdecaf_nif_hash_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash", 3, libdecaf_nif_hash_3, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash_final", 1, libdecaf_nif_hash_final_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash_final", 2, libdecaf_nif_hash_final_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash_init", 1, libdecaf_nif_hash_init_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash_update", 2, libdecaf_nif_hash_update_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash_xof", 3, libdecaf_nif_hash_xof_3, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash_xof_final", 2, libdecaf_nif_hash_xof_final_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash_xof_init", 1, libdecaf_nif_hash_xof_init_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash_xof_update", 2, libdecaf_nif_hash_xof_update_2, ERL_NIF_NORMAL_JOB_BOUND},
     /* decaf/spongerng.h */
     {"spongerng_csprng_init_from_buffer", 2, libdecaf_nif_spongerng_csprng_init_from_buffer_2, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"spongerng_csprng_init_from_file", 3, libdecaf_nif_spongerng_csprng_init_from_file_3, ERL_NIF_DIRTY_JOB_IO_BOUND},

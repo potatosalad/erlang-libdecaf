@@ -31,14 +31,8 @@ Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, and the spon
 -export_type([
     hash_algorithm/0,
     hash_state/0,
-~J{ for name in hash_algorithms }.
-    hash_state_~J< name >./0,
-~J{ endfor }.
     hash_xof_algorithm/0,
-    hash_xof_state/0,
-~J{ for name in xof_algorithms }.
-    hash_xof_state_~J< name >./0~J< ',' if not loop.last else '' >.
-~J{ endfor }.
+    hash_xof_state/0
 ]).
 
 % %% Prime-order groups (RFC 9496).
@@ -223,19 +217,6 @@ Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, and the spon
     priv_dir/0
 ]).
 
-%%% Records
-
-~J{ for name in hash_algorithms }.
--record(hash_state_~J< name >., {
-    ctx :: libdecaf_nif:hash_state()
-}).
-~J{ endfor }.
-~J{ for name in xof_algorithms }.
--record(hash_xof_state_~J< name >., {
-    ctx :: libdecaf_nif:xof_state()
-}).
-~J{ endfor }.
-
 %%% Types
 
 -doc """
@@ -247,21 +228,11 @@ Supported fixed-output hash algorithms.
 ~J{ endfor }.
 
 -doc """
-An immutable hash state. Pass the returned state to subsequent updates.
-The same state can be reused to hash different suffixes or finalized more than once.
+An immutable native hash resource containing its algorithm and context.
+Updates return new resources; finalization leaves the input resource reusable.
 """.
--opaque hash_state() ::
-~J{ for name in hash_algorithms }.
-    ~J< '| ' if not loop.first else '' >.hash_state_~J< name >.()~J< '.' if loop.last else '' >.
-~J{ endfor }.
+-opaque hash_state() :: libdecaf_nif:hash_state().
 
-~J{ for name in hash_algorithms }.
--doc """
-An immutable `~J< name >.` hash state.
-""".
--opaque hash_state_~J< name >.() :: #hash_state_~J< name >.{}.
-
-~J{ endfor }.
 -doc """
 Supported extendable-output hash algorithms.
 """.
@@ -271,27 +242,17 @@ Supported extendable-output hash algorithms.
 ~J{ endfor }.
 
 -doc """
-An immutable extendable-output hash state.
-Updates return new states; finalization leaves the input state reusable.
+An immutable native XOF resource containing its algorithm and context.
+Updates return new resources; finalization leaves the input resource reusable.
 """.
--opaque hash_xof_state() ::
-~J{ for name in xof_algorithms }.
-    ~J< '| ' if not loop.first else '' >.hash_xof_state_~J< name >.()~J< '.' if loop.last else '' >.
-~J{ endfor }.
+-opaque hash_xof_state() :: libdecaf_nif:hash_xof_state().
 
-~J{ for name in xof_algorithms }.
--doc """
-An immutable `~J< name >.` extendable-output hash state.
-""".
--opaque hash_xof_state_~J< name >.() :: #hash_xof_state_~J< name >.{}.
-
-~J{ endfor }.
 %%%=============================================================================
 %%% Hash API functions
 %%%=============================================================================
 
 -doc """
-Hash iodata and return the algorithm's full digest.
+Hash iodata and return the configured default number of digest bytes.
 
 ```erlang
 libdecaf:hash(sha3_256, <<"abc">>).
@@ -301,49 +262,37 @@ libdecaf:hash(sha3_256, <<"abc">>).
 -spec hash(Type, Data) -> Digest when
     Type :: hash_algorithm(), Data :: iodata(), Digest :: binary().
 hash(Type, Data) ->
-    hash(Type, Data, hash_size(Type)).
+    libdecaf_nif:hash(Type, Data).
 
 -doc """
 Hash iodata and return the first `Length` bytes of the digest.
-`Length` is in bytes and must be between zero and the full digest size.
+`Length` is in bytes and must be between zero and the configured maximum.
 """.
 -doc #{group => <<"Hash API">>}.
 -spec hash(Type, Data, Length) -> Digest when
     Type :: hash_algorithm(), Data :: iodata(), Length :: non_neg_integer(), Digest :: binary().
-~J{ for name in hash_algorithms }.
-hash(~J< name >., Data, Length) ->
-    libdecaf_nif:~J< name >._hash(Data, Length);
-~J{ endfor }.
 hash(Type, Data, Length) ->
-    erlang:error(badarg, [Type, Data, Length]).
+    libdecaf_nif:hash(Type, Data, Length).
 
 -doc """
-Return the full digest of an incremental hash state.
+Return the digest using the algorithm's configured default output length.
 The state remains reusable after finalization.
 """.
 -doc #{group => <<"Hash API">>}.
 -spec hash_final(State) -> Digest when State :: hash_state(), Digest :: binary().
-~J{ for name in hash_algorithms }.
-hash_final(#hash_state_~J< name >.{} = State) ->
-    hash_final(State, ~J< (name.rsplit('_', 1)[1] | int) // 8 >.);
-~J{ endfor }.
 hash_final(State) ->
-    erlang:error(badarg, [State]).
+    libdecaf_nif:hash_final(State).
 
 -doc """
 Return the first `Length` bytes of an incremental hash's digest.
-`Length` is in bytes and must be between zero and the full digest size.
+`Length` is in bytes and must be between zero and the configured maximum.
 The state remains reusable after finalization.
 """.
 -doc #{group => <<"Hash API">>}.
 -spec hash_final(State, Length) -> Digest when
     State :: hash_state(), Length :: non_neg_integer(), Digest :: binary().
-~J{ for name in hash_algorithms }.
-hash_final(#hash_state_~J< name >.{ctx = Context}, Length) ->
-    libdecaf_nif:~J< name >._hash_final(Context, Length);
-~J{ endfor }.
 hash_final(State, Length) ->
-    erlang:error(badarg, [State, Length]).
+    libdecaf_nif:hash_final(State, Length).
 
 -doc """
 Initialize an incremental hash.
@@ -357,12 +306,8 @@ Digest = libdecaf:hash_final(S2).
 """.
 -doc #{group => <<"Hash API">>}.
 -spec hash_init(Type) -> State when Type :: hash_algorithm(), State :: hash_state().
-~J{ for name in hash_algorithms }.
-hash_init(~J< name >.) ->
-    #hash_state_~J< name >.{ctx = libdecaf_nif:~J< name >._hash_init()};
-~J{ endfor }.
 hash_init(Type) ->
-    erlang:error(badarg, [Type]).
+    libdecaf_nif:hash_init(Type).
 
 -doc """
 Absorb iodata and return a new hash state.
@@ -371,12 +316,8 @@ The original state remains reusable; continue hashing with the returned state.
 -doc #{group => <<"Hash API">>}.
 -spec hash_update(State, Data) -> NewState when
     State :: hash_state(), Data :: iodata(), NewState :: hash_state().
-~J{ for name in hash_algorithms }.
-hash_update(#hash_state_~J< name >.{ctx = Context} = State, Data) ->
-    State#hash_state_~J< name >.{ctx = libdecaf_nif:~J< name >._hash_update(Context, Data)};
-~J{ endfor }.
 hash_update(State, Data) ->
-    erlang:error(badarg, [State, Data]).
+    libdecaf_nif:hash_update(State, Data).
 
 %%%=============================================================================
 %%% Hash XOF API functions
@@ -393,12 +334,8 @@ libdecaf:hash_xof(shake256, <<"abc">>, 64).
 -doc #{group => <<"Hash XOF API">>}.
 -spec hash_xof(Type, Data, Length) -> Output when
     Type :: hash_xof_algorithm(), Data :: iodata(), Length :: non_neg_integer(), Output :: binary().
-~J{ for name in xof_algorithms }.
-hash_xof(~J< name >., Data, Length) ->
-    libdecaf_nif:~J< name >._xof(Data, Length);
-~J{ endfor }.
 hash_xof(Type, Data, Length) ->
-    erlang:error(badarg, [Type, Data, Length]).
+    libdecaf_nif:hash_xof(Type, Data, Length).
 
 -doc """
 Finalize an extendable-output hash state and return `Length` bytes.
@@ -408,13 +345,8 @@ position; request a larger length to obtain a longer output prefix.
 -doc #{group => <<"Hash XOF API">>}.
 -spec hash_xof_final(State, Length) -> Output when
     State :: hash_xof_state(), Length :: non_neg_integer(), Output :: binary().
-~J{ for name in xof_algorithms }.
-hash_xof_final(#hash_xof_state_~J< name >.{ctx = Context}, Length) ->
-    {_NewContext, Output} = libdecaf_nif:~J< name >._xof_output(Context, Length),
-    Output;
-~J{ endfor }.
 hash_xof_final(State, Length) ->
-    erlang:error(badarg, [State, Length]).
+    libdecaf_nif:hash_xof_final(State, Length).
 
 -doc """
 Initialize an incremental extendable-output hash.
@@ -427,12 +359,8 @@ Output = libdecaf:hash_xof_final(S1, 64).
 """.
 -doc #{group => <<"Hash XOF API">>}.
 -spec hash_xof_init(Type) -> State when Type :: hash_xof_algorithm(), State :: hash_xof_state().
-~J{ for name in xof_algorithms }.
-hash_xof_init(~J< name >.) ->
-    #hash_xof_state_~J< name >.{ctx = libdecaf_nif:~J< name >._xof_init()};
-~J{ endfor }.
 hash_xof_init(Type) ->
-    erlang:error(badarg, [Type]).
+    libdecaf_nif:hash_xof_init(Type).
 
 -doc """
 Absorb iodata and return a new extendable-output hash state.
@@ -441,12 +369,8 @@ The original state remains reusable; continue with the returned state.
 -doc #{group => <<"Hash XOF API">>}.
 -spec hash_xof_update(State, Data) -> NewState when
     State :: hash_xof_state(), Data :: iodata(), NewState :: hash_xof_state().
-~J{ for name in xof_algorithms }.
-hash_xof_update(#hash_xof_state_~J< name >.{ctx = Context} = State, Data) ->
-    State#hash_xof_state_~J< name >.{ctx = libdecaf_nif:~J< name >._xof_update(Context, Data)};
-~J{ endfor }.
 hash_xof_update(State, Data) ->
-    erlang:error(badarg, [State, Data]).
+    libdecaf_nif:hash_xof_update(State, Data).
 
 % %%%===================================================================
 % %%% API functions
@@ -789,13 +713,6 @@ hash_xof_update(State, Data) ->
 %%%-----------------------------------------------------------------------------
 %%% Internal functions
 %%%-----------------------------------------------------------------------------
-
--doc false.
--spec hash_size(hash_algorithm()) -> pos_integer().
-~J{ for name in hash_algorithms }.
-hash_size(~J< name >.) -> ~J< (name.rsplit('_', 1)[1] | int) // 8 >.;
-~J{ endfor }.
-hash_size(Type) -> erlang:error(badarg, [Type]).
 
 -doc false.
 -spec priv_dir() -> file:filename_all().

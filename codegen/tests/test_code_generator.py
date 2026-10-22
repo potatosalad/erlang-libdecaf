@@ -158,11 +158,3 @@ def test_hash_default_output_cannot_exceed_maximum():
     config["nif"]["hash"]["sha2_512"]["default_output_len"] = 65
     with pytest.raises(ValidationError, match="Default hash output length"):
         Root.model_validate(config)
-
-
-def test_native_algorithm_type_ids_must_be_unique():
-    root = Path(__file__).resolve().parents[2]
-    config = yaml.safe_load((root / "codegen/config.yaml").read_text())
-    config["nif"]["hash"]["sha3_224"]["id"] = config["nif"]["hash"]["sha2_512"]["id"]
-    with pytest.raises(ValidationError, match="type IDs must be unique"):
-        Root.model_validate(config)

@@ -14,7 +14,6 @@ nif:
   - undefined
   hash:
     keccak_224:
-      id: 5
       context: decaf_keccak_sponge_s
       default_output_len: 28
       max_output_len: 28
@@ -24,7 +23,6 @@ nif:
       destroy: decaf_sha3_destroy
       legacy_keccak_rate: 144
     keccak_256:
-      id: 6
       context: decaf_keccak_sponge_s
       default_output_len: 32
       max_output_len: 32
@@ -34,7 +32,6 @@ nif:
       destroy: decaf_sha3_destroy
       legacy_keccak_rate: 136
     keccak_384:
-      id: 7
       context: decaf_keccak_sponge_s
       default_output_len: 48
       max_output_len: 48
@@ -44,7 +41,6 @@ nif:
       destroy: decaf_sha3_destroy
       legacy_keccak_rate: 104
     keccak_512:
-      id: 8
       context: decaf_keccak_sponge_s
       default_output_len: 64
       max_output_len: 64
@@ -54,7 +50,6 @@ nif:
       destroy: decaf_sha3_destroy
       legacy_keccak_rate: 72
     sha2_512:
-      id: 0
       context: decaf_sha512_ctx_s
       default_output_len: 64
       max_output_len: 64
@@ -63,7 +58,6 @@ nif:
       final: decaf_sha512_final
       destroy: decaf_sha512_destroy
     sha3_224:
-      id: 1
       context: decaf_sha3_224_ctx_s
       default_output_len: 28
       max_output_len: 28
@@ -72,7 +66,6 @@ nif:
       final: decaf_sha3_224_final
       destroy: decaf_sha3_224_destroy
     sha3_256:
-      id: 2
       context: decaf_sha3_256_ctx_s
       default_output_len: 32
       max_output_len: 32
@@ -81,7 +74,6 @@ nif:
       final: decaf_sha3_256_final
       destroy: decaf_sha3_256_destroy
     sha3_384:
-      id: 3
       context: decaf_sha3_384_ctx_s
       default_output_len: 48
       max_output_len: 48
@@ -90,7 +82,6 @@ nif:
       final: decaf_sha3_384_final
       destroy: decaf_sha3_384_destroy
     sha3_512:
-      id: 4
       context: decaf_sha3_512_ctx_s
       default_output_len: 64
       max_output_len: 64
@@ -100,14 +91,12 @@ nif:
       destroy: decaf_sha3_512_destroy
   xof:
     shake128:
-      id: 0
       context: decaf_shake128_ctx_s
       init: decaf_shake128_init
       update: decaf_shake128_update
       output: decaf_shake128_output
       destroy: decaf_shake128_destroy
     shake256:
-      id: 1
       context: decaf_shake256_ctx_s
       init: decaf_shake256_init
       update: decaf_shake256_update

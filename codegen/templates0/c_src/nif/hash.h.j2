@@ -1,0 +1,87 @@
+/* clang-format off */ //-
+#ifndef LIBDECAF_NIF_HASH_H
+#define LIBDECAF_NIF_HASH_H
+
+#include "libdecaf_nif.h"
+#include <decaf/sha512.h>
+#include <decaf/shake.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct libdecaf_nif_hash_table_s libdecaf_nif_hash_table_t;
+typedef struct libdecaf_nif_hash_s libdecaf_nif_hash_t;
+typedef enum libdecaf_nif_hash_type_t libdecaf_nif_hash_type_t;
+typedef struct libdecaf_nif_hash_ctx_s libdecaf_nif_hash_ctx_t;
+
+enum libdecaf_nif_hash_type_t {
+{% for name, algorithm in ctx.schema.nif.hash | dictsort %}
+    LIBDECAF_NIF_HASH_TYPE_{{ name | upper }},
+{% endfor %}
+};
+
+struct libdecaf_nif_hash_s {
+    libdecaf_nif_hash_type_t type;
+    size_t default_output_len;
+    size_t max_output_len;
+    void (*init)(void *ctx);
+    void (*update)(void *ctx, const uint8_t *input, size_t input_len);
+    void (*final)(void *ctx, uint8_t *output, size_t output_len);
+    void (*destroy)(void *ctx);
+};
+
+struct libdecaf_nif_hash_ctx_s {
+    union {
+{% for name, algorithm in ctx.schema.nif.hash | dictsort %}
+        struct {{ algorithm.context }} {{ name }};
+{% endfor %}
+    } u;
+    libdecaf_nif_hash_type_t type;
+};
+
+struct libdecaf_nif_hash_table_s {
+{% for name, algorithm in ctx.schema.nif.hash | dictsort %}
+    libdecaf_nif_hash_t {{ name }};
+{% endfor %}
+};
+
+extern libdecaf_nif_hash_table_t *libdecaf_nif_hash_table;
+
+extern ERL_NIF_TERM libdecaf_nif_hash_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+extern ERL_NIF_TERM libdecaf_nif_hash_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+extern ERL_NIF_TERM libdecaf_nif_hash_init_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+extern ERL_NIF_TERM libdecaf_nif_hash_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+extern ERL_NIF_TERM libdecaf_nif_hash_final_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+extern ERL_NIF_TERM libdecaf_nif_hash_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+
+static inline libdecaf_nif_hash_t *
+libdecaf_nif_hash_from_type(libdecaf_nif_hash_type_t type)
+{
+    switch (type) {
+{% for name, algorithm in ctx.schema.nif.hash | dictsort %}
+    case LIBDECAF_NIF_HASH_TYPE_{{ name | upper }}:
+        return &libdecaf_nif_hash_table->{{ name }};
+{% endfor %}
+    default:
+        return NULL;
+    }
+}
+
+static inline libdecaf_nif_hash_t *
+libdecaf_nif_hash_from_atom(ErlNifEnv *env, ERL_NIF_TERM atom)
+{
+{% for name, algorithm in ctx.schema.nif.hash | dictsort %}
+    if (enif_is_identical(atom, ATOM({{ name }}))) {
+        return &libdecaf_nif_hash_table->{{ name }};
+    }
+{% endfor %}
+    return NULL;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+/* clang-format on */ //-
