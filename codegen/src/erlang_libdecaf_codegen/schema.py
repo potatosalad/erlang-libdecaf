@@ -35,11 +35,12 @@ class XOF(Algorithm):
     output: CIdentifier
     legacy_keccak_rate: int | None = Field(default=None, gt=0, lt=200)
     cshake_rate: int | None = Field(default=None, gt=0, lt=200)
+    turbo_rate: int | None = Field(default=None, gt=0, lt=200)
 
     @model_validator(mode="after")
     def valid_padding(self) -> Self:
-        if self.legacy_keccak_rate is not None and self.cshake_rate is not None:
-            raise ValueError("An XOF cannot use both legacy Keccak and cSHAKE padding")
+        if sum(rate is not None for rate in (self.legacy_keccak_rate, self.cshake_rate, self.turbo_rate)) > 1:
+            raise ValueError("An XOF can select only one sponge initialization mode")
         return self
 
 

@@ -52,6 +52,11 @@ otherwise. `hash_xof/5` takes `(Type, Input, Length, FunctionName, Customization
 `hash_xof_init/3` takes `(Type, FunctionName, Customization)`. Prefix absorption
 uses the same yielding paths as message absorption, including during initialization.
 
+`turboshake128` and `turboshake256` set `turbo_rate` to 168 and 136 bytes.
+They use the last 12 Keccak-p rounds as specified in RFC 9861. `hash_xof/3`
+and `hash_xof_init/1` use domain `0x1f`; `hash_xof/4` and `hash_xof_init/2`
+accept an explicit domain byte in `1..127`.
+
 The generated C contains typed upstream adapters, algorithm tables, resource
 layouts, and lookups by atom or resource type. Only the generic `hash`,
 `hash_init`, `hash_update`, `hash_final`, and corresponding `hash_xof*` NIFs are

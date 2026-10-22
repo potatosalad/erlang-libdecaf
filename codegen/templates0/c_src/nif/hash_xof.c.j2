@@ -119,6 +119,17 @@ static void
 
 /* Typed adapters keep the upstream function signatures intact. */
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}
+{% if algorithm.turbo_rate is not none %}
+static void
+{{ algorithm.init }}(struct {{ algorithm.context }} *sponge)
+{
+    static const decaf_kparams_s params = {0, 'A', {{ algorithm.turbo_rate }}, 12, 0x1F, 0x80, 0xFF, 0xFF};
+    decaf_sha3_init(sponge, &params);
+}
+{% endif %}
+{% endfor %}
+
+{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
 static void
 libdecaf_nif_hash_xof_{{ name }}_init_adapter(void *ctx)
 {
@@ -151,6 +162,7 @@ static libdecaf_nif_hash_xof_table_t libdecaf_nif_hash_xof_table_internal = {
     .{{ name }} = {
         .type = LIBDECAF_NIF_HASH_XOF_TYPE_{{ name | upper }},
         .cshake_rate = {{ algorithm.cshake_rate or 0 }},
+        .turbo_rate = {{ algorithm.turbo_rate or 0 }},
         .init = libdecaf_nif_hash_xof_{{ name }}_init_adapter,
         .update = libdecaf_nif_hash_xof_{{ name }}_update_adapter,
         .output = libdecaf_nif_hash_xof_{{ name }}_output_adapter,
@@ -242,6 +254,12 @@ libdecaf_nif_hash_xof_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 ERL_NIF_TERM
+libdecaf_nif_hash_xof_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return libdecaf_nif_hash_xof_compute(env, argc, argv);
+}
+
+ERL_NIF_TERM
 libdecaf_nif_hash_xof_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     return libdecaf_nif_hash_xof_compute(env, argc, argv);
@@ -253,6 +271,7 @@ libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
     libdecaf_nif_hash_xof_t *xof = NULL;
     ERL_NIF_TERM input;
     bool customized = false;
+    unsigned int domain = 0x1F;
     ERL_NIF_TERM input_term;
     ErlNifBinary input_bin;
     unsigned long output_len;
@@ -269,9 +288,9 @@ libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         return EXCP_ERROR(env, "Can't allocate work_env = enif_alloc_env()");
     }
 
-    if (argc != 3 && argc != 5) {
+    if (argc != 3 && argc != 4 && argc != 5) {
         (void)enif_free_env(work_env);
-        return EXCP_NOTSUP(env, "argc must be 3 or 5");
+        return EXCP_NOTSUP(env, "argc must be 3, 4, or 5");
     }
     xof = libdecaf_nif_hash_xof_from_atom(env, argv[0]);
     if (xof == NULL) {
@@ -287,6 +306,12 @@ libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         return EXCP_BADARG(env, "Bad argument: 'OutputLen'");
     }
     input = argv[1];
+    if (argc == 4) {
+        if (xof->turbo_rate == 0 || !enif_get_uint(env, argv[3], &domain) || domain < 1 || domain > 0x7F) {
+            (void)enif_free_env(work_env);
+            return EXCP_BADARG(env, "TurboSHAKE requires a domain byte in 1..127");
+        }
+    }
     if (argc == 5) {
         if (xof->cshake_rate == 0) {
             (void)enif_free_env(work_env);
@@ -323,6 +348,9 @@ libdecaf_nif_hash_xof_compute(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
     ctx->type = xof->type;
     ctx->squeezing = false;
     (void)xof->init((void *)ctx);
+    if (xof->turbo_rate != 0) {
+        ((struct decaf_keccak_sponge_s *)ctx)->params->pad = (uint8_t)domain;
+    }
     if (customized) {
         ((struct decaf_keccak_sponge_s *)ctx)->params->pad = 0x04;
     }
@@ -520,6 +548,12 @@ libdecaf_nif_hash_xof_init_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 }
 
 ERL_NIF_TERM
+libdecaf_nif_hash_xof_init_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return libdecaf_nif_hash_xof_init(env, argc, argv);
+}
+
+ERL_NIF_TERM
 libdecaf_nif_hash_xof_init_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     return libdecaf_nif_hash_xof_init(env, argc, argv);
@@ -533,14 +567,18 @@ libdecaf_nif_hash_xof_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM ctx_term;
     ERL_NIF_TERM prefix;
     bool customized = false;
+    unsigned int domain = 0x1F;
 
-    if (argc != 1 && argc != 3) {
-        return EXCP_NOTSUP(env, "argc must be 1 or 3");
+    if (argc != 1 && argc != 2 && argc != 3) {
+        return EXCP_NOTSUP(env, "argc must be 1, 2, or 3");
     }
 
     xof = libdecaf_nif_hash_xof_from_atom(env, argv[0]);
     if (xof == NULL) {
         return EXCP_BADARG(env, "Bad argument: 'Type'");
+    }
+    if (argc == 2 && (xof->turbo_rate == 0 || !enif_get_uint(env, argv[1], &domain) || domain < 1 || domain > 0x7F)) {
+        return EXCP_BADARG(env, "TurboSHAKE requires a domain byte in 1..127");
     }
     if (argc == 3) {
         if (xof->cshake_rate == 0) {
@@ -562,6 +600,9 @@ libdecaf_nif_hash_xof_init(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     ctx->type = xof->type;
     ctx->squeezing = false;
     (void)xof->init((void *)ctx);
+    if (xof->turbo_rate != 0) {
+        ((struct decaf_keccak_sponge_s *)ctx)->params->pad = (uint8_t)domain;
+    }
     if (customized) {
         ((struct decaf_keccak_sponge_s *)ctx)->params->pad = 0x04;
     }

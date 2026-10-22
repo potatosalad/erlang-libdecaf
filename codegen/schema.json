@@ -153,6 +153,20 @@
           ],
           "default": null,
           "title": "Cshake Rate"
+        },
+        "turbo_rate": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 200,
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Turbo Rate"
         }
       },
       "required": [

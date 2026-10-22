@@ -188,9 +188,11 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"hash_init", 1, libdecaf_nif_hash_init_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_update", 2, libdecaf_nif_hash_update_2, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_xof", 3, libdecaf_nif_hash_xof_3, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash_xof", 4, libdecaf_nif_hash_xof_4, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_xof", 5, libdecaf_nif_hash_xof_5, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_xof_final", 2, libdecaf_nif_hash_xof_final_2, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_xof_init", 1, libdecaf_nif_hash_xof_init_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"hash_xof_init", 2, libdecaf_nif_hash_xof_init_2, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_xof_init", 3, libdecaf_nif_hash_xof_init_3, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_xof_update", 2, libdecaf_nif_hash_xof_update_2, ERL_NIF_NORMAL_JOB_BOUND},
     /* decaf/spongerng.h */

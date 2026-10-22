@@ -259,6 +259,12 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         ),
         (
             "hash_xof",
+            [("Type", "hash_xof_domain_algorithm()"), ("Input", "iodata()"), ("Length", "non_neg_integer()"), ("Domain", "1..127")],
+            "binary()",
+            "Hash iodata with TurboSHAKE using an explicit domain byte in 1..127. Length is in bytes.",
+        ),
+        (
+            "hash_xof",
             [
                 ("Type", "hash_xof_custom_algorithm()"),
                 ("Input", "iodata()"),
@@ -275,6 +281,12 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
             [("Type", "hash_xof_algorithm()")],
             "hash_xof_state()",
             "Create an immutable native XOF state. The resource retains the selected algorithm.",
+        ),
+        (
+            "hash_xof_init",
+            [("Type", "hash_xof_domain_algorithm()"), ("Domain", "1..127")],
+            "hash_xof_state()",
+            "Create an immutable TurboSHAKE state with an explicit domain byte in 1..127.",
         ),
         (
             "hash_xof_init",
@@ -351,6 +363,11 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
             "hash_xof_custom_algorithm",
             " | ".join(sorted(name for name, algorithm in schema.xof.items() if algorithm.cshake_rate is not None)) or "none()",
             "Configured cSHAKE algorithms accepting function-name and customization strings.",
+        ),
+        (
+            "hash_xof_domain_algorithm",
+            " | ".join(sorted(name for name, algorithm in schema.xof.items() if algorithm.turbo_rate is not None)) or "none()",
+            "TurboSHAKE algorithms accepting an explicit domain byte.",
         ),
         ("prehashed", "0 | 1", "Select an ordinary message (`0`) or an already computed 64-byte prehash (`1`)."),
         (

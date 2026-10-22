@@ -130,3 +130,17 @@ nif:
       update: decaf_shake256_update
       output: decaf_shake256_output
       destroy: decaf_shake256_destroy
+    turboshake128:
+      context: decaf_keccak_sponge_s
+      init: libdecaf_nif_hash_xof_turboshake128_init
+      update: decaf_sha3_update
+      output: decaf_sha3_output
+      destroy: decaf_sha3_destroy
+      turbo_rate: 168
+    turboshake256:
+      context: decaf_keccak_sponge_s
+      init: libdecaf_nif_hash_xof_turboshake256_init
+      update: decaf_sha3_update
+      output: decaf_sha3_output
+      destroy: decaf_sha3_destroy
+      turbo_rate: 136

@@ -24,9 +24,11 @@ Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, cSHAKE, Kecc
 %% Hash XOF API
 -export([
     hash_xof/3,
+    hash_xof/4,
     hash_xof/5,
     hash_xof_final/2,
     hash_xof_init/1,
+    hash_xof_init/2,
     hash_xof_init/3,
     hash_xof_update/2
 ]).
@@ -35,6 +37,7 @@ Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, cSHAKE, Kecc
     hash_state/0,
     hash_xof_algorithm/0,
     hash_xof_custom_algorithm/0,
+    hash_xof_domain_algorithm/0,
     hash_xof_state/0
 ]).
 
@@ -256,6 +259,11 @@ cSHAKE algorithms accepting function-name and customization strings.
 -type hash_xof_custom_algorithm() :: libdecaf_nif:hash_xof_custom_algorithm().
 
 -doc """
+TurboSHAKE algorithms accepting an explicit domain byte.
+""".
+-type hash_xof_domain_algorithm() :: libdecaf_nif:hash_xof_domain_algorithm().
+
+-doc """
 An immutable native XOF resource containing its algorithm and context.
 Updates return new resources; finalization leaves the input resource reusable.
 """.
@@ -341,6 +349,7 @@ hash_update(State, Data) ->
 Hash iodata with an extendable-output function and return `Length` bytes.
 The output length may be any nonnegative number of bytes.
 For cSHAKE, this uses empty function-name and customization strings.
+TurboSHAKE uses its default domain byte `16#1f`.
 
 ```erlang
 libdecaf:hash_xof(shake256, <<"abc">>, 64).
@@ -352,6 +361,17 @@ libdecaf:hash_xof(keccak_xof_128, <<"abc">>, 64).
     Type :: hash_xof_algorithm(), Data :: iodata(), Length :: non_neg_integer(), Output :: binary().
 hash_xof(Type, Data, Length) ->
     libdecaf_nif:hash_xof(Type, Data, Length).
+
+-doc """
+Hash iodata with TurboSHAKE using a domain byte in `1..127`.
+The output length is in bytes.
+""".
+-doc #{group => <<"Hash XOF API">>}.
+-spec hash_xof(Type, Data, Length, Domain) -> Output when
+    Type :: hash_xof_domain_algorithm(), Data :: iodata(), Length :: non_neg_integer(),
+    Domain :: 1..127, Output :: binary().
+hash_xof(Type, Data, Length, Domain) ->
+    libdecaf_nif:hash_xof(Type, Data, Length, Domain).
 
 -doc """
 Hash iodata with cSHAKE and return `Length` bytes.
@@ -394,6 +414,15 @@ Output = libdecaf:hash_xof_final(S1, 64).
 -spec hash_xof_init(Type) -> State when Type :: hash_xof_algorithm(), State :: hash_xof_state().
 hash_xof_init(Type) ->
     libdecaf_nif:hash_xof_init(Type).
+
+-doc """
+Initialize TurboSHAKE with a domain byte in `1..127`.
+""".
+-doc #{group => <<"Hash XOF API">>}.
+-spec hash_xof_init(Type, Domain) -> State when
+    Type :: hash_xof_domain_algorithm(), Domain :: 1..127, State :: hash_xof_state().
+hash_xof_init(Type, Domain) ->
+    libdecaf_nif:hash_xof_init(Type, Domain).
 
 -doc """
 Initialize cSHAKE with function-name and customization strings.
