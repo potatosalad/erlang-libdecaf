@@ -31,8 +31,10 @@ Change the templates or configuration and run `just codegen`; generated C is
 committed so ordinary builds do not run the generator. Generated files carry a
 content signature applied after formatting, and repeated generation is stable.
 
-The first stage generates `c_src/nif/hash.{c,h}`, `c_src/nif/hash_xof.{c,h}`,
-and the native registration table in `c_src/nif/libdecaf_nif.c`.
+The first stage generates `c_src/nif/hash.{c,h}`, the XOF family implementations
+under `c_src/nif/hash_xof/`, and the native registration table in
+`c_src/nif/libdecaf_nif.c`. `c_src/nif/hash_xof.{c,h}` only forwards the existing
+generic API to these families.
 
 `nif.hash` and `nif.xof` are mappings from algorithm names to metadata. Each
 entry gives its API `group`, upstream context struct, and operation symbols. Fixed-output hashes
@@ -58,15 +60,15 @@ and `hash_xof_init/1` use domain `0x1f`; `hash_xof/4` and `hash_xof_init/2`
 accept an explicit domain byte in `1..127`.
 
 `kt128` and `kt256` set `kt_rate` to 168 and 136 bytes. The generated
-`hash_xof_kt.{c,h}` implements RFC 9861 tree hashing with 8192-byte chunks,
+`hash_xof/hash_xof_kt.c` implements RFC 9861 tree hashing with 8192-byte chunks,
 32/64-byte chaining values, and two fixed-size sponge states. `hash_xof/4`
 takes a customization string as its fourth argument for KT algorithms.
 Incremental hashing uses `hash_xof_init/1`, `hash_xof_update/2`, and
 `hash_xof_final/3`, which appends customization and its RFC length encoding.
 The existing `hash_xof/3` and `hash_xof_final/2` use empty customization.
 
-The generated C contains typed upstream adapters, algorithm tables, resource
-layouts, and lookups by atom or resource type. Each configured group generates
+The generated fixed-output C contains typed upstream adapters and algorithm
+tables. Each configured group generates
 one-shot, init, update, and final NIFs. Fixed-output groups are `hash_keccak`,
 `hash_sha2`, and `hash_sha3`; XOF groups are `hash_xof_cshake`, `hash_xof_keccak`,
 `hash_xof_kt`, `hash_xof_sha3` (SHAKE), and `hash_xof_turboshake`.
@@ -74,9 +76,19 @@ An algorithm atom selects a variant during initialization or one-shot hashing.
 Each group has its own opaque Erlang state type, and native entry points reject
 algorithms and states from other groups. Resources retain the selected algorithm,
 so updates and finalization need neither an extra algorithm argument nor an
-Erlang record wrapper. The entry points are defined in `hash.c`/`hash_xof.c`
-and declared in their corresponding headers; `libdecaf_nif.c` registers them.
-Scheduling and immutable state copying remain in the shared native engines.
+Erlang record wrapper. Fixed-output entry points are defined in `hash.c`.
+XOF entry points are defined and declared in `hash_xof/hash_xof_<group>.{c,h}`;
+`libdecaf_nif.c` registers them.
+
+Each XOF family owns its native state, resource destructor, absorb continuation,
+and squeeze continuation. There is no cross-family state union or operation
+table. cSHAKE prefix encoding, TurboSHAKE domain selection, and KT tree hashing
+and customization live only in their respective implementations. The generator
+expands `hash_xof/lifecycle.c.inc` and `hash_xof/entry_points.c.inc` into ordinary
+C functions with family-specific names, so stack traces identify the family.
+Absorption and output share a bounded reduction budget. Pending absorption
+retains its input environment; pending output owns its binary. Destructors erase
+the private state and release these allocations if the caller exits mid-call.
 
 The cSHAKE group accepts function-name and customization iodata in
 `hash_xof_cshake/5` and `hash_xof_cshake_init/3`. The TurboSHAKE group accepts an

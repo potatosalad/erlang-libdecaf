@@ -9,14 +9,16 @@ Grouped native hash APIs, parameter contracts, and state isolation.
 
 -export([
     all/0,
+    cancellation/1,
     fixed_hashes/1,
     group_isolation/1,
     parameters/1,
+    trapping/1,
     xofs/1
 ]).
 
 all() ->
-    [fixed_hashes, xofs, parameters, group_isolation].
+    [fixed_hashes, xofs, parameters, group_isolation, trapping, cancellation].
 
 fixed_hashes(_) ->
     lists:foreach(
@@ -155,6 +157,170 @@ xofs(_) ->
         end,
         xof_groups()
     ).
+
+trapping(_) ->
+    Message = binary:copy(<<42>>, 1000001),
+    lists:foreach(
+        fun({Group, Algorithms}) ->
+            Absorb = continuation(Group, "absorb"),
+            Squeeze = continuation(Group, "squeeze"),
+            lists:foreach(
+                fun(Algorithm) ->
+                    Expected = traced(
+                        fun() -> call(Group, "", [Algorithm, Message, 1000001]) end,
+                        [Absorb, Squeeze]
+                    ),
+                    State = call(Group, "_init", [Algorithm]),
+                    Updated = traced(
+                        fun() -> call(Group, "_update", [State, [Message]]) end, [Absorb]
+                    ),
+                    Expected = traced(
+                        fun() -> call(Group, "_final", [Updated, 1000001]) end, [Squeeze]
+                    ),
+                    %% Exercise both sides of the per-call reduction budget.
+                    lists:foreach(
+                        fun(Length) ->
+                            Input = binary:part(Message, 0, Length),
+                            Whole = call(Group, "", [Algorithm, Input, 20001]),
+                            <<First:10000/binary, Rest/binary>> = Input,
+                            Split = call(Group, "_update", [State, First]),
+                            Joined = call(Group, "_update", [Split, Rest]),
+                            Whole = call(Group, "_final", [Joined, 20001]),
+                            <<>> = call(Group, "_final", [Joined, 0])
+                        end,
+                        [19999, 20000, 20001, 40000, 40001]
+                    ),
+                    lists:foreach(
+                        fun(Invalid) ->
+                            badarg(fun() -> call(Group, "", [Algorithm, Invalid, 32]) end),
+                            badarg(fun() -> call(Group, "_update", [State, Invalid]) end)
+                        end,
+                        [42, invalid, [256], [<<"abc">> | invalid]]
+                    )
+                end,
+                Algorithms
+            )
+        end,
+        xof_groups()
+    ),
+    C0 = traced(
+        fun() -> libdecaf_nif:hash_xof_cshake_init(cshake128, Message, Message) end,
+        [continuation(hash_xof_cshake, "absorb")]
+    ),
+    C1 = libdecaf_nif:hash_xof_cshake_update(C0, <<"abc">>),
+    CExpected = libdecaf_nif:hash_xof_cshake(cshake128, <<"abc">>, 32, Message, Message),
+    CExpected = libdecaf_nif:hash_xof_cshake_final(C1, 32),
+    K0 = libdecaf_nif:hash_xof_kt_init(kt128),
+    KExpected = libdecaf_nif:hash_xof_kt(kt128, <<>>, 1000001, Message),
+    KExpected = traced(
+        fun() -> libdecaf_nif:hash_xof_kt_final(K0, 1000001, Message) end,
+        [continuation(hash_xof_kt, "absorb"), continuation(hash_xof_kt, "squeeze")]
+    ),
+    badarg(fun() -> libdecaf_nif:hash_xof_cshake(cshake128, 42, 32, <<>>, <<>>) end),
+    badarg(fun() -> libdecaf_nif:hash_xof_kt(kt128, 42, 32, <<>>) end).
+
+cancellation(_) ->
+    Message = binary:copy(<<42>>, 8000001),
+    lists:foreach(
+        fun({Group, [Algorithm | _]}) ->
+            State = call(Group, "_init", [Algorithm]),
+            cancelled(
+                fun() -> call(Group, "", [Algorithm, Message, 32]) end,
+                continuation(Group, "absorb")
+            ),
+            cancelled(
+                fun() -> call(Group, "_update", [State, Message]) end,
+                continuation(Group, "absorb")
+            ),
+            cancelled(
+                fun() -> call(Group, "_final", [State, 8000001]) end,
+                continuation(Group, "squeeze")
+            ),
+            %% Cancelling work on a copy must leave the caller's state usable.
+            Empty = call(Group, "", [Algorithm, <<>>, 32]),
+            Empty = call(Group, "_final", [State, 32])
+        end,
+        xof_groups()
+    ),
+    cancelled(
+        fun() -> libdecaf_nif:hash_xof_cshake_init(cshake128, Message, Message) end,
+        continuation(hash_xof_cshake, "absorb")
+    ),
+    State = libdecaf_nif:hash_xof_kt_init(kt128),
+    cancelled(
+        fun() -> libdecaf_nif:hash_xof_kt_final(State, 32, Message) end,
+        continuation(hash_xof_kt, "absorb")
+    ).
+
+continuation(Group, Phase) ->
+    list_to_atom("libdecaf_nif_" ++ atom_to_list(Group) ++ "_" ++ Phase ++ "_continue").
+
+traced(Fun, Expected) ->
+    with_trace(Fun, fun(Pid, Ref) -> trace_result(Pid, Ref, Expected) end).
+
+trace_result(Pid, Ref, Expected) ->
+    receive
+        {trace, Pid, out, {libdecaf_nif, Function, 1}} ->
+            trace_result(Pid, Ref, lists:delete(Function, Expected));
+        {trace, Pid, _, _} ->
+            trace_result(Pid, Ref, Expected);
+        {result, Pid, Result} ->
+            [] = Expected,
+            Result;
+        {'DOWN', Ref, process, Pid, Reason} ->
+            ct:fail({worker_failed, Reason})
+    after 10000 ->
+        ct:fail({missing_continuations, Expected})
+    end.
+
+cancelled(Fun, Expected) ->
+    with_trace(Fun, fun(Pid, Ref) -> cancel_at(Pid, Ref, Expected) end).
+
+cancel_at(Pid, Ref, Expected) ->
+    receive
+        {trace, Pid, out, {libdecaf_nif, Expected, 1}} ->
+            exit(Pid, kill),
+            receive
+                {'DOWN', Ref, process, Pid, killed} -> ok;
+                {'DOWN', Ref, process, Pid, Reason} -> ct:fail({not_cancelled, Reason})
+            after 10000 -> ct:fail(cancellation_timeout)
+            end;
+        {trace, Pid, _, _} ->
+            cancel_at(Pid, Ref, Expected);
+        {result, Pid, _} ->
+            ct:fail({completed_before_cancellation, Expected});
+        {'DOWN', Ref, process, Pid, Reason} ->
+            ct:fail({worker_failed, Reason})
+    after 10000 ->
+        ct:fail({missing_continuation, Expected})
+    end.
+
+with_trace(Fun, Check) ->
+    Parent = self(),
+    {Pid, Ref} = spawn_opt(
+        fun() ->
+            receive
+                go -> Parent ! {result, self(), Fun()}
+            end
+        end,
+        [monitor, {priority, low}]
+    ),
+    erlang:trace(Pid, true, [running]),
+    Pid ! go,
+    try
+        Check(Pid, Ref)
+    after
+        exit(Pid, kill),
+        erlang:demonitor(Ref, [flush]),
+        flush_trace(Pid)
+    end.
+
+flush_trace(Pid) ->
+    receive
+        {trace, Pid, _, _} -> flush_trace(Pid);
+        {result, Pid, _} -> flush_trace(Pid)
+    after 0 -> ok
+    end.
 
 badarg(Fun) ->
     try Fun() of
