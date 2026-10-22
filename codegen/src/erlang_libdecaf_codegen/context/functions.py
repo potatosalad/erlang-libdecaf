@@ -258,10 +258,34 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
             "Hash iodata with an extendable-output function and return Length bytes.",
         ),
         (
+            "hash_xof",
+            [
+                ("Type", "hash_xof_custom_algorithm()"),
+                ("Input", "iodata()"),
+                ("Length", "non_neg_integer()"),
+                ("FunctionName", "iodata()"),
+                ("Customization", "iodata()"),
+            ],
+            "binary()",
+            "Hash iodata with cSHAKE using function-name and customization strings. Length is in bytes.\n"
+            "Empty strings for both parameters produce the corresponding SHAKE output.",
+        ),
+        (
             "hash_xof_init",
             [("Type", "hash_xof_algorithm()")],
             "hash_xof_state()",
             "Create an immutable native XOF state. The resource retains the selected algorithm.",
+        ),
+        (
+            "hash_xof_init",
+            [
+                ("Type", "hash_xof_custom_algorithm()"),
+                ("FunctionName", "iodata()"),
+                ("Customization", "iodata()"),
+            ],
+            "hash_xof_state()",
+            "Create an immutable cSHAKE state with function-name and customization strings.\n"
+            "The state retains the customization for subsequent updates and finalization.",
         ),
         (
             "hash_xof_update",
@@ -323,6 +347,11 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
     result = [
         ("hash_algorithm", " | ".join(sorted(schema.hash)) or "none()", "Configured fixed-output hash algorithms."),
         ("hash_xof_algorithm", " | ".join(sorted(schema.xof)) or "none()", "Configured extendable-output hash algorithms."),
+        (
+            "hash_xof_custom_algorithm",
+            " | ".join(sorted(name for name, algorithm in schema.xof.items() if algorithm.cshake_rate is not None)) or "none()",
+            "Configured cSHAKE algorithms accepting function-name and customization strings.",
+        ),
         ("prehashed", "0 | 1", "Select an ordinary message (`0`) or an already computed 64-byte prehash (`1`)."),
         (
             "ed25519_context",

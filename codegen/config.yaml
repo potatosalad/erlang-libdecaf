@@ -90,6 +90,20 @@ nif:
       final: decaf_sha3_512_final
       destroy: decaf_sha3_512_destroy
   xof:
+    cshake128:
+      context: decaf_keccak_sponge_s
+      init: decaf_shake128_gen_init
+      update: decaf_sha3_update
+      output: decaf_sha3_output
+      destroy: decaf_sha3_destroy
+      cshake_rate: 168
+    cshake256:
+      context: decaf_keccak_sponge_s
+      init: decaf_shake256_gen_init
+      update: decaf_sha3_update
+      output: decaf_sha3_output
+      destroy: decaf_sha3_destroy
+      cshake_rate: 136
     keccak_xof_128:
       context: decaf_keccak_sponge_s
       init: libdecaf_nif_hash_xof_keccak_128_init

@@ -34,6 +34,13 @@ class Hash(Algorithm):
 class XOF(Algorithm):
     output: CIdentifier
     legacy_keccak_rate: int | None = Field(default=None, gt=0, lt=200)
+    cshake_rate: int | None = Field(default=None, gt=0, lt=200)
+
+    @model_validator(mode="after")
+    def valid_padding(self) -> Self:
+        if self.legacy_keccak_rate is not None and self.cshake_rate is not None:
+            raise ValueError("An XOF cannot use both legacy Keccak and cSHAKE padding")
+        return self
 
 
 class NIF(Model):

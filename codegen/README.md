@@ -45,6 +45,13 @@ and 136 bytes. Their `legacy_keccak_rate` generates custom initialization with
 unlimited output; SHAKE keeps the FIPS 202 padding (`0x1f`). These parameters
 follow the [Keccak reference, sections 1.3–1.4](https://keccak.team/files/Keccak-reference-3.0.pdf).
 
+`cshake128` and `cshake256` set `cshake_rate` to 168 and 136 bytes. They use
+SHAKE initialization when both additional strings are empty, or SP 800-185
+`bytepad(encode_string(N) || encode_string(S), rate)` with padding `0x04`
+otherwise. `hash_xof/5` takes `(Type, Input, Length, FunctionName, Customization)`;
+`hash_xof_init/3` takes `(Type, FunctionName, Customization)`. Prefix absorption
+uses the same yielding paths as message absorption, including during initialization.
+
 The generated C contains typed upstream adapters, algorithm tables, resource
 layouts, and lookups by atom or resource type. Only the generic `hash`,
 `hash_init`, `hash_update`, `hash_final`, and corresponding `hash_xof*` NIFs are
