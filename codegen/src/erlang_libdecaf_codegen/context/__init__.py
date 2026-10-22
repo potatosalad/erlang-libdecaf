@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from ..schema import Root
 from .nif import NIF
+from .functions import functions, types
 
 
 @dataclass
@@ -16,6 +17,10 @@ class Context:
         self.reset_atoms()
 
     def reset_atoms(self) -> None:
-        self.nif = NIF()
+        self.nif = NIF(functions=functions(self.schema.nif))
         for name in self.schema.nif.atoms + self.schema.nif.hash + self.schema.nif.xof:
             self.nif.make_atom(name)
+
+    @property
+    def types(self) -> tuple[tuple[str, str, str], ...]:
+        return types()

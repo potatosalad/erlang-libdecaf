@@ -56,8 +56,8 @@ Add `libdecaf` to your project's dependencies in your `Makefile` for [`erlang.mk
 
 ## Building and testing
 
-Building from source requires Erlang/OTP with development headers, GNU Make 4 or
-later, a C compiler and a C++14 compiler, CMake 3.22 or later, and Python 3.
+Building from source requires Erlang/OTP 27 or later with development headers,
+GNU Make 4 or later, a C compiler and a C++14 compiler, CMake 3.22 or later, and Python 3.
 Git is also required if the vendored C dependency needs to be fetched.
 
 ```sh

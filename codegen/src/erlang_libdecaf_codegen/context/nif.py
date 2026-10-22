@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass, field
 
+from .functions import Function
+
 
 @dataclass(frozen=True, order=True)
 class Atom:
@@ -10,6 +12,7 @@ class Atom:
 
 @dataclass
 class NIF:
+    functions: tuple[Function, ...] = ()
     atoms_dict: dict[str, Atom] = field(default_factory=dict)
 
     @property
