@@ -338,4 +338,4 @@ def types() -> tuple[tuple[str, str, str], ...]:
         for part in ["point", "scalar"]:
             result.append((f"{group}_{part}", f"<<_:{size * 8}>>", f"A canonical {size}-byte {group} {part} encoding."))
         result.append((f"{group}_precomputed", "erlang:nif_resource()", f"An immutable native multiplication table for {group}."))
-    return tuple(result)
+    return tuple(sorted(result, key=lambda item: item[0]))
