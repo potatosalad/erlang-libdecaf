@@ -46,10 +46,7 @@ struct libdecaf_nif_hash_ctx_s {
         struct decaf_sha3_256_ctx_s sha3_256;
         struct decaf_sha3_384_ctx_s sha3_384;
         struct decaf_sha3_512_ctx_s sha3_512;
-        struct decaf_keccak_224_ctx_s keccak_224;
-        struct decaf_keccak_256_ctx_s keccak_256;
-        struct decaf_keccak_384_ctx_s keccak_384;
-        struct decaf_keccak_512_ctx_s keccak_512;
+        struct decaf_keccak_sponge_s keccak;
     } u;
     libdecaf_nif_hash_type_t type;
 };

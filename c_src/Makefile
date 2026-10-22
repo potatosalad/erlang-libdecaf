@@ -69,7 +69,7 @@ else ifeq ($(PLATFORM),darwin)
 	CC ?= cc
 	CFLAGS ?= -O3 -std=c17 -fstack-protector -Wall -Wmissing-prototypes -fPIC
 	CXXFLAGS ?= -O3 -std=c++14 -fstack-protector -Wall -fPIC
-	LDFLAGS ?= -flat_namespace -undefined suppress
+	LDFLAGS ?= -undefined dynamic_lookup
 else ifeq ($(PLATFORM),freebsd)
 	CC ?= cc
 	CFLAGS ?= -O3 -std=c17 -finline-functions -fstack-protector -Wall -Wmissing-prototypes -fPIC
@@ -94,7 +94,8 @@ ifneq ($(CROSSCOMPILER),)
 	CC = $(CROSSCOMPILER)gcc
 endif
 
-CFLAGS += -I"$(ERTS_INCLUDE_DIR)" -I"$(ERL_INTERFACE_INCLUDE_DIR)" -I"$(ED448GOLDILOCKS_INCLUDE_DIR)"
+CFLAGS += -I"$(ERTS_INCLUDE_DIR)" -I"$(ERL_INTERFACE_INCLUDE_DIR)" -I"$(ED448GOLDILOCKS_INCLUDE_DIR)" \
+	-I"$(ED448GOLDILOCKS_SRC_DIR)/src/include"
 CXXFLAGS += -I"$(ERTS_INCLUDE_DIR)" -I"$(ERL_INTERFACE_INCLUDE_DIR)" -I"$(ED448GOLDILOCKS_INCLUDE_DIR)"
 
 LDLIBS += -L"$(ERL_INTERFACE_LIB_DIR)" \
@@ -110,7 +111,7 @@ ED448GOLDILOCKS_BUILD_DIR ?= $(C_DEPS_DIR)/ed448goldilocks-build
 ED448GOLDILOCKS_INCLUDE_DIR ?= $(ED448GOLDILOCKS_BUILD_DIR)/src/GENERATED/include
 ED448GOLDILOCKS_LIB_DIR ?= $(ED448GOLDILOCKS_BUILD_DIR)/src
 ED448GOLDILOCKS_OUTPUT_FILE ?= $(ED448GOLDILOCKS_BUILD_DIR)/src/libdecaf.a
-ED448GOLDILOCKS_MAKE_FILE ?= $(ED448GOLDILOCKS_SRC_DIR)/Makefile
+ED448GOLDILOCKS_MAKE_FILE ?= $(ED448GOLDILOCKS_BUILD_DIR)/Makefile
 
 ALL_DEPS_OUTPUT ?= $(ED448GOLDILOCKS_OUTPUT_FILE)
 
@@ -122,10 +123,10 @@ verbose_0 = @
 verbose_2 = set -x;
 verbose = $(verbose_$(V))
 
-c_verbose_0 = @echo " C     " $(?F);
+c_verbose_0 = @echo " C     " $(<F);
 c_verbose = $(c_verbose_$(V))
 
-cpp_verbose_0 = @echo " CPP   " $(?F);
+cpp_verbose_0 = @echo " CPP   " $(<F);
 cpp_verbose = $(cpp_verbose_$(V))
 
 dep_verbose_0 = @echo " DEP   " $(1);
@@ -161,22 +162,14 @@ all:: deps app
 
 app:: $(C_SRC_ENV) $(C_SRC_NIF_FILE)
 
-ifeq ($(filter $(foreach p,$(ALL_DEPS_OUTPUT),$(if $(wildcard $(p)),,x)), x),)
-
-deps::
-
-else
-
-deps:: $(ED448GOLDILOCKS_OUTPUT_FILE)
-
-endif
+deps:: $(ALL_DEPS_OUTPUT)
 
 test-build:: $(C_SRC_ENV) $(C_SRC_NIF_FILE)
 
 $(C_DEPS_DIR):
 	$(verbose) mkdir -p $(C_DEPS_DIR)
 
-$(ED448GOLDILOCKS_SRC_DIR):
+$(ED448GOLDILOCKS_SRC_DIR)/CMakeLists.txt: | $(C_DEPS_DIR)
 	$(verbose) if [ ! -f $(ED448GOLDILOCKS_SRC_DIR)/CMakeLists.txt ]; then \
 		git clone -n $(ED448GOLDILOCKS_GIT) $(ED448GOLDILOCKS_SRC_DIR) && \
 		(cd $(ED448GOLDILOCKS_SRC_DIR) && git checkout -q $(ED448GOLDILOCKS_VSN)); \
@@ -184,29 +177,28 @@ $(ED448GOLDILOCKS_SRC_DIR):
 		true; \
 	fi
 
-$(ED448GOLDILOCKS_MAKE_FILE): $(ED448GOLDILOCKS_SRC_DIR)
+$(ED448GOLDILOCKS_MAKE_FILE): $(ED448GOLDILOCKS_SRC_DIR)/CMakeLists.txt $(C_SRC_DIR)/Makefile
 	$(verbose) mkdir -p $(ED448GOLDILOCKS_BUILD_DIR)
-	$(verbose) if [ ! -f $(ED448GOLDILOCKS_MAKE_FILE) ]; then \
-		(cd $(ED448GOLDILOCKS_BUILD_DIR) \
-			&& cmake \
+	$(verbose) cd $(ED448GOLDILOCKS_BUILD_DIR) && cmake \
 			-DENABLE_SHARED=OFF \
 			-DENABLE_STATIC=ON \
 			-DENABLE_STRICT=OFF \
+			-DENABLE_TESTS=OFF \
 			-DCMAKE_C_FLAGS="-fPIC" \
 			-DCMAKE_CXX_FLAGS="-fPIC" \
-			"$(ED448GOLDILOCKS_SRC_DIR)"); \
-	else \
-		true; \
-	fi
+			"$(ED448GOLDILOCKS_SRC_DIR)"
 
 $(ED448GOLDILOCKS_OUTPUT_FILE): $(ED448GOLDILOCKS_MAKE_FILE)
 	$(MAKE) -C $(ED448GOLDILOCKS_BUILD_DIR)
+	$(verbose) touch $@
 
-$(C_SRC_NIF_FILE): $(NIF_OBJECTS)
+$(C_SRC_NIF_FILE): $(NIF_OBJECTS) $(ALL_DEPS_OUTPUT)
 	$(verbose) mkdir -p $(BASEDIR)/priv
 	$(link_verbose) $(CC) $(NIF_OBJECTS) \
 		$(LDFLAGS) -shared $(LDLIBS) \
 		-o $(C_SRC_NIF_FILE)
+
+$(NIF_OBJECTS): $(C_SRC_DIR)/Makefile $(C_SRC_ENV) $(wildcard $(C_SRC_DIR)/nif/*.h $(C_SRC_DIR)/nif/impl/*.c.h) $(ALL_DEPS_OUTPUT)
 
 %.o: %.c
 	$(COMPILE_C) $(OUTPUT_OPTION) $<

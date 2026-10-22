@@ -1,7 +1,25 @@
 // -*- mode: c; tab-width: 4; indent-tabs-mode: nil; st-rulers: [132] -*-
 // vim: ts=4 sw=4 ft=c et
 
+#include <keccak_internal.h>
+
 #include "hash.h"
+
+/* Legacy Keccak uses the SHA-3 sponge with the original 0x01 padding.
+ * These parameters used to be supplied by the upstream feature branch. */
+#define LIBDECAF_KECCAK_INIT(bits)                                                                                                 \
+    static void libdecaf_nif_keccak_##bits##_init(decaf_keccak_sponge_t sponge)                                                     \
+    {                                                                                                                            \
+        static const decaf_kparams_s params = {0, 'A', 200 - (bits) / 4, 0, 0x01, 0x80, (bits) / 8, (bits) / 8};                  \
+        decaf_sha3_init(sponge, &params);                                                                                          \
+    }
+
+LIBDECAF_KECCAK_INIT(224)
+LIBDECAF_KECCAK_INIT(256)
+LIBDECAF_KECCAK_INIT(384)
+LIBDECAF_KECCAK_INIT(512)
+
+#undef LIBDECAF_KECCAK_INIT
 
 /* Trap Definitions */
 
@@ -109,37 +127,37 @@ static libdecaf_nif_hash_table_t libdecaf_nif_hash_table_internal = {
         {
             .type = LIBDECAF_NIF_HASH_TYPE_KECCAK_224,
             .max_output_len = 28,
-            .init = (void *)decaf_keccak_224_init,
-            .update = (void *)decaf_keccak_224_update,
-            .final = (void *)decaf_keccak_224_final,
-            .destroy = (void *)decaf_keccak_224_destroy,
+            .init = (void *)libdecaf_nif_keccak_224_init,
+            .update = (void *)decaf_sha3_update,
+            .final = (void *)decaf_sha3_final,
+            .destroy = (void *)decaf_sha3_destroy,
         },
     .keccak_256 =
         {
             .type = LIBDECAF_NIF_HASH_TYPE_KECCAK_256,
             .max_output_len = 32,
-            .init = (void *)decaf_keccak_256_init,
-            .update = (void *)decaf_keccak_256_update,
-            .final = (void *)decaf_keccak_256_final,
-            .destroy = (void *)decaf_keccak_256_destroy,
+            .init = (void *)libdecaf_nif_keccak_256_init,
+            .update = (void *)decaf_sha3_update,
+            .final = (void *)decaf_sha3_final,
+            .destroy = (void *)decaf_sha3_destroy,
         },
     .keccak_384 =
         {
             .type = LIBDECAF_NIF_HASH_TYPE_KECCAK_384,
             .max_output_len = 48,
-            .init = (void *)decaf_keccak_384_init,
-            .update = (void *)decaf_keccak_384_update,
-            .final = (void *)decaf_keccak_384_final,
-            .destroy = (void *)decaf_keccak_384_destroy,
+            .init = (void *)libdecaf_nif_keccak_384_init,
+            .update = (void *)decaf_sha3_update,
+            .final = (void *)decaf_sha3_final,
+            .destroy = (void *)decaf_sha3_destroy,
         },
     .keccak_512 =
         {
             .type = LIBDECAF_NIF_HASH_TYPE_KECCAK_512,
             .max_output_len = 64,
-            .init = (void *)decaf_keccak_512_init,
-            .update = (void *)decaf_keccak_512_update,
-            .final = (void *)decaf_keccak_512_final,
-            .destroy = (void *)decaf_keccak_512_destroy,
+            .init = (void *)libdecaf_nif_keccak_512_init,
+            .update = (void *)decaf_sha3_update,
+            .final = (void *)decaf_sha3_final,
+            .destroy = (void *)decaf_sha3_destroy,
         },
 };
 
