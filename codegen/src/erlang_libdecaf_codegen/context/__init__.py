@@ -17,5 +17,5 @@ class Context:
 
     def reset_atoms(self) -> None:
         self.nif = NIF()
-        for name in self.schema.nif.atoms:
+        for name in self.schema.nif.atoms + self.schema.nif.hash + self.schema.nif.xof:
             self.nif.make_atom(name)

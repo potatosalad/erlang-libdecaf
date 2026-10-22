@@ -3,7 +3,7 @@
 This development-only Python project generates committed NIF sources for libdecaf.
 Normal `gmake` builds use the generated C files and do not need Python dependencies.
 
-Requires Python 3.13 or later and Poetry 2.x with the `poetry-plugin-export` plugin.
+Requires Python 3.13 or later and Poetry 2.1 or later with the `poetry-plugin-export` plugin.
 The local `reference/` directory contains copied examples and is ignored by Git.
 
 From the repository root:
@@ -12,6 +12,13 @@ From the repository root:
 just lock       # Refresh poetry.lock and exported requirements.txt
 just codegen    # Render, format, and sign generated sources
 just format     # Format C, Erlang, templates, and Python sources
+```
+
+With uv installed, the pinned Poetry/export toolchain can run the lock recipe
+without changing the global Poetry installation:
+
+```sh
+uvx --from 'poetry==2.5.1' --with 'poetry-plugin-export==1.10.1' just lock
 ```
 
 `templates0/` renders configured definitions first. The generator then scans C
@@ -23,3 +30,9 @@ and the old generated atom files are excluded from discovery. Explicit atoms in
 Change the templates or configuration and run `just codegen`; generated C is
 committed so ordinary builds do not run the generator. Generated files carry a
 content signature applied after formatting, and repeated generation is stable.
+
+The first stage also generates `c_src/nif/libdecaf_nif.c`. Its hash and XOF
+declarations, wrappers, and NIF registrations come from `nif.hash` and
+`nif.xof` in `config.yaml`. The committed C contains explicit functions and
+registration entries, so debuggers and sanitizer reports can refer to each
+wrapper's own source lines. Algorithm names also seed the atom table.

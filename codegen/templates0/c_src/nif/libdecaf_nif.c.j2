@@ -1,0 +1,356 @@
+// -*- mode: c; tab-width: 4; indent-tabs-mode: nil; st-rulers: [132] -*-
+// vim: ts=4 sw=4 ft=c et
+
+#include "libdecaf_nif.h"
+
+#include "csprng.h"
+#include "ed25519.h"
+#include "ed448.h"
+#include "hash.h"
+#include "xof.h"
+#include "groups.h"
+
+#include <unistd.h>
+
+/* Global Variables */
+
+ErlNifResourceType *libdecaf_nif_trap_resource_type = NULL;
+ErlNifResourceType *libdecaf_nif_csprng_resource_type = NULL;
+ErlNifResourceType *libdecaf_nif_ed25519_keypair_resource_type = NULL;
+ErlNifResourceType *libdecaf_nif_ed448_keypair_resource_type = NULL;
+ErlNifResourceType *libdecaf_nif_hash_resource_type = NULL;
+ErlNifResourceType *libdecaf_nif_xof_resource_type = NULL;
+
+/* Resource Type Functions (Declarations) */
+
+static void libdecaf_nif_trap_dtor(ErlNifEnv *caller_env, void *obj);
+static void libdecaf_nif_csprng_dtor(ErlNifEnv *caller_env, void *obj);
+static void libdecaf_nif_ed25519_keypair_dtor(ErlNifEnv *caller_env, void *obj);
+static void libdecaf_nif_ed448_keypair_dtor(ErlNifEnv *caller_env, void *obj);
+static void libdecaf_nif_hash_dtor(ErlNifEnv *caller_env, void *obj);
+static void libdecaf_nif_xof_dtor(ErlNifEnv *caller_env, void *obj);
+
+void
+libdecaf_nif_trap_dtor(ErlNifEnv *caller_env, void *obj)
+{
+    libdecaf_nif_trap_t *trap = (void *)obj;
+    if (trap != NULL) {
+        XNIF_TRACE_F("libdecaf_nif_trap_dtor:%s:%d\n", __FILE__, __LINE__);
+        if (trap->dtor != NULL) {
+            (void)trap->dtor(caller_env, obj);
+            trap->dtor = NULL;
+        }
+        if (trap->work_env != NULL) {
+            (void)enif_free_env(trap->work_env);
+            trap->work_env = NULL;
+        }
+    }
+    return;
+}
+
+void
+libdecaf_nif_csprng_dtor(ErlNifEnv *caller_env, void *obj)
+{
+    libdecaf_nif_csprng_ctx_t *ctx = (void *)obj;
+    if (ctx != NULL) {
+        XNIF_TRACE_F("libdecaf_nif_csprng_dtor:%s:%d\n", __FILE__, __LINE__);
+        (void)decaf_spongerng_destroy((void *)ctx);
+    }
+    return;
+}
+
+void
+libdecaf_nif_ed25519_keypair_dtor(ErlNifEnv *caller_env, void *obj)
+{
+    libdecaf_nif_ed25519_keypair_t *keypair = (void *)obj;
+    if (keypair != NULL) {
+        XNIF_TRACE_F("libdecaf_nif_ed25519_keypair_dtor:%s:%d\n", __FILE__, __LINE__);
+        (void)decaf_ed25519_keypair_destroy(keypair->inner);
+    }
+    return;
+}
+
+void
+libdecaf_nif_ed448_keypair_dtor(ErlNifEnv *caller_env, void *obj)
+{
+    libdecaf_nif_ed448_keypair_t *keypair = (void *)obj;
+    if (keypair != NULL) {
+        XNIF_TRACE_F("libdecaf_nif_ed448_keypair_dtor:%s:%d\n", __FILE__, __LINE__);
+        (void)decaf_ed448_keypair_destroy(keypair->inner);
+    }
+    return;
+}
+
+void
+libdecaf_nif_hash_dtor(ErlNifEnv *caller_env, void *obj)
+{
+    libdecaf_nif_hash_ctx_t *ctx = (void *)obj;
+    libdecaf_nif_hash_t *hash = NULL;
+    if (ctx != NULL) {
+        XNIF_TRACE_F("libdecaf_nif_hash_dtor:%s:%d\n", __FILE__, __LINE__);
+        hash = libdecaf_nif_hash_from_type(ctx->type);
+        if (hash != NULL) {
+            (void)hash->destroy((void *)ctx);
+        }
+    }
+    return;
+}
+
+void
+libdecaf_nif_xof_dtor(ErlNifEnv *caller_env, void *obj)
+{
+    libdecaf_nif_xof_ctx_t *ctx = (void *)obj;
+    libdecaf_nif_xof_t *xof = NULL;
+    if (ctx != NULL) {
+        XNIF_TRACE_F("libdecaf_nif_xof_dtor:%s:%d\n", __FILE__, __LINE__);
+        xof = libdecaf_nif_xof_from_type(ctx->type);
+        if (xof != NULL) {
+            (void)xof->destroy((void *)ctx);
+        }
+    }
+    return;
+}
+
+/* Static Functions (Declarations) */
+
+/* NIF Function Declarations */
+
+/* decaf/ed255.h */
+static ERL_NIF_TERM libdecaf_nif_ed25519_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed25519_sign_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed25519_sign_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed25519_verify_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed25519_verify_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed25519_convert_public_key_to_x25519_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed25519_convert_private_key_to_x25519_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+/* decaf/ed448.h */
+static ERL_NIF_TERM libdecaf_nif_ed448_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed448_sign_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed448_sign_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed448_verify_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed448_verify_prehash_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed448_convert_public_key_to_x448_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_ed448_convert_private_key_to_x448_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+/* decaf/point_255.h */
+static ERL_NIF_TERM libdecaf_nif_x25519_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_x25519_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+/* decaf/point_448.h */
+static ERL_NIF_TERM libdecaf_nif_x448_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_x448_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+/* decaf/sha512.h */
+/* decaf/shake.h */
+/* clang-format off */ //-
+{% for name in ctx.schema.nif.hash %}
+static ERL_NIF_TERM libdecaf_nif_{{ name }}_hash_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_{{ name }}_hash_init_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_{{ name }}_hash_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_{{ name }}_hash_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+{% endfor %}
+/* clang-format on */ //-
+/* clang-format off */ //-
+{% for name in ctx.schema.nif.xof %}
+static ERL_NIF_TERM libdecaf_nif_{{ name }}_xof_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_{{ name }}_xof_init_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_{{ name }}_xof_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_{{ name }}_xof_output_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+{% endfor %}
+/* clang-format on */ //-
+
+/* NIF Function Definitions */
+
+/* decaf/ed255.h */
+#include "impl/ed255.c.h"
+/* decaf/ed448.h */
+#include "impl/ed448.c.h"
+/* decaf/point_255.h */
+#include "impl/point_255.c.h"
+/* decaf/point_448.h */
+#include "impl/point_448.c.h"
+/* decaf/sha512.h */
+/* decaf/shake.h */
+/* clang-format off */ //-
+{% for name in ctx.schema.nif.hash %}
+ERL_NIF_TERM
+libdecaf_nif_{{ name }}_hash_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return libdecaf_nif_hash_2(&libdecaf_nif_hash_table->{{ name }}, env, argc, argv);
+}
+
+ERL_NIF_TERM
+libdecaf_nif_{{ name }}_hash_init_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return libdecaf_nif_hash_init_0(&libdecaf_nif_hash_table->{{ name }}, env, argc, argv);
+}
+
+ERL_NIF_TERM
+libdecaf_nif_{{ name }}_hash_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return libdecaf_nif_hash_update_2(&libdecaf_nif_hash_table->{{ name }}, env, argc, argv);
+}
+
+ERL_NIF_TERM
+libdecaf_nif_{{ name }}_hash_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return libdecaf_nif_hash_final_2(&libdecaf_nif_hash_table->{{ name }}, env, argc, argv);
+}
+{% endfor %}
+/* clang-format on */ //-
+/* clang-format off */ //-
+{% for name in ctx.schema.nif.xof %}
+ERL_NIF_TERM
+libdecaf_nif_{{ name }}_xof_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return libdecaf_nif_xof_2(&libdecaf_nif_xof_table->{{ name }}, env, argc, argv);
+}
+
+ERL_NIF_TERM
+libdecaf_nif_{{ name }}_xof_init_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return libdecaf_nif_xof_init_0(&libdecaf_nif_xof_table->{{ name }}, env, argc, argv);
+}
+
+ERL_NIF_TERM
+libdecaf_nif_{{ name }}_xof_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return libdecaf_nif_xof_update_2(&libdecaf_nif_xof_table->{{ name }}, env, argc, argv);
+}
+
+ERL_NIF_TERM
+libdecaf_nif_{{ name }}_xof_output_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return libdecaf_nif_xof_output_2(&libdecaf_nif_xof_table->{{ name }}, env, argc, argv);
+}
+{% endfor %}
+/* clang-format on */ //-
+
+/* NIF Callbacks */
+
+static ErlNifFunc libdecaf_nif_funcs[] = {
+    LIBDECAF_GROUP_NIFS(ristretto255),
+    LIBDECAF_GROUP_NIFS(decaf448),
+    /* decaf/ed255.h */
+    {"ed25519_derive_keypair", 1, libdecaf_nif_ed25519_derive_keypair_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519_derive_public_key", 1, libdecaf_nif_ed25519_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519_keypair_extract_private_key", 1, libdecaf_nif_ed25519_keypair_extract_private_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519_keypair_extract_public_key", 1, libdecaf_nif_ed25519_keypair_extract_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519_keypair_sign", 4, libdecaf_nif_ed25519_keypair_sign_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519_keypair_sign_prehash", 3, libdecaf_nif_ed25519_keypair_sign_prehash_3, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519_sign", 5, libdecaf_nif_ed25519_sign_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519_sign_prehash", 4, libdecaf_nif_ed25519_sign_prehash_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519_verify", 5, libdecaf_nif_ed25519_verify_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519_verify_prehash", 4, libdecaf_nif_ed25519_verify_prehash_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519_convert_public_key_to_x25519", 1, libdecaf_nif_ed25519_convert_public_key_to_x25519_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519_convert_private_key_to_x25519", 1, libdecaf_nif_ed25519_convert_private_key_to_x25519_1, ERL_NIF_NORMAL_JOB_BOUND},
+    /* decaf/ed448.h */
+    {"ed448_derive_keypair", 1, libdecaf_nif_ed448_derive_keypair_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448_derive_public_key", 1, libdecaf_nif_ed448_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448_keypair_extract_private_key", 1, libdecaf_nif_ed448_keypair_extract_private_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448_keypair_extract_public_key", 1, libdecaf_nif_ed448_keypair_extract_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448_keypair_sign", 4, libdecaf_nif_ed448_keypair_sign_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448_keypair_sign_prehash", 3, libdecaf_nif_ed448_keypair_sign_prehash_3, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448_sign", 5, libdecaf_nif_ed448_sign_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448_sign_prehash", 4, libdecaf_nif_ed448_sign_prehash_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448_verify", 5, libdecaf_nif_ed448_verify_5, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448_verify_prehash", 4, libdecaf_nif_ed448_verify_prehash_4, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448_convert_public_key_to_x448", 1, libdecaf_nif_ed448_convert_public_key_to_x448_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448_convert_private_key_to_x448", 1, libdecaf_nif_ed448_convert_private_key_to_x448_1, ERL_NIF_NORMAL_JOB_BOUND},
+    /* decaf/point_255.h */
+    {"x25519_derive_public_key", 1, libdecaf_nif_x25519_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"x25519", 2, libdecaf_nif_x25519_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"x448_derive_public_key", 1, libdecaf_nif_x448_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"x448", 2, libdecaf_nif_x448_2, ERL_NIF_NORMAL_JOB_BOUND},
+/* decaf/sha512.h */
+/* decaf/shake.h */
+/* clang-format off */ //-
+{% for name in ctx.schema.nif.hash %}
+{"{{ name }}_hash", 2, libdecaf_nif_{{ name }}_hash_2, ERL_NIF_NORMAL_JOB_BOUND},
+{"{{ name }}_hash_init", 0, libdecaf_nif_{{ name }}_hash_init_0, ERL_NIF_NORMAL_JOB_BOUND},
+{"{{ name }}_hash_update", 2, libdecaf_nif_{{ name }}_hash_update_2, ERL_NIF_NORMAL_JOB_BOUND},
+{"{{ name }}_hash_final", 2, libdecaf_nif_{{ name }}_hash_final_2, ERL_NIF_NORMAL_JOB_BOUND},
+{% endfor %}
+/* clang-format on */ //-
+/* clang-format off */ //-
+{% for name in ctx.schema.nif.xof %}
+{"{{ name }}_xof", 2, libdecaf_nif_{{ name }}_xof_2, ERL_NIF_NORMAL_JOB_BOUND},
+{"{{ name }}_xof_init", 0, libdecaf_nif_{{ name }}_xof_init_0, ERL_NIF_NORMAL_JOB_BOUND},
+{"{{ name }}_xof_update", 2, libdecaf_nif_{{ name }}_xof_update_2, ERL_NIF_NORMAL_JOB_BOUND},
+{"{{ name }}_xof_output", 2, libdecaf_nif_{{ name }}_xof_output_2, ERL_NIF_NORMAL_JOB_BOUND},
+{% endfor %}
+/* clang-format on */ //-
+    /* decaf/spongerng.h */
+    {"spongerng_csprng_init_from_buffer", 2, libdecaf_nif_spongerng_csprng_init_from_buffer_2, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"spongerng_csprng_init_from_file", 3, libdecaf_nif_spongerng_csprng_init_from_file_3, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"spongerng_csprng_init_from_dev_urandom", 0, libdecaf_nif_spongerng_csprng_init_from_dev_urandom_0,
+     ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"spongerng_csprng_next", 2, libdecaf_nif_spongerng_csprng_next_2, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"spongerng_csprng_stir", 2, libdecaf_nif_spongerng_csprng_stir_2, ERL_NIF_DIRTY_JOB_CPU_BOUND}};
+
+static int libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info);
+static int libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data, ERL_NIF_TERM load_info);
+static void libdecaf_nif_unload(ErlNifEnv *env, void *priv_data);
+
+static int
+libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
+{
+    int retval = 0;
+    (void)priv_data;
+    (void)load_info;
+    /* Load Resource Types */
+#define LOAD_RESOURCE_TYPE(Id)                                                                                                     \
+    libdecaf_nif_##Id##_resource_type = enif_open_resource_type(env, "libdecaf_nif", #Id, libdecaf_nif_##Id##_dtor,                \
+                                                                ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER, NULL);                    \
+    if (libdecaf_nif_##Id##_resource_type == NULL) {                                                                               \
+        retval = -1;                                                                                                               \
+        return -1;                                                                                                                 \
+    }
+    LOAD_RESOURCE_TYPE(trap);
+    LOAD_RESOURCE_TYPE(csprng);
+    LOAD_RESOURCE_TYPE(ed25519_keypair);
+    LOAD_RESOURCE_TYPE(ed448_keypair);
+    LOAD_RESOURCE_TYPE(hash);
+    LOAD_RESOURCE_TYPE(xof);
+#undef LOAD_RESOURCE_TYPE
+    if (libdecaf_nif_groups_load(env) != 0)
+        return -1;
+    /* Initialize common atoms */
+    (void)libdecaf_nif_make_atoms(env);
+    return retval;
+}
+
+static int
+libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data, ERL_NIF_TERM load_info)
+{
+    int retval = 0;
+    (void)old_priv_data;
+    (void)load_info;
+    /* Upgrade Resource Types */
+#define UPGRADE_RESOURCE_TYPE(Id)                                                                                                  \
+    libdecaf_nif_##Id##_resource_type =                                                                                            \
+        enif_open_resource_type(env, "libdecaf_nif", #Id, libdecaf_nif_##Id##_dtor, ERL_NIF_RT_TAKEOVER, NULL);                    \
+    if (libdecaf_nif_##Id##_resource_type == NULL) {                                                                               \
+        retval = -1;                                                                                                               \
+        return -1;                                                                                                                 \
+    }
+    UPGRADE_RESOURCE_TYPE(trap);
+    UPGRADE_RESOURCE_TYPE(csprng);
+    UPGRADE_RESOURCE_TYPE(ed25519_keypair);
+    UPGRADE_RESOURCE_TYPE(ed448_keypair);
+    UPGRADE_RESOURCE_TYPE(hash);
+    UPGRADE_RESOURCE_TYPE(xof);
+#undef UPGRADE_RESOURCE_TYPE
+    if (libdecaf_nif_groups_load(env) != 0)
+        return -1;
+    /* Initialize common atoms */
+    (void)libdecaf_nif_make_atoms(env);
+    return retval;
+}
+
+static void
+libdecaf_nif_unload(ErlNifEnv *env, void *priv_data)
+{
+    (void)env;
+    (void)priv_data;
+    return;
+}
+
+ERL_NIF_INIT(libdecaf_nif, libdecaf_nif_funcs, libdecaf_nif_load, NULL, libdecaf_nif_upgrade, libdecaf_nif_unload);

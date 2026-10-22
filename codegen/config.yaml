@@ -3,23 +3,25 @@
 ---
 nif:
   atoms:
-    - badarg
-    - error
+    - "badarg"
+    - "error"
     - "false"
-    - keccak_224
-    - keccak_256
-    - keccak_384
-    - keccak_512
-    - nil
-    - no_context
-    - notsup
-    - ok
+    - "nil"
+    - "no_context"
+    - "notsup"
+    - "ok"
+    - "true"
+    - "undefined"
+  hash:
     - sha2_512
     - sha3_224
     - sha3_256
     - sha3_384
     - sha3_512
+    - keccak_224
+    - keccak_256
+    - keccak_384
+    - keccak_512
+  xof:
     - shake128
     - shake256
-    - "true"
-    - undefined

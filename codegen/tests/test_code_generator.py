@@ -90,10 +90,19 @@ def test_regeneration_is_stable_and_removes_stale_atoms(tmp_path):
     assert atom_names(nif) == ["configured", "new_atom"]
 
 
-@pytest.mark.parametrize("atoms", [["not-an-identifier"], ["same", "same"]])
-def test_invalid_atom_configuration_is_rejected(atoms):
+@pytest.mark.parametrize("field", ["atoms", "hash", "xof"])
+@pytest.mark.parametrize("names", [["not-an-identifier"], ["same", "same"]])
+def test_invalid_name_configuration_is_rejected(field, names):
     with pytest.raises(ValidationError):
-        Root.model_validate({"nif": {"atoms": atoms}})
+        Root.model_validate({"nif": {field: names}})
+
+
+def test_algorithm_names_seed_atoms_without_literal_references(tmp_path):
+    codegen, nif, _ = generator(tmp_path, "")
+    Path(codegen.config_file).write_text("nif:\n  hash: [sha2_512]\n  xof: [shake256]\n")
+    codegen = CodeGenerator(codegen.config_file, codegen.output_path, codegen.templates0_path, codegen.templates1_path)
+    codegen.render()
+    assert atom_names(nif) == ["sha2_512", "shake256"]
 
 
 def test_unadapted_reference_configuration_is_rejected():

@@ -13,13 +13,15 @@ class Model(BaseModel):
 
 class NIF(Model):
     atoms: list[CIdentifier] = Field(default_factory=list)
+    hash: list[CIdentifier] = Field(default_factory=list)
+    xof: list[CIdentifier] = Field(default_factory=list)
 
-    @field_validator("atoms")
+    @field_validator("atoms", "hash", "xof")
     @classmethod
-    def unique_atoms(cls, atoms: list[str]) -> list[str]:
-        if len(atoms) != len(set(atoms)):
-            raise ValueError("Atom names must be unique")
-        return atoms
+    def unique_names(cls, names: list[str]) -> list[str]:
+        if len(names) != len(set(names)):
+            raise ValueError("Names must be unique within each list")
+        return names
 
 
 class Root(Model):
