@@ -73,7 +73,7 @@ def xof_functions(schema: NIFSchema) -> tuple[Function, ...]:
                 tuple(Argument(*arg) for arg in arguments),
                 returns,
                 doc,
-                f"{group.name} API",
+                "Hash XOF API",
                 "hash_xof",
                 operation,
                 group.algorithms,
@@ -360,7 +360,7 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         ),
     ]
     for name, arguments, returns, doc in hash_operations:
-        add(name, arguments, returns, doc, "Hashing")
+        add(name, arguments, returns, doc, "Hash API")
     result.extend(xof_functions(schema))
 
     rng = [
@@ -420,7 +420,7 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
         ("spongerng_state", "erlang:nif_resource()", "A sponge PRNG resource. Continue with each operation's returned state."),
     ]
     for group in xof_groups(schema):
-        result.append((group.algorithm_type, " | ".join(group.algorithms), f"Algorithms in the `{group.name}` API group."))
+        result.append((group.algorithm_type, " | ".join(group.algorithms), f"Algorithms accepted by `{group.name}/3`."))
         result.append(
             (
                 group.state_type,

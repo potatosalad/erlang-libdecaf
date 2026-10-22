@@ -21,7 +21,7 @@ Keccak XOFs, TurboSHAKE, KangarooTwelve, and the sponge PRNG.
     hash_init/1,
     hash_update/2
 ]).
-%% Grouped Hash XOF API
+%% Hash XOF API
 -export([
 ~J{ for function in ctx.xof_functions }.
     ~J< function.name >./~J< function.arity >.~J< ',' if not loop.last else '' >.
@@ -313,7 +313,7 @@ hash_update(State, Data) ->
     libdecaf_nif:hash_update(State, Data).
 
 %%%=============================================================================
-%%% Grouped Hash XOF API functions
+%%% Hash XOF API functions
 %%%=============================================================================
 
 ~J{ for function in ctx.xof_functions }.
