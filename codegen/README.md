@@ -44,6 +44,10 @@ recipe formats both C and Erlang output before applying content signatures.
 The algorithm union, per-algorithm records and opaque state types, and all hash
 operations share that list. Add or remove an algorithm there and regenerate;
 the one-shot, init, update, final, and digest-size clauses stay in sync.
+The `hash_xof/3`, `hash_xof_init/1`, `hash_xof_update/2`, and `hash_xof_final/2`
+APIs use `nif.xof` in the same way, including per-algorithm records and opaque
+states. XOF output lengths are in bytes, and finalization returns the requested
+binary without changing the input state.
 
 The Erlang module's native exports, entry points, documentation, and specs are
 rendered from `src/erlang_libdecaf_codegen/context/functions.py`. Module
