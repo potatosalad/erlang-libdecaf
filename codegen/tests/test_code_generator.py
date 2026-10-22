@@ -108,3 +108,19 @@ def test_algorithm_names_seed_atoms_without_literal_references(tmp_path):
 def test_unadapted_reference_configuration_is_rejected():
     with pytest.raises(ValidationError):
         Root.model_validate({"channel": {"stats": []}})
+
+
+def test_erlang_templates_use_erlang_delimiters_and_signed_headers(tmp_path):
+    codegen, _, templates0 = generator(tmp_path, "")
+    template = templates0 / "src" / "example.erl.j2"
+    template.parent.mkdir()
+    template.write_text("-module(example).\n~J{ for name in ctx.schema.nif.atoms }.\n~J< name >.() -> ok.\n~J{ endfor }.\n")
+    codegen = CodeGenerator(codegen.config_file, codegen.output_path, str(templates0), codegen.templates1_path)
+    codegen.render()
+    codegen.sign()
+    output = Path(codegen.output_path, "src", "example.erl").read_text()
+    assert output.startswith("%%% % DO NOT EDIT:")
+    assert "%%% % @generated SignedSource<<" in output
+    assert "configured() -> ok." in output
+    assert "~J" not in output
+    assert TOKEN not in output

@@ -3,6 +3,7 @@ codegen: poetry-install
     poetry run erlang_libdecaf_codegen json-schema schema.json
     poetry run erlang_libdecaf_codegen generate config.yaml .. templates0 templates1
     just format-c-targets
+    gmake -C .. erlfmt
     just sign
 
 format: poetry-install format-c-targets format-c-templates format-python-src

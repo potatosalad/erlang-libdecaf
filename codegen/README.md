@@ -36,3 +36,6 @@ declarations, wrappers, and NIF registrations come from `nif.hash` and
 `nif.xof` in `config.yaml`. The committed C contains explicit functions and
 registration entries, so debuggers and sanitizer reports can refer to each
 wrapper's own source lines. Algorithm names also seed the atom table.
+
+`templates0/src/libdecaf_nif.erl.j2` generates the Erlang NIF module. The codegen
+recipe formats both C and Erlang output before applying content signatures.
