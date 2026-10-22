@@ -13,9 +13,21 @@ Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, and the spon
 -moduledoc #{copyright => "Andrew Bennett"}.
 
 %% Hash API
--export([hash/2, hash/3, hash_final/1, hash_final/2, hash_init/1, hash_update/2]).
+-export([
+    hash/2,
+    hash/3,
+    hash_final/1,
+    hash_final/2,
+    hash_init/1,
+    hash_update/2
+]).
 %% Hash XOF API
--export([hash_xof/3, hash_xof_final/2, hash_xof_init/1, hash_xof_update/2]).
+-export([
+    hash_xof/3,
+    hash_xof_final/2,
+    hash_xof_init/1,
+    hash_xof_update/2
+]).
 -export_type([
     hash_algorithm/0,
     hash_state/0,
@@ -207,7 +219,9 @@ Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, and the spon
 %     spongerng_stir/2
 % ]).
 %% Internal API
--export([priv_dir/0]).
+-export([
+    priv_dir/0
+]).
 
 %%% Records
 
