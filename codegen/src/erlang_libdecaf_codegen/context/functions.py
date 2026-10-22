@@ -39,20 +39,10 @@ class Function:
     def c_name(self) -> str:
         return f"libdecaf_nif_{self.name}_{self.arity}"
 
-    @property
-    def selects_algorithm(self) -> bool:
-        return self.operation in ("once", "init")
-
-    @property
-    def delegate(self) -> str:
-        operation = "" if self.operation == "once" else f"_{self.operation}"
-        return f"libdecaf_nif_{self.family}{operation}_{self.arity}"
-
 
 @dataclass(frozen=True)
-class HashGroup:
+class XOFGroup:
     name: str
-    family: str
     algorithms: tuple[str, ...]
 
     @property
@@ -64,16 +54,15 @@ class HashGroup:
         return f"{self.name}_algorithm"
 
 
-def hash_groups(schema: NIFSchema) -> tuple[HashGroup, ...]:
+def xof_groups(schema: NIFSchema) -> tuple[XOFGroup, ...]:
     result = []
-    for family, profiles in (("hash", schema.hash), ("hash_xof", schema.xof)):
-        for group in sorted({profile.group for profile in profiles.values()}):
-            algorithms = tuple(sorted(name for name, profile in profiles.items() if profile.group == group))
-            result.append(HashGroup(f"{family}_{group}", family, algorithms))
+    for group in sorted({profile.group for profile in schema.xof.values()}):
+        algorithms = tuple(sorted(name for name, profile in schema.xof.items() if profile.group == group))
+        result.append(XOFGroup(f"hash_xof_{group}", algorithms))
     return tuple(result)
 
 
-def hash_functions(schema: NIFSchema) -> tuple[Function, ...]:
+def xof_functions(schema: NIFSchema) -> tuple[Function, ...]:
     result = []
 
     def add(group, operation, arguments, returns, doc):
@@ -85,48 +74,15 @@ def hash_functions(schema: NIFSchema) -> tuple[Function, ...]:
                 returns,
                 doc,
                 f"{group.name} API",
-                group.family,
+                "hash_xof",
                 operation,
                 group.algorithms,
             )
         )
 
-    for group in hash_groups(schema):
+    for group in xof_groups(schema):
         state = f"{group.state_type}()"
         algorithm = [("Algorithm", f"{group.algorithm_type}()")]
-        if group.family == "hash":
-            add(
-                group,
-                "once",
-                algorithm + [("Input", "iodata()")],
-                "binary()",
-                "Hash iodata using the selected algorithm's default digest length.",
-            )
-            add(
-                group,
-                "once",
-                algorithm + [("Input", "iodata()"), ("Length", "non_neg_integer()")],
-                "binary()",
-                "Hash iodata and return `Length` bytes, up to the selected algorithm's digest length.",
-            )
-            add(group, "init", algorithm, state, "Create an immutable native hash state for the selected algorithm.")
-            add(
-                group,
-                "update",
-                [("State", state), ("Input", "iodata()")],
-                state,
-                "Absorb iodata and return a new state in this hash group. The input state remains reusable.",
-            )
-            add(group, "final", [("State", state)], "binary()", "Return the algorithm's default digest without changing the state.")
-            add(
-                group,
-                "final",
-                [("State", state), ("Length", "non_neg_integer()")],
-                "binary()",
-                "Return `Length` digest bytes without changing the state. Length cannot exceed the algorithm's digest length.",
-            )
-            continue
-
         basic = algorithm + [("Input", "iodata()"), ("Length", "non_neg_integer()")]
         add(group, "once", basic, "binary()", "Hash iodata and return `Length` XOF bytes using default parameters.")
         add(group, "init", algorithm, state, "Create an immutable native XOF state using default parameters.")
@@ -405,7 +361,7 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
     ]
     for name, arguments, returns, doc in hash_operations:
         add(name, arguments, returns, doc, "Hashing")
-    result.extend(hash_functions(schema))
+    result.extend(xof_functions(schema))
 
     rng = [
         (
@@ -458,12 +414,12 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
         ),
         (
             "hash_state",
-            " | ".join(f"{group.state_type}()" for group in hash_groups(schema) if group.family == "hash") or "none()",
+            "erlang:nif_resource()",
             "Any configured immutable hash state.",
         ),
         ("spongerng_state", "erlang:nif_resource()", "A sponge PRNG resource. Continue with each operation's returned state."),
     ]
-    for group in hash_groups(schema):
+    for group in xof_groups(schema):
         result.append((group.algorithm_type, " | ".join(group.algorithms), f"Algorithms in the `{group.name}` API group."))
         result.append(
             (

@@ -22,9 +22,9 @@ cshake() ->
 
 -spec fixed() -> binary().
 fixed() ->
-    Initial = libdecaf_nif:hash_sha3_init(sha3_256),
-    State = libdecaf_nif:hash_sha3_update(Initial, <<"abc">>),
-    libdecaf_nif:hash_sha3_final(State).
+    Initial = libdecaf_nif:hash_init(sha3_256),
+    State = libdecaf_nif:hash_update(Initial, <<"abc">>),
+    libdecaf_nif:hash_final(State).
 
 -spec kt() -> binary().
 kt() ->

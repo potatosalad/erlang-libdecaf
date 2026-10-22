@@ -3,11 +3,6 @@
     "Hash": {
       "additionalProperties": false,
       "properties": {
-        "group": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Group",
-          "type": "string"
-        },
         "context": {
           "pattern": "^[a-z][a-zA-Z0-9_]*$",
           "title": "Context",
@@ -59,7 +54,6 @@
         }
       },
       "required": [
-        "group",
         "context",
         "init",
         "update",
@@ -107,11 +101,6 @@
     "XOF": {
       "additionalProperties": false,
       "properties": {
-        "group": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Group",
-          "type": "string"
-        },
         "context": {
           "pattern": "^[a-z][a-zA-Z0-9_]*$",
           "title": "Context",
@@ -130,6 +119,11 @@
         "destroy": {
           "pattern": "^[a-z][a-zA-Z0-9_]*$",
           "title": "Destroy",
+          "type": "string"
+        },
+        "group": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Group",
           "type": "string"
         },
         "output": {
@@ -197,11 +191,11 @@
         }
       },
       "required": [
-        "group",
         "context",
         "init",
         "update",
         "destroy",
+        "group",
         "output"
       ],
       "title": "XOF",

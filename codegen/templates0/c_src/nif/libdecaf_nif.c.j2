@@ -172,7 +172,7 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"hash_final", 2, libdecaf_nif_hash_final_2, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_init", 1, libdecaf_nif_hash_init_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_update", 2, libdecaf_nif_hash_update_2, ERL_NIF_NORMAL_JOB_BOUND},
-    /* Algorithm-specific hash and XOF APIs. */
+    /* Grouped XOF APIs. */
 {% for function in ctx.nif.functions if function.family is not none %}
     {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_NORMAL_JOB_BOUND},
 {% endfor %}

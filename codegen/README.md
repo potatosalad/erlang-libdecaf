@@ -37,7 +37,8 @@ under `c_src/nif/hash_xof/`, and the native registration table in
 no generic XOF dispatch layer.
 
 `nif.hash` and `nif.xof` are mappings from algorithm names to metadata. Each
-entry gives its API `group`, upstream context struct, and operation symbols. Fixed-output hashes
+entry gives its upstream context struct and operation symbols. XOF entries also
+specify their API `group`. Fixed-output hashes
 also specify `default_output_len` and `max_output_len` in bytes. Legacy Keccak entries give
 their sponge rate. The schema rejects default lengths that exceed the maximum.
 
@@ -68,16 +69,18 @@ Incremental hashing uses `hash_xof_kt_init/1`, `hash_xof_kt_update/2`, and
 `hash_xof_kt_final/3`, which appends customization and its RFC length encoding.
 `hash_xof_kt/3` and `hash_xof_kt_final/2` use empty customization.
 
-The generated fixed-output C contains typed upstream adapters and algorithm
-tables. Each configured group generates
-one-shot, init, update, and final NIFs. Fixed-output groups are `hash_keccak`,
-`hash_sha2`, and `hash_sha3`; XOF groups are `hash_xof_cshake`, `hash_xof_keccak`,
-`hash_xof_kt`, `hash_xof_sha3` (SHAKE), and `hash_xof_turboshake`.
-An algorithm atom selects a variant during initialization or one-shot hashing.
-Each group has its own opaque Erlang state type, and native entry points reject
-algorithms and states from other groups. Resources retain the selected algorithm,
-so updates and finalization need neither an extra algorithm argument nor an
-Erlang record wrapper. Fixed-output entry points are defined in `hash.c`.
+The generated fixed-output C contains typed upstream adapters and an algorithm
+table. Its shared `hash`, `hash_init`, `hash_update`, and `hash_final` entry points
+are defined in `hash.c`, and all fixed-output algorithms use one opaque
+`hash_state()` type. Algorithm-specific hash wrappers are not generated.
+
+Each XOF group generates one-shot, init, update, and final NIFs. XOF groups are
+`hash_xof_cshake`, `hash_xof_keccak`, `hash_xof_kt`, `hash_xof_sha3` (SHAKE), and
+`hash_xof_turboshake`. An algorithm atom selects a variant during initialization
+or one-shot hashing. Each group has its own opaque Erlang state type, and native
+entry points reject algorithms and states from other groups. Resources retain
+the selected algorithm, so updates and finalization need neither an extra
+algorithm argument nor an Erlang record wrapper.
 XOF entry points are defined and declared in `hash_xof/hash_xof_<group>.{c,h}`;
 `libdecaf_nif.c` registers them.
 

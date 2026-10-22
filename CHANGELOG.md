@@ -26,7 +26,7 @@
 * Enhancements
   * Replace generic XOF entry points with grouped APIs in `libdecaf` and `libdecaf_nif`.
   * Split XOF families into independent native implementations with dedicated states and trapping lifecycles.
-  * Generate grouped hash and XOF NIF APIs with opaque state types, explicit customization parameters, and runtime group checks.
+  * Generate generic fixed-output hash and grouped XOF APIs with opaque states, explicit customization parameters, and runtime XOF group checks.
   * Upstream update to [`ed448goldilocks` version `features-20261022-v1.0.5`](https://github.com/potatosalad/ed448goldilocks/tree/features-20261022-v1.0.5), based on tag `v1.0.5` (vendored as part of `libdecaf` app).
   * Add X25519 high-bit, non-canonical coordinate, and low-order input regression tests.
   * Add RFC 9496 generator, invalid encoding, and uniform byte mapping test vectors.

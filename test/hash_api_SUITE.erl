@@ -1,7 +1,7 @@
 %%% % @format
 -module(hash_api_SUITE).
 -moduledoc """
-Grouped native hash APIs, parameter contracts, and state isolation.
+Generic fixed-output hashes, grouped XOF APIs, and state isolation.
 """.
 -moduledoc #{copyright => "Andrew Bennett"}.
 
@@ -23,43 +23,40 @@ all() ->
 
 fixed_hashes(_) ->
     lists:foreach(
-        fun({Group, Algorithms}) ->
+        fun(Algorithm) ->
             lists:foreach(
-                fun(Algorithm) ->
+                fun(Message) ->
+                    Expected = libdecaf:hash(Algorithm, Message),
+                    Expected = libdecaf_nif:hash(Algorithm, Message),
+                    Initial = libdecaf_nif:hash_init(Algorithm),
+                    true = is_reference(Initial),
+                    State = libdecaf_nif:hash_update(Initial, [Message]),
+                    Expected = libdecaf_nif:hash_final(State),
+                    Expected = libdecaf_nif:hash_final(State),
+                    Public = libdecaf:hash_update(libdecaf:hash_init(Algorithm), Message),
+                    Expected = libdecaf:hash_final(Public),
+                    Empty = libdecaf:hash(Algorithm, <<>>),
+                    Empty = libdecaf_nif:hash_final(Initial),
                     lists:foreach(
-                        fun(Message) ->
-                            Expected = libdecaf:hash(Algorithm, Message),
-                            Expected = call(Group, "", [Algorithm, Message]),
-                            Initial = call(Group, "_init", [Algorithm]),
-                            true = is_reference(Initial),
-                            State = call(Group, "_update", [Initial, [Message]]),
-                            Expected = call(Group, "_final", [State]),
-                            Expected = call(Group, "_final", [State]),
-                            Empty = libdecaf:hash(Algorithm, <<>>),
-                            Empty = call(Group, "_final", [Initial]),
-                            lists:foreach(
-                                fun(Length) ->
-                                    Prefix = binary:part(Expected, 0, Length),
-                                    Prefix = call(Group, "", [Algorithm, [Message], Length]),
-                                    Prefix = call(Group, "_final", [State, Length])
-                                end,
-                                [0, 1, byte_size(Expected)]
-                            ),
-                            badarg(fun() ->
-                                call(Group, "_final", [State, byte_size(Expected) + 1])
-                            end)
+                        fun(Length) ->
+                            Prefix = binary:part(Expected, 0, Length),
+                            Prefix = libdecaf_nif:hash(Algorithm, [Message], Length),
+                            Prefix = libdecaf_nif:hash_final(State, Length),
+                            Prefix = libdecaf:hash(Algorithm, Message, Length),
+                            Prefix = libdecaf:hash_final(Public, Length)
                         end,
-                        [<<>>, <<"abc">>, binary:copy(<<42>>, 65537)]
-                    )
+                        [0, 1, byte_size(Expected)]
+                    ),
+                    badarg(fun() -> libdecaf_nif:hash_final(State, byte_size(Expected) + 1) end)
                 end,
-                Algorithms
+                [<<>>, <<"abc">>, binary:copy(<<42>>, 65537)]
             )
         end,
-        hash_groups()
+        fixed_hash_algorithms()
     ).
 
 group_isolation(_) ->
-    Groups = hash_groups() ++ xof_groups(),
+    Groups = [{hash, fixed_hash_algorithms()} | xof_groups()],
     lists:foreach(
         fun({Group, [Algorithm | _]}) ->
             State = call(Group, "_init", [Algorithm]),
@@ -139,8 +136,23 @@ public_api(_) ->
             [] = [
                 Export
              || Export = {Name, _} <- Exports,
-                lists:member(Name, [hash_xof, hash_xof_init, hash_xof_update, hash_xof_final])
-            ]
+                lists:member(Name, [hash_xof, hash_xof_init, hash_xof_update, hash_xof_final]) orelse
+                    lists:any(
+                        fun(Prefix) -> lists:prefix(Prefix, atom_to_list(Name)) end,
+                        ["hash_sha2", "hash_sha3", "hash_keccak"]
+                    )
+            ],
+            lists:foreach(
+                fun(Export) -> true = lists:member(Export, Exports) end,
+                [
+                    {hash, 2},
+                    {hash, 3},
+                    {hash_init, 1},
+                    {hash_update, 2},
+                    {hash_final, 1},
+                    {hash_final, 2}
+                ]
+            )
         end,
         [libdecaf, libdecaf_nif]
     ),
@@ -378,11 +390,17 @@ badarg(Fun) ->
 call(Group, Suffix, Args) ->
     apply(libdecaf_nif, list_to_atom(atom_to_list(Group) ++ Suffix), Args).
 
-hash_groups() ->
+fixed_hash_algorithms() ->
     [
-        {hash_keccak, [keccak_224, keccak_256, keccak_384, keccak_512]},
-        {hash_sha2, [sha2_512]},
-        {hash_sha3, [sha3_224, sha3_256, sha3_384, sha3_512]}
+        keccak_224,
+        keccak_256,
+        keccak_384,
+        keccak_512,
+        sha2_512,
+        sha3_224,
+        sha3_256,
+        sha3_384,
+        sha3_512
     ].
 
 xof_groups() ->

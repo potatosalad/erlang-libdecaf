@@ -12,7 +12,6 @@ class Model(BaseModel):
 
 
 class Algorithm(Model):
-    group: CIdentifier
     context: CIdentifier
     init: CIdentifier
     update: CIdentifier
@@ -33,6 +32,7 @@ class Hash(Algorithm):
 
 
 class XOF(Algorithm):
+    group: CIdentifier
     output: CIdentifier
     legacy_keccak_rate: int | None = Field(default=None, gt=0, lt=200)
     cshake_rate: int | None = Field(default=None, gt=0, lt=200)
@@ -53,21 +53,16 @@ class NIF(Model):
 
     @model_validator(mode="after")
     def consistent_groups(self) -> Self:
-        for profiles in (self.hash, self.xof):
-            modes = {}
-            for profile in profiles.values():
-                mode = (
-                    (
-                        profile.cshake_rate is not None,
-                        profile.turbo_rate is not None,
-                        profile.kt_rate is not None,
-                    )
-                    if isinstance(profile, XOF)
-                    else ()
-                )
-                if profile.group in modes and modes[profile.group] != mode:
-                    raise ValueError("Algorithms in an API group must accept the same parameters")
-                modes[profile.group] = mode
+        modes = {}
+        for profile in self.xof.values():
+            mode = (
+                profile.cshake_rate is not None,
+                profile.turbo_rate is not None,
+                profile.kt_rate is not None,
+            )
+            if profile.group in modes and modes[profile.group] != mode:
+                raise ValueError("Algorithms in an API group must accept the same parameters")
+            modes[profile.group] = mode
         return self
 
     @field_validator("atoms")
