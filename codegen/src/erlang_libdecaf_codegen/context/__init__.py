@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from ..schema import Root
 from .nif import NIF
-from .functions import functions, types
+from .functions import Function, functions, hash_groups, types
 
 
 @dataclass
@@ -24,3 +24,15 @@ class Context:
     @property
     def types(self) -> tuple[tuple[str, str, str], ...]:
         return types(self.schema.nif)
+
+    @property
+    def opaque_type_names(self) -> set[str]:
+        return {group.state_type for group in hash_groups(self.schema.nif)}
+
+    @property
+    def hash_functions(self) -> tuple[Function, ...]:
+        return tuple(function for function in self.nif.functions if function.family == "hash")
+
+    @property
+    def xof_functions(self) -> tuple[Function, ...]:
+        return tuple(function for function in self.nif.functions if function.family == "hash_xof")

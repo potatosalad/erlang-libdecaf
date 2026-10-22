@@ -63,7 +63,7 @@ later for native Markdown documentation attributes.
 -doc """
 ~J< doc >.
 """.
--type ~J< name >.() :: ~J< definition >..
+-~J< 'opaque' if name in ctx.opaque_type_names else 'type' >. ~J< name >.() :: ~J< definition >..
 
 ~J{ endfor }.
 
@@ -98,6 +98,6 @@ init() ->
     erlang:load_nif(SoName, 0).
 
 -doc false.
--spec nif_stub_error(Line :: pos_integer()) -> no_return().
+-spec nif_stub_error(Line :: pos_integer()) -> any().
 nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded, module, ?MODULE, line, Line}).

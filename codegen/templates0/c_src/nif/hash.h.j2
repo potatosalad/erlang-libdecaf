@@ -55,6 +55,11 @@ extern ERL_NIF_TERM libdecaf_nif_hash_update_2(ErlNifEnv *env, int argc, const E
 extern ERL_NIF_TERM libdecaf_nif_hash_final_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_hash_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
+/* Algorithm-specific NIF entry points. */
+{% for function in ctx.hash_functions %}
+extern ERL_NIF_TERM {{ function.c_name }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+{% endfor %}
+
 static inline libdecaf_nif_hash_t *
 libdecaf_nif_hash_from_type(libdecaf_nif_hash_type_t type)
 {

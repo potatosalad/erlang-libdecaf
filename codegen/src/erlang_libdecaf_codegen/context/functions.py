@@ -18,6 +18,9 @@ class Function:
     returns: str
     doc: str
     group: str
+    family: str | None = None
+    operation: str | None = None
+    algorithms: tuple[str, ...] = ()
 
     @property
     def arity(self) -> int:
@@ -31,6 +34,154 @@ class Function:
     def spec(self) -> str:
         arguments = ", ".join(f"{argument.name} :: {argument.type}" for argument in self.arguments)
         return f"{self.name}({arguments}) -> {self.returns}"
+
+    @property
+    def c_name(self) -> str:
+        return f"libdecaf_nif_{self.name}_{self.arity}"
+
+    @property
+    def selects_algorithm(self) -> bool:
+        return self.operation in ("once", "init")
+
+    @property
+    def delegate(self) -> str:
+        operation = "" if self.operation == "once" else f"_{self.operation}"
+        return f"libdecaf_nif_{self.family}{operation}_{self.arity}"
+
+
+@dataclass(frozen=True)
+class HashGroup:
+    name: str
+    family: str
+    algorithms: tuple[str, ...]
+
+    @property
+    def state_type(self) -> str:
+        return f"{self.name}_state"
+
+    @property
+    def algorithm_type(self) -> str:
+        return f"{self.name}_algorithm"
+
+
+def hash_groups(schema: NIFSchema) -> tuple[HashGroup, ...]:
+    result = []
+    for family, profiles in (("hash", schema.hash), ("hash_xof", schema.xof)):
+        for group in sorted({profile.group for profile in profiles.values()}):
+            algorithms = tuple(sorted(name for name, profile in profiles.items() if profile.group == group))
+            result.append(HashGroup(f"{family}_{group}", family, algorithms))
+    return tuple(result)
+
+
+def hash_functions(schema: NIFSchema) -> tuple[Function, ...]:
+    result = []
+
+    def add(group, operation, arguments, returns, doc):
+        name = group.name + ("" if operation == "once" else f"_{operation}")
+        result.append(
+            Function(
+                name,
+                tuple(Argument(*arg) for arg in arguments),
+                returns,
+                doc,
+                f"{group.name} API",
+                group.family,
+                operation,
+                group.algorithms,
+            )
+        )
+
+    for group in hash_groups(schema):
+        state = f"{group.state_type}()"
+        algorithm = [("Algorithm", f"{group.algorithm_type}()")]
+        if group.family == "hash":
+            add(
+                group,
+                "once",
+                algorithm + [("Input", "iodata()")],
+                "binary()",
+                "Hash iodata using the selected algorithm's default digest length.",
+            )
+            add(
+                group,
+                "once",
+                algorithm + [("Input", "iodata()"), ("Length", "non_neg_integer()")],
+                "binary()",
+                "Hash iodata and return `Length` bytes, up to the selected algorithm's digest length.",
+            )
+            add(group, "init", algorithm, state, "Create an immutable native hash state for the selected algorithm.")
+            add(
+                group,
+                "update",
+                [("State", state), ("Input", "iodata()")],
+                state,
+                "Absorb iodata and return a new state in this hash group. The input state remains reusable.",
+            )
+            add(group, "final", [("State", state)], "binary()", "Return the algorithm's default digest without changing the state.")
+            add(
+                group,
+                "final",
+                [("State", state), ("Length", "non_neg_integer()")],
+                "binary()",
+                "Return `Length` digest bytes without changing the state. Length cannot exceed the algorithm's digest length.",
+            )
+            continue
+
+        basic = algorithm + [("Input", "iodata()"), ("Length", "non_neg_integer()")]
+        add(group, "once", basic, "binary()", "Hash iodata and return `Length` XOF bytes using default parameters.")
+        add(group, "init", algorithm, state, "Create an immutable native XOF state using default parameters.")
+        add(
+            group,
+            "update",
+            [("State", state), ("Input", "iodata()")],
+            state,
+            "Absorb iodata and return a new state in this XOF group. The input state remains reusable.",
+        )
+        add(
+            group,
+            "final",
+            [("State", state), ("Length", "non_neg_integer()")],
+            "binary()",
+            "Return `Length` XOF bytes without changing the state.",
+        )
+        profile = schema.xof[group.algorithms[0]]
+        if profile.cshake_rate is not None:
+            extra = [("FunctionName", "iodata()"), ("Customization", "iodata()")]
+            add(
+                group,
+                "once",
+                basic + extra,
+                "binary()",
+                "Hash iodata with SP 800-185 function-name and customization strings.\nBoth empty strings produce the corresponding SHAKE output.",
+            )
+            add(
+                group,
+                "init",
+                algorithm + extra,
+                state,
+                "Create a cSHAKE state with SP 800-185 function-name and customization strings.",
+            )
+        if profile.turbo_rate is not None:
+            extra = [("Domain", "1..127")]
+            add(group, "once", basic + extra, "binary()", "Hash iodata using a TurboSHAKE domain byte in `1..127`.")
+            add(group, "init", algorithm + extra, state, "Create a TurboSHAKE state with a domain byte in `1..127`.")
+        if profile.kt_rate is not None:
+            extra = [("Customization", "iodata()")]
+            add(
+                group,
+                "once",
+                basic + extra,
+                "binary()",
+                "Hash iodata using a KangarooTwelve customization string appended per RFC 9861.",
+            )
+            add(
+                group,
+                "final",
+                [("State", state), ("Length", "non_neg_integer()")] + extra,
+                "binary()",
+                "Finalize KangarooTwelve with a customization string. The input state remains reusable.",
+            )
+    return tuple(sorted(result, key=lambda function: (function.name, function.arity)))
 
 
 def functions(schema: NIFSchema) -> tuple[Function, ...]:
@@ -325,6 +476,7 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
     ]
     for name, arguments, returns, doc in hash_operations:
         add(name, arguments, returns, doc, "Hashing" if not name.startswith("hash_xof") else "Hash XOF")
+    result.extend(hash_functions(schema))
 
     rng = [
         (
@@ -391,10 +543,27 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
             "no_context | binary()",
             "Use `no_context` for pure Ed25519, or a context binary of at most 255 bytes.",
         ),
-        ("hash_state", "erlang:nif_resource()", "An immutable hash resource. Use it with the algorithm that created it."),
-        ("hash_xof_state", "erlang:nif_resource()", "An immutable native XOF resource."),
+        (
+            "hash_state",
+            " | ".join(f"{group.state_type}()" for group in hash_groups(schema) if group.family == "hash") or "none()",
+            "Any configured immutable hash state.",
+        ),
+        (
+            "hash_xof_state",
+            " | ".join(f"{group.state_type}()" for group in hash_groups(schema) if group.family == "hash_xof") or "none()",
+            "Any configured immutable XOF state.",
+        ),
         ("spongerng_state", "erlang:nif_resource()", "A sponge PRNG resource. Continue with each operation's returned state."),
     ]
+    for group in hash_groups(schema):
+        result.append((group.algorithm_type, " | ".join(group.algorithms), f"Algorithms in the `{group.name}` API group."))
+        result.append(
+            (
+                group.state_type,
+                "erlang:nif_resource()",
+                f"An opaque native `{group.name}` state. States from other groups are incompatible.",
+            )
+        )
     for curve, size in [("ed25519", 32), ("ed448", 57)]:
         for part, byte_count in [("secret_key", size), ("public_key", size), ("signature", size * 2)]:
             result.append(

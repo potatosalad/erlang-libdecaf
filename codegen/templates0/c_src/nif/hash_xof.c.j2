@@ -887,4 +887,29 @@ libdecaf_nif_hash_xof_output_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_
         return enif_make_binary(env, &trap->output_bin);
     }
 }
+
+/* Grouped entry points share the native engine and enforce group identity. */
+{% for function in ctx.xof_functions %}
+ERL_NIF_TERM
+{{ function.c_name }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    if (argc != {{ function.arity }}) {
+        return EXCP_NOTSUP(env, "argc must be {{ function.arity }}");
+    }
+{% if function.selects_algorithm %}
+    if ({% for algorithm in function.algorithms %}!enif_is_identical(argv[0], ATOM({{ algorithm }})){% if not loop.last %} &&
+        {% endif %}{% endfor %}) {
+        return EXCP_BADARG(env, "Algorithm must belong to the {{ function.group }}");
+    }
+{% else %}
+    libdecaf_nif_hash_xof_ctx_t *ctx = NULL;
+    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_xof_resource_type, (void **)&ctx) ||
+        ({% for algorithm in function.algorithms %}ctx->type != LIBDECAF_NIF_HASH_XOF_TYPE_{{ algorithm | upper }}{% if not loop.last %} &&
+         {% endif %}{% endfor %})) {
+        return EXCP_BADARG(env, "State must belong to the {{ function.group }}");
+    }
+{% endif %}
+    return {{ function.delegate }}(env, argc, argv);
+}
+{% endfor %}
 /* clang-format on */ //-
