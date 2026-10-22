@@ -1,15 +1,14 @@
 %%% % @format
-%% -*- mode: erlang; tab-width: 4; indent-tabs-mode: 1; st-rulers: [70] -*-
-%% vim: ts=4 sw=4 ft=erlang noet
-%%%-------------------------------------------------------------------
-%%% @author Andrew Bennett <potatosaladx@gmail.com>
-%%% @copyright 2015-2022, Andrew Bennett
-%%% @doc
-%%%
-%%% @end
-%%% Created :  30 Nov 2018 by Andrew Bennett <potatosaladx@gmail.com>
-%%%-------------------------------------------------------------------
 -module(libdecaf_spongerng).
+-moduledoc """
+Sponge-based pseudorandom byte generation.
+
+Initialize from seed bytes, a file, or `/dev/urandom`. Operations return new
+states; retain the returned state to advance the stream.
+""".
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2018-11-30", modified => "2026-10-22"}.
+-moduledoc #{copyright => "Andrew Bennett"}.
 
 %% API
 -export([

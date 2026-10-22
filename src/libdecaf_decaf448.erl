@@ -1,8 +1,10 @@
 %%% % @format
-%% Prime-order group operations. Points and scalars use canonical little-endian
-%% encodings. point_from_hash/1 consumes 112 uniformly distributed bytes,
-%% rather than hashing a message. Invalid arithmetic operands raise badarg.
 -module(libdecaf_decaf448).
+-moduledoc """
+Prime-order group operations. Points and scalars use canonical little-endian
+encodings. point_from_hash/1 consumes 112 uniformly distributed bytes,
+rather than hashing a message. Invalid arithmetic operands raise badarg.
+""".
 -export([
     identity/0,
     base/0,

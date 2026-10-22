@@ -1,15 +1,14 @@
 %%% % @format
-%% -*- mode: erlang; tab-width: 4; indent-tabs-mode: 1; st-rulers: [70] -*-
-%% vim: ts=4 sw=4 ft=erlang noet
-%%%-------------------------------------------------------------------
-%%% @author Andrew Bennett <potatosaladx@gmail.com>
-%%% @copyright 2015-2022, Andrew Bennett
-%%% @doc
-%%%
-%%% @end
-%%% Created :  29 Feb 2016 by Andrew Bennett <potatosaladx@gmail.com>
-%%%-------------------------------------------------------------------
 -module(libdecaf_curve25519).
+-moduledoc """
+Keypair helpers, Ed25519 signatures, and X25519 key agreement.
+
+Supports Ed25519, Ed25519ctx, Ed25519ph, streaming prehash signatures,
+and conversion between Ed25519 and X25519 key material.
+""".
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2016-02-29", modified => "2026-10-22"}.
+-moduledoc #{copyright => "Andrew Bennett"}.
 
 %% API
 % Keypair

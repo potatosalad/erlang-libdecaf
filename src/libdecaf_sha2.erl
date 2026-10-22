@@ -1,15 +1,13 @@
 %%% % @format
-%% -*- mode: erlang; tab-width: 4; indent-tabs-mode: 1; st-rulers: [70] -*-
-%% vim: ts=4 sw=4 ft=erlang noet
-%%%-------------------------------------------------------------------
-%%% @author Andrew Bennett <potatosaladx@gmail.com>
-%%% @copyright 2015-2022, Andrew Bennett
-%%% @doc
-%%%
-%%% @end
-%%% Created :  29 Feb 2016 by Andrew Bennett <potatosaladx@gmail.com>
-%%%-------------------------------------------------------------------
 -module(libdecaf_sha2).
+-moduledoc """
+SHA-512 hashing with one-shot and incremental APIs.
+
+Incremental operations return new hash states; the original states remain reusable.
+""".
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2016-02-29", modified => "2026-10-22"}.
+-moduledoc #{copyright => "Andrew Bennett"}.
 
 %% API
 -export([

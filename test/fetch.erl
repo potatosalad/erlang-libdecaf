@@ -1,15 +1,15 @@
 %%% % @format
-%% -*- mode: erlang; tab-width: 4; indent-tabs-mode: 1; st-rulers: [70] -*-
-%% vim: ts=4 sw=4 ft=erlang noet
-%%%-------------------------------------------------------------------
-%%% @author Andrew Bennett <potatosaladx@gmail.com>
-%%% @copyright 2014-2022, Andrew Bennett
-%%% @doc Based on core_http_get.erl
-%%% See [https://github.com/ninenines/erlang.mk/blob/0eb54a71605a955df14c5df793ebe676c86259f9/core/core.mk]
-%%% @end
-%%% Created :  13 Aug 2015 by Andrew Bennett <potatosaladx@gmail.com>
-%%%-------------------------------------------------------------------
 -module(fetch).
+-moduledoc """
+Download test-vector archives over HTTP, HTTPS, or FTP.
+
+Based on [`core_http_get.erl`][erlang-mk].
+
+[erlang-mk]: https://github.com/ninenines/erlang.mk/blob/0eb54a71605a955df14c5df793ebe676c86259f9/core/core.mk
+""".
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2015-08-13", modified => "2026-10-22"}.
+-moduledoc #{copyright => "Andrew Bennett"}.
 
 %% API
 -export([fetch/2]).

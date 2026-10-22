@@ -1,15 +1,13 @@
 %%% % @format
-%% -*- mode: erlang; tab-width: 4; indent-tabs-mode: 1; st-rulers: [70] -*-
-%% vim: ts=4 sw=4 ft=erlang noet
-%%%-------------------------------------------------------------------
-%%% @author Andrew Bennett <potatosaladx@gmail.com>
-%%% @copyright 2014-2022, Andrew Bennett
-%%% @doc
-%%%
-%%% @end
-%%% Created :  29 Feb 2016 by Andrew Bennett <potatosaladx@gmail.com>
-%%%-------------------------------------------------------------------
 -module(cfrg_SUITE).
+-moduledoc """
+Common Test coverage for Ed25519/Ed448 signatures and X25519/X448 key agreement.
+
+Includes published test vectors and regressions for key handling and input encodings.
+""".
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2016-02-29", modified => "2026-10-22"}.
+-moduledoc #{copyright => "Andrew Bennett"}.
 
 -include_lib("common_test/include/ct.hrl").
 

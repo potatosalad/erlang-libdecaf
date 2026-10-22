@@ -1,6 +1,8 @@
 %%% % @format
-%% Streaming prehash EdDSA. States are immutable, like the hash APIs.
 -module(libdecaf_eddsa).
+-moduledoc """
+Streaming prehash EdDSA. States are immutable, like the hash APIs.
+""".
 
 -export([sign_init/2, sign_init/3, sign_update/2, sign_final/1]).
 -export([verify_init/3, verify_init/4, verify_update/2, verify_final/1]).

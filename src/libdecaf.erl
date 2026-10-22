@@ -1,15 +1,14 @@
 %%% % @format
-%% -*- mode: erlang; tab-width: 4; indent-tabs-mode: 1; st-rulers: [70] -*-
-%% vim: ts=4 sw=4 ft=erlang noet
-%%%-------------------------------------------------------------------
-%%% @author Andrew Bennett <potatosaladx@gmail.com>
-%%% @copyright 2015-2022, Andrew Bennett
-%%% @doc
-%%%
-%%% @end
-%%% Created :  06 Feb 2016 by Andrew Bennett <potatosaladx@gmail.com>
-%%%-------------------------------------------------------------------
 -module(libdecaf).
+-moduledoc """
+Cryptographic primitives backed by libdecaf.
+
+Provides Ed25519/Ed448 signatures, X25519/X448 key agreement,
+Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, and the sponge PRNG.
+""".
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2016-02-06", modified => "2026-10-22"}.
+-moduledoc #{copyright => "Andrew Bennett"}.
 
 %% Prime-order groups (RFC 9496).
 -export([
