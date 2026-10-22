@@ -19,36 +19,7 @@
 extern "C" {
 #endif
 
-/* Atom Table */
-
-typedef struct libdecaf_nif_atom_table_s libdecaf_nif_atom_table_t;
-
-struct libdecaf_nif_atom_table_s {
-    ERL_NIF_TERM ATOM_badarg;
-    ERL_NIF_TERM ATOM_error;
-    ERL_NIF_TERM ATOM_false;
-    ERL_NIF_TERM ATOM_nil;
-    ERL_NIF_TERM ATOM_no_context;
-    ERL_NIF_TERM ATOM_notsup;
-    ERL_NIF_TERM ATOM_ok;
-    ERL_NIF_TERM ATOM_sha2_512;
-    ERL_NIF_TERM ATOM_sha3_224;
-    ERL_NIF_TERM ATOM_sha3_256;
-    ERL_NIF_TERM ATOM_sha3_384;
-    ERL_NIF_TERM ATOM_sha3_512;
-    ERL_NIF_TERM ATOM_keccak_224;
-    ERL_NIF_TERM ATOM_keccak_256;
-    ERL_NIF_TERM ATOM_keccak_384;
-    ERL_NIF_TERM ATOM_keccak_512;
-    ERL_NIF_TERM ATOM_shake128;
-    ERL_NIF_TERM ATOM_shake256;
-    ERL_NIF_TERM ATOM_true;
-    ERL_NIF_TERM ATOM_undefined;
-};
-
-extern libdecaf_nif_atom_table_t *libdecaf_nif_atom_table;
-
-#define ATOM(Id) libdecaf_nif_atom_table->ATOM_##Id
+#include "libdecaf_nif_atoms.h"
 
 /* Resource Types and Traps */
 

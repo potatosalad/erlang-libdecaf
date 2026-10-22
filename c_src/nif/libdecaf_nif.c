@@ -21,10 +21,6 @@ ErlNifResourceType *libdecaf_nif_ed448_keypair_resource_type = NULL;
 ErlNifResourceType *libdecaf_nif_hash_resource_type = NULL;
 ErlNifResourceType *libdecaf_nif_xof_resource_type = NULL;
 
-static libdecaf_nif_atom_table_t libdecaf_nif_atom_table_internal;
-
-libdecaf_nif_atom_table_t *libdecaf_nif_atom_table = &libdecaf_nif_atom_table_internal;
-
 /* Resource Type Functions (Declarations) */
 
 static void libdecaf_nif_trap_dtor(ErlNifEnv *caller_env, void *obj);
@@ -312,40 +308,9 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"spongerng_csprng_next", 2, libdecaf_nif_spongerng_csprng_next_2, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"spongerng_csprng_stir", 2, libdecaf_nif_spongerng_csprng_stir_2, ERL_NIF_DIRTY_JOB_CPU_BOUND}};
 
-static void libdecaf_nif_make_atoms(ErlNifEnv *env);
 static int libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info);
 static int libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data, ERL_NIF_TERM load_info);
 static void libdecaf_nif_unload(ErlNifEnv *env, void *priv_data);
-
-static void
-libdecaf_nif_make_atoms(ErlNifEnv *env)
-{
-#define MAKE_ATOM(Id, Value)                                                                                                       \
-    {                                                                                                                              \
-        libdecaf_nif_atom_table->ATOM_##Id = enif_make_atom(env, Value);                                                           \
-    }
-    MAKE_ATOM(badarg, "badarg");
-    MAKE_ATOM(error, "error");
-    MAKE_ATOM(false, "false");
-    MAKE_ATOM(nil, "nil");
-    MAKE_ATOM(no_context, "no_context");
-    MAKE_ATOM(notsup, "notsup");
-    MAKE_ATOM(ok, "ok");
-    MAKE_ATOM(sha2_512, "sha2_512");
-    MAKE_ATOM(sha3_224, "sha3_224");
-    MAKE_ATOM(sha3_256, "sha3_256");
-    MAKE_ATOM(sha3_384, "sha3_384");
-    MAKE_ATOM(sha3_512, "sha3_512");
-    MAKE_ATOM(keccak_224, "keccak_224");
-    MAKE_ATOM(keccak_256, "keccak_256");
-    MAKE_ATOM(keccak_384, "keccak_384");
-    MAKE_ATOM(keccak_512, "keccak_512");
-    MAKE_ATOM(shake128, "shake128");
-    MAKE_ATOM(shake256, "shake256");
-    MAKE_ATOM(true, "true");
-    MAKE_ATOM(undefined, "undefined");
-#undef MAKE_ATOM
-}
 
 static int
 libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)

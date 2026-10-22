@@ -1,0 +1,36 @@
+#ifndef LIBDECAF_NIF_ATOMS_H
+#define LIBDECAF_NIF_ATOMS_H
+
+#include <erl_nif.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Type Definitions */
+
+typedef struct libdecaf_nif_atom_table_s libdecaf_nif_atom_table_t;
+
+struct libdecaf_nif_atom_table_s {
+    /* clang-format off */ //-
+{% for atom in ctx.nif.atoms_list %}
+    ERL_NIF_TERM ATOM_{{ atom.name }};
+{% endfor %}
+    /* clang-format on */ //-
+};
+
+/* Global Variables */
+
+extern libdecaf_nif_atom_table_t *libdecaf_nif_atom_table;
+
+#define ATOM(Id) libdecaf_nif_atom_table->ATOM_##Id
+
+/* Function Declarations */
+
+extern void libdecaf_nif_make_atoms(ErlNifEnv *env);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
