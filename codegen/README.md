@@ -33,8 +33,8 @@ content signature applied after formatting, and repeated generation is stable.
 
 The first stage generates `c_src/nif/hash.{c,h}`, the XOF family implementations
 under `c_src/nif/hash_xof/`, and the native registration table in
-`c_src/nif/libdecaf_nif.c`. `c_src/nif/hash_xof.{c,h}` only forwards the existing
-generic API to these families.
+`c_src/nif/libdecaf_nif.c`. XOFs expose only grouped entry points; there is
+no generic XOF dispatch layer.
 
 `nif.hash` and `nif.xof` are mappings from algorithm names to metadata. Each
 entry gives its API `group`, upstream context struct, and operation symbols. Fixed-output hashes
@@ -50,22 +50,23 @@ follow the [Keccak reference, sections 1.3–1.4](https://keccak.team/files/Kecc
 `cshake128` and `cshake256` set `cshake_rate` to 168 and 136 bytes. They use
 SHAKE initialization when both additional strings are empty, or SP 800-185
 `bytepad(encode_string(N) || encode_string(S), rate)` with padding `0x04`
-otherwise. `hash_xof/5` takes `(Type, Input, Length, FunctionName, Customization)`;
-`hash_xof_init/3` takes `(Type, FunctionName, Customization)`. Prefix absorption
+otherwise. `hash_xof_cshake/5` takes `(Type, Input, Length, FunctionName, Customization)`;
+`hash_xof_cshake_init/3` takes `(Type, FunctionName, Customization)`. Prefix absorption
 uses the same yielding paths as message absorption, including during initialization.
 
 `turboshake128` and `turboshake256` set `turbo_rate` to 168 and 136 bytes.
-They use the last 12 Keccak-p rounds as specified in RFC 9861. `hash_xof/3`
-and `hash_xof_init/1` use domain `0x1f`; `hash_xof/4` and `hash_xof_init/2`
+They use the last 12 Keccak-p rounds as specified in RFC 9861. `hash_xof_turboshake/3`
+and `hash_xof_turboshake_init/1` use domain `0x1f`; `hash_xof_turboshake/4`
+and `hash_xof_turboshake_init/2`
 accept an explicit domain byte in `1..127`.
 
 `kt128` and `kt256` set `kt_rate` to 168 and 136 bytes. The generated
 `hash_xof/hash_xof_kt.c` implements RFC 9861 tree hashing with 8192-byte chunks,
-32/64-byte chaining values, and two fixed-size sponge states. `hash_xof/4`
+32/64-byte chaining values, and two fixed-size sponge states. `hash_xof_kt/4`
 takes a customization string as its fourth argument for KT algorithms.
-Incremental hashing uses `hash_xof_init/1`, `hash_xof_update/2`, and
-`hash_xof_final/3`, which appends customization and its RFC length encoding.
-The existing `hash_xof/3` and `hash_xof_final/2` use empty customization.
+Incremental hashing uses `hash_xof_kt_init/1`, `hash_xof_kt_update/2`, and
+`hash_xof_kt_final/3`, which appends customization and its RFC length encoding.
+`hash_xof_kt/3` and `hash_xof_kt_final/2` use empty customization.
 
 The generated fixed-output C contains typed upstream adapters and algorithm
 tables. Each configured group generates
@@ -96,10 +97,11 @@ integer domain in `hash_xof_turboshake/4` and `hash_xof_turboshake_init/2`.
 KT accepts customization iodata in `hash_xof_kt/4` and `hash_xof_kt_final/3`.
 Each group also provides an overload using its default parameters.
 
-`templates0/src/libdecaf.erl.j2` generates the public Erlang API. Its hash
-functions delegate directly to the generic NIFs. Algorithm types still come
-from the same configuration; state types are opaque native resource handles.
-These existing generic convenience APIs remain available alongside the grouped NIFs.
+`templates0/src/libdecaf.erl.j2` generates the public Erlang API. Its fixed-output hash
+functions delegate to the generic hash NIFs. Its grouped XOF functions, docs,
+and specs use the same metadata as the NIF interface, and its state types alias
+the corresponding native opaque types. The generic `hash_xof`, `hash_xof_init`,
+`hash_xof_update`, and `hash_xof_final` APIs have been removed from both modules.
 
 Dialyzer distinguishes the opaque state types and rejects calls that mix groups.
 The current Eqwalizer treats these resource-backed opaque types structurally;

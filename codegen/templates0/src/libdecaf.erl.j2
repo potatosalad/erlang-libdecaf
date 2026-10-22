@@ -1,5 +1,4 @@
 ~J{ set hash_algorithms = ctx.schema.nif.hash | sort }.
-~J{ set xof_algorithms = ctx.schema.nif.xof | sort }.
 %%% % @format
 -module(libdecaf).
 -moduledoc """
@@ -22,26 +21,18 @@ Keccak XOFs, TurboSHAKE, KangarooTwelve, and the sponge PRNG.
     hash_init/1,
     hash_update/2
 ]).
-%% Hash XOF API
+%% Grouped Hash XOF API
 -export([
-    hash_xof/3,
-    hash_xof/4,
-    hash_xof/5,
-    hash_xof_final/2,
-    hash_xof_final/3,
-    hash_xof_init/1,
-    hash_xof_init/2,
-    hash_xof_init/3,
-    hash_xof_update/2
+~J{ for function in ctx.xof_functions }.
+    ~J< function.name >./~J< function.arity >.~J< ',' if not loop.last else '' >.
+~J{ endfor }.
 ]).
 -export_type([
     hash_algorithm/0,
     hash_state/0,
-    hash_xof_algorithm/0,
-    hash_xof_custom_algorithm/0,
-    hash_xof_domain_algorithm/0,
-    hash_xof_state/0,
-    hash_xof_tree_algorithm/0
+~J{ for name, definition, doc in ctx.types if name.startswith('hash_xof_') }.
+    ~J< name >./0~J< ',' if not loop.last else '' >.
+~J{ endfor }.
 ]).
 
 % %% Prime-order groups (RFC 9496).
@@ -242,43 +233,13 @@ Updates return new resources; finalization leaves the input resource reusable.
 """.
 -opaque hash_state() :: libdecaf_nif:hash_state().
 
+~J{ for name, definition, doc in ctx.types if name.startswith('hash_xof_') }.
 -doc """
-Supported extendable-output hash algorithms.
-
-`keccak_xof_128` and `keccak_xof_256` use the original Keccak padding with
-capacities of 256 and 512 bits, respectively. `shake128` and `shake256` use
-the FIPS 202 domain separation suffix.
-`cshake128` and `cshake256` support SP 800-185 function-name and customization
-strings; empty strings for both make them equivalent to SHAKE.
-`turboshake128` and `turboshake256` use the last 12 Keccak-p rounds.
-`kt128` and `kt256` use RFC 9861 KangarooTwelve tree hashing.
+~J< doc >.
 """.
--type hash_xof_algorithm() ::
-~J{ for name in xof_algorithms }.
-    ~J< '| ' if not loop.first else '' >.~J< name >.~J< '.' if loop.last else '' >.
+-type ~J< name >.() :: libdecaf_nif:~J< name >.().
+
 ~J{ endfor }.
-
--doc """
-cSHAKE algorithms accepting function-name and customization strings.
-""".
--type hash_xof_custom_algorithm() :: libdecaf_nif:hash_xof_custom_algorithm().
-
--doc """
-TurboSHAKE algorithms accepting an explicit domain byte.
-""".
--type hash_xof_domain_algorithm() :: libdecaf_nif:hash_xof_domain_algorithm().
-
--doc """
-An immutable native XOF resource containing its algorithm and context.
-Updates return new resources; finalization leaves the input resource reusable.
-""".
--opaque hash_xof_state() :: libdecaf_nif:hash_xof_state().
-
--doc """
-KangarooTwelve algorithms accepting a customization string at finalization.
-""".
--type hash_xof_tree_algorithm() :: libdecaf_nif:hash_xof_tree_algorithm().
-
 %%%=============================================================================
 %%% Hash API functions
 %%%=============================================================================
@@ -352,140 +313,19 @@ hash_update(State, Data) ->
     libdecaf_nif:hash_update(State, Data).
 
 %%%=============================================================================
-%%% Hash XOF API functions
+%%% Grouped Hash XOF API functions
 %%%=============================================================================
 
+~J{ for function in ctx.xof_functions }.
 -doc """
-Hash iodata with an extendable-output function and return `Length` bytes.
-The output length may be any nonnegative number of bytes.
-For cSHAKE, this uses empty function-name and customization strings.
-TurboSHAKE uses its default domain byte `16#1f`.
-KangarooTwelve uses an empty customization string.
-
-```erlang
-libdecaf:hash_xof(shake256, <<"abc">>, 64).
-libdecaf:hash_xof(keccak_xof_128, <<"abc">>, 64).
-```
+~J< function.doc | wordwrap(110, break_long_words=false) >.
 """.
--doc #{group => <<"Hash XOF API">>}.
--spec hash_xof(Type, Data, Length) -> Output when
-    Type :: hash_xof_algorithm(), Data :: iodata(), Length :: non_neg_integer(), Output :: binary().
-hash_xof(Type, Data, Length) ->
-    libdecaf_nif:hash_xof(Type, Data, Length).
+-doc #{group => "~J< function.group >."}.
+-spec ~J< function.spec >..
+~J< function.name >.(~J< function.arguments | map(attribute='name') | join(', ') >.) ->
+    libdecaf_nif:~J< function.name >.(~J< function.arguments | map(attribute='name') | join(', ') >.).
 
--doc """
-Hash iodata with an algorithm-specific parameter and return `Length` bytes.
-For TurboSHAKE, `Parameter` is a domain byte in `1..127`.
-For KangarooTwelve, `Parameter` is a customization string accepting iodata.
-
-```erlang
-libdecaf:hash_xof(turboshake128, <<"abc">>, 32, 16#1f).
-libdecaf:hash_xof(kt256, <<"abc">>, 64, <<"my protocol">>).
-```
-""".
--doc #{group => <<"Hash XOF API">>}.
--spec hash_xof(Type, Data, Length, Parameter) -> Output when
-    Type :: hash_xof_domain_algorithm() | hash_xof_tree_algorithm(), Data :: iodata(), Length :: non_neg_integer(),
-    Parameter :: 1..127 | iodata(), Output :: binary().
-hash_xof(Type, Data, Length, Parameter) ->
-    libdecaf_nif:hash_xof(Type, Data, Length, Parameter).
-
--doc """
-Hash iodata with cSHAKE and return `Length` bytes.
-`FunctionName` is the SP 800-185 function-name string, normally empty.
-`Customization` selects an application-specific domain. Both accept iodata.
-If both are empty, the result equals the corresponding SHAKE output.
-
-```erlang
-libdecaf:hash_xof(cshake128, <<0, 1, 2, 3>>, 32, <<>>, <<"Email Signature">>).
-```
-""".
--doc #{group => <<"Hash XOF API">>}.
--spec hash_xof(Type, Data, Length, FunctionName, Customization) -> Output when
-    Type :: hash_xof_custom_algorithm(), Data :: iodata(), Length :: non_neg_integer(),
-    FunctionName :: iodata(), Customization :: iodata(), Output :: binary().
-hash_xof(Type, Data, Length, FunctionName, Customization) ->
-    libdecaf_nif:hash_xof(Type, Data, Length, FunctionName, Customization).
-
--doc """
-Finalize an extendable-output hash state and return `Length` bytes.
-The input state remains reusable. Repeated finalization starts at the same
-position; request a larger length to obtain a longer output prefix.
-""".
--doc #{group => <<"Hash XOF API">>}.
--spec hash_xof_final(State, Length) -> Output when
-    State :: hash_xof_state(), Length :: non_neg_integer(), Output :: binary().
-hash_xof_final(State, Length) ->
-    libdecaf_nif:hash_xof_final(State, Length).
-
--doc """
-Finalize a KangarooTwelve state with a customization string and return `Length` bytes.
-Customization is appended after the message as specified in RFC 9861.
-The input state remains reusable with the same or a different customization string.
-
-```erlang
-S0 = libdecaf:hash_xof_init(kt128),
-S1 = libdecaf:hash_xof_update(S0, <<"abc">>),
-Output = libdecaf:hash_xof_final(S1, 32, <<"my protocol">>).
-```
-""".
--doc #{group => <<"Hash XOF API">>}.
--spec hash_xof_final(State, Length, Customization) -> Output when
-    State :: hash_xof_state(), Length :: non_neg_integer(), Customization :: iodata(), Output :: binary().
-hash_xof_final(State, Length, Customization) ->
-    libdecaf_nif:hash_xof_final(State, Length, Customization).
-
--doc """
-Initialize an incremental extendable-output hash.
-
-```erlang
-S0 = libdecaf:hash_xof_init(shake256),
-S1 = libdecaf:hash_xof_update(S0, <<"abc">>),
-Output = libdecaf:hash_xof_final(S1, 64).
-```
-""".
--doc #{group => <<"Hash XOF API">>}.
--spec hash_xof_init(Type) -> State when Type :: hash_xof_algorithm(), State :: hash_xof_state().
-hash_xof_init(Type) ->
-    libdecaf_nif:hash_xof_init(Type).
-
--doc """
-Initialize TurboSHAKE with a domain byte in `1..127`.
-""".
--doc #{group => <<"Hash XOF API">>}.
--spec hash_xof_init(Type, Domain) -> State when
-    Type :: hash_xof_domain_algorithm(), Domain :: 1..127, State :: hash_xof_state().
-hash_xof_init(Type, Domain) ->
-    libdecaf_nif:hash_xof_init(Type, Domain).
-
--doc """
-Initialize cSHAKE with function-name and customization strings.
-The native state retains both inputs, including when initialization yields.
-Continue with `hash_xof_update/2` and `hash_xof_final/2`.
-
-```erlang
-S0 = libdecaf:hash_xof_init(cshake256, <<>>, <<"Email Signature">>),
-S1 = libdecaf:hash_xof_update(S0, <<0, 1, 2, 3>>),
-Output = libdecaf:hash_xof_final(S1, 64).
-```
-""".
--doc #{group => <<"Hash XOF API">>}.
--spec hash_xof_init(Type, FunctionName, Customization) -> State when
-    Type :: hash_xof_custom_algorithm(), FunctionName :: iodata(), Customization :: iodata(),
-    State :: hash_xof_state().
-hash_xof_init(Type, FunctionName, Customization) ->
-    libdecaf_nif:hash_xof_init(Type, FunctionName, Customization).
-
--doc """
-Absorb iodata and return a new extendable-output hash state.
-The original state remains reusable; continue with the returned state.
-""".
--doc #{group => <<"Hash XOF API">>}.
--spec hash_xof_update(State, Data) -> NewState when
-    State :: hash_xof_state(), Data :: iodata(), NewState :: hash_xof_state().
-hash_xof_update(State, Data) ->
-    libdecaf_nif:hash_xof_update(State, Data).
-
+~J{ endfor }.
 % %%%===================================================================
 % %%% API functions
 % %%%===================================================================

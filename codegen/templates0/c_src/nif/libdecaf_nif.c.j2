@@ -4,7 +4,9 @@
 #include "ed25519.h"
 #include "ed448.h"
 #include "hash.h"
-#include "hash_xof.h"
+{% for group in ctx.xof_groups %}
+#include "hash_xof/{{ group.name }}.h"
+{% endfor %}
 #include "groups.h"
 
 #include <unistd.h>
@@ -163,22 +165,13 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"x25519", 2, libdecaf_nif_x25519_2, ERL_NIF_NORMAL_JOB_BOUND},
     {"x448_derive_public_key", 1, libdecaf_nif_x448_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"x448", 2, libdecaf_nif_x448_2, ERL_NIF_NORMAL_JOB_BOUND},
-    /* Generic hash and XOF APIs. */
+    /* Generic fixed-output hash API. */
     {"hash", 2, libdecaf_nif_hash_2, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash", 3, libdecaf_nif_hash_3, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_final", 1, libdecaf_nif_hash_final_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_final", 2, libdecaf_nif_hash_final_2, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_init", 1, libdecaf_nif_hash_init_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_update", 2, libdecaf_nif_hash_update_2, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_xof", 3, libdecaf_nif_hash_xof_3, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_xof", 4, libdecaf_nif_hash_xof_4, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_xof", 5, libdecaf_nif_hash_xof_5, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_xof_final", 2, libdecaf_nif_hash_xof_final_2, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_xof_final", 3, libdecaf_nif_hash_xof_final_3, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_xof_init", 1, libdecaf_nif_hash_xof_init_1, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_xof_init", 2, libdecaf_nif_hash_xof_init_2, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_xof_init", 3, libdecaf_nif_hash_xof_init_3, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_xof_update", 2, libdecaf_nif_hash_xof_update_2, ERL_NIF_NORMAL_JOB_BOUND},
     /* Algorithm-specific hash and XOF APIs. */
 {% for function in ctx.nif.functions if function.family is not none %}
     {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_NORMAL_JOB_BOUND},
@@ -215,8 +208,10 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     LOAD_RESOURCE_TYPE(ed448_keypair);
     LOAD_RESOURCE_TYPE(hash);
 #undef LOAD_RESOURCE_TYPE
-    if (libdecaf_nif_hash_xof_load(env) != 0)
+{% for group in ctx.xof_groups %}
+    if (libdecaf_nif_{{ group.name }}_load(env) != 0)
         return -1;
+{% endfor %}
     if (libdecaf_nif_groups_load(env) != 0)
         return -1;
     /* Initialize common atoms */
@@ -244,8 +239,10 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
     UPGRADE_RESOURCE_TYPE(ed448_keypair);
     UPGRADE_RESOURCE_TYPE(hash);
 #undef UPGRADE_RESOURCE_TYPE
-    if (libdecaf_nif_hash_xof_load(env) != 0)
+{% for group in ctx.xof_groups %}
+    if (libdecaf_nif_{{ group.name }}_load(env) != 0)
         return -1;
+{% endfor %}
     if (libdecaf_nif_groups_load(env) != 0)
         return -1;
     /* Initialize common atoms */

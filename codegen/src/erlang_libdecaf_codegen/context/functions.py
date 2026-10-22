@@ -402,80 +402,9 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
             "binary()",
             "Return Length digest bytes without changing the input state. The length must not exceed the configured maximum.",
         ),
-        (
-            "hash_xof",
-            [("Type", "hash_xof_algorithm()"), ("Input", "iodata()"), ("Length", "non_neg_integer()")],
-            "binary()",
-            "Hash iodata with an extendable-output function and return Length bytes.",
-        ),
-        (
-            "hash_xof",
-            [
-                ("Type", "hash_xof_domain_algorithm() | hash_xof_tree_algorithm()"),
-                ("Input", "iodata()"),
-                ("Length", "non_neg_integer()"),
-                ("Parameter", "1..127 | iodata()"),
-            ],
-            "binary()",
-            "Hash iodata with a TurboSHAKE domain byte in 1..127 or a KangarooTwelve customization string. Length is in bytes.",
-        ),
-        (
-            "hash_xof",
-            [
-                ("Type", "hash_xof_custom_algorithm()"),
-                ("Input", "iodata()"),
-                ("Length", "non_neg_integer()"),
-                ("FunctionName", "iodata()"),
-                ("Customization", "iodata()"),
-            ],
-            "binary()",
-            "Hash iodata with cSHAKE using function-name and customization strings. Length is in bytes.\n"
-            "Empty strings for both parameters produce the corresponding SHAKE output.",
-        ),
-        (
-            "hash_xof_init",
-            [("Type", "hash_xof_algorithm()")],
-            "hash_xof_state()",
-            "Create an immutable native XOF state. The resource retains the selected algorithm.",
-        ),
-        (
-            "hash_xof_init",
-            [("Type", "hash_xof_domain_algorithm()"), ("Domain", "1..127")],
-            "hash_xof_state()",
-            "Create an immutable TurboSHAKE state with an explicit domain byte in 1..127.",
-        ),
-        (
-            "hash_xof_init",
-            [
-                ("Type", "hash_xof_custom_algorithm()"),
-                ("FunctionName", "iodata()"),
-                ("Customization", "iodata()"),
-            ],
-            "hash_xof_state()",
-            "Create an immutable cSHAKE state with function-name and customization strings.\n"
-            "The state retains the customization for subsequent updates and finalization.",
-        ),
-        (
-            "hash_xof_update",
-            [("State", "hash_xof_state()"), ("Input", "iodata()")],
-            "hash_xof_state()",
-            "Absorb iodata and return a new native XOF state. The input state remains reusable.",
-        ),
-        (
-            "hash_xof_final",
-            [("State", "hash_xof_state()"), ("Length", "non_neg_integer()")],
-            "binary()",
-            "Return Length XOF bytes without changing the input state. Repeated finalization returns the same output prefix.",
-        ),
-        (
-            "hash_xof_final",
-            [("State", "hash_xof_state()"), ("Length", "non_neg_integer()"), ("Customization", "iodata()")],
-            "binary()",
-            "Finalize a KangarooTwelve state with a customization string. The input state remains reusable.",
-        ),
     ]
     for name, arguments, returns, doc in hash_operations:
-        add(name, arguments, returns, doc, "Hashing" if not name.startswith("hash_xof") else "Hash XOF")
+        add(name, arguments, returns, doc, "Hashing")
     result.extend(hash_functions(schema))
 
     rng = [
@@ -521,23 +450,7 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
 def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
     result = [
         ("hash_algorithm", " | ".join(sorted(schema.hash)) or "none()", "Configured fixed-output hash algorithms."),
-        ("hash_xof_algorithm", " | ".join(sorted(schema.xof)) or "none()", "Configured extendable-output hash algorithms."),
-        (
-            "hash_xof_custom_algorithm",
-            " | ".join(sorted(name for name, algorithm in schema.xof.items() if algorithm.cshake_rate is not None)) or "none()",
-            "Configured cSHAKE algorithms accepting function-name and customization strings.",
-        ),
-        (
-            "hash_xof_domain_algorithm",
-            " | ".join(sorted(name for name, algorithm in schema.xof.items() if algorithm.turbo_rate is not None)) or "none()",
-            "TurboSHAKE algorithms accepting an explicit domain byte.",
-        ),
         ("prehashed", "0 | 1", "Select an ordinary message (`0`) or an already computed 64-byte prehash (`1`)."),
-        (
-            "hash_xof_tree_algorithm",
-            " | ".join(sorted(name for name, algorithm in schema.xof.items() if algorithm.kt_rate is not None)) or "none()",
-            "KangarooTwelve algorithms accepting a customization string at finalization.",
-        ),
         (
             "ed25519_context",
             "no_context | binary()",
@@ -547,11 +460,6 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
             "hash_state",
             " | ".join(f"{group.state_type}()" for group in hash_groups(schema) if group.family == "hash") or "none()",
             "Any configured immutable hash state.",
-        ),
-        (
-            "hash_xof_state",
-            " | ".join(f"{group.state_type}()" for group in hash_groups(schema) if group.family == "hash_xof") or "none()",
-            "Any configured immutable XOF state.",
         ),
         ("spongerng_state", "erlang:nif_resource()", "A sponge PRNG resource. Continue with each operation's returned state."),
     ]

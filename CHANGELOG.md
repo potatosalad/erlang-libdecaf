@@ -11,8 +11,8 @@
   * RFC 9861 KangarooTwelve KT128 and KT256 with one-shot and incremental customization support.
   * RFC 9861 TurboSHAKE128 and TurboSHAKE256 with configurable domain separation bytes.
   * cSHAKE128 and cSHAKE256 with SP 800-185 function-name and customization strings.
-    * `libdecaf:hash_xof/5` and `libdecaf:hash_xof_init/3`, using `cshake128` or `cshake256`.
-  * Original Keccak-XOF-128 and Keccak-XOF-256 through `libdecaf:hash_xof/3` and the incremental XOF API.
+    * `libdecaf:hash_xof_cshake/5` and `libdecaf:hash_xof_cshake_init/3`, using `cshake128` or `cshake256`.
+  * Original Keccak-XOF-128 and Keccak-XOF-256 through `libdecaf:hash_xof_keccak/3` and the incremental XOF API.
     * Algorithm names: `keccak_xof_128` and `keccak_xof_256`.
   * Streaming Ed25519ph and Ed448ph signing and verification with immutable states.
     * `libdecaf_eddsa:sign_init/2`, `libdecaf_eddsa:sign_init/3`
@@ -24,6 +24,7 @@
     * `libdecaf_ristretto255` and `libdecaf_decaf448` point and scalar APIs.
     * Uniform byte mapping and precomputed multiplication.
 * Enhancements
+  * Replace generic XOF entry points with grouped APIs in `libdecaf` and `libdecaf_nif`.
   * Split XOF families into independent native implementations with dedicated states and trapping lifecycles.
   * Generate grouped hash and XOF NIF APIs with opaque state types, explicit customization parameters, and runtime group checks.
   * Upstream update to [`ed448goldilocks` version `features-20261022-v1.0.5`](https://github.com/potatosalad/ed448goldilocks/tree/features-20261022-v1.0.5), based on tag `v1.0.5` (vendored as part of `libdecaf` app).

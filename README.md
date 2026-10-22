@@ -109,30 +109,30 @@ S0 = libdecaf_nif:hash_sha3_init(sha3_256),
 S1 = libdecaf_nif:hash_sha3_update(S0, <<"abc">>),
 Digest = libdecaf_nif:hash_sha3_final(S1).
 
-X0 = libdecaf_nif:hash_xof_sha3_init(shake128),
-X1 = libdecaf_nif:hash_xof_sha3_update(X0, <<"abc">>),
-Output = libdecaf_nif:hash_xof_sha3_final(X1, 32).
+X0 = libdecaf:hash_xof_sha3_init(shake128),
+X1 = libdecaf:hash_xof_sha3_update(X0, <<"abc">>),
+Output = libdecaf:hash_xof_sha3_final(X1, 32).
 
 %% cSHAKE takes function-name and customization strings.
-C0 = libdecaf_nif:hash_xof_cshake_init(cshake128, <<>>, <<"example">>),
-C1 = libdecaf_nif:hash_xof_cshake_update(C0, <<"abc">>),
-CustomOutput = libdecaf_nif:hash_xof_cshake_final(C1, 32).
+C0 = libdecaf:hash_xof_cshake_init(cshake128, <<>>, <<"example">>),
+C1 = libdecaf:hash_xof_cshake_update(C0, <<"abc">>),
+CustomOutput = libdecaf:hash_xof_cshake_final(C1, 32).
 
 %% TurboSHAKE takes an integer domain byte in 1..127.
-Turbo = libdecaf_nif:hash_xof_turboshake(turboshake128, <<"abc">>, 32, 31).
+Turbo = libdecaf:hash_xof_turboshake(turboshake128, <<"abc">>, 32, 31).
 
 %% KT customization is supplied at finalization, after the message.
-K0 = libdecaf_nif:hash_xof_kt_init(kt128),
-K1 = libdecaf_nif:hash_xof_kt_update(K0, <<"abc">>),
-TreeOutput = libdecaf_nif:hash_xof_kt_final(K1, 32, <<"example">>).
+K0 = libdecaf:hash_xof_kt_init(kt128),
+K1 = libdecaf:hash_xof_kt_update(K0, <<"abc">>),
+TreeOutput = libdecaf:hash_xof_kt_final(K1, 32, <<"example">>).
 ```
 
 States are immutable native resources with an opaque type for each group, such as
-`libdecaf_nif:hash_xof_sha3_state()` and `libdecaf_nif:hash_xof_kt_state()`.
+`libdecaf:hash_xof_sha3_state()` and `libdecaf:hash_xof_kt_state()`.
 Dialyzer rejects calls that mix groups, and the NIF checks them at runtime.
 Eqwalizer checks the algorithm and parameter types, but currently does not
-distinguish these opaque resource types. The existing generic `libdecaf:hash*`
-convenience functions remain available.
+distinguish these opaque resource types. Grouped XOF APIs are available from
+both `libdecaf` and `libdecaf_nif`; generic `hash_xof*` entry points are removed.
 
 ### ECDH
 

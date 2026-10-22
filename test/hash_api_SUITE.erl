@@ -13,12 +13,13 @@ Grouped native hash APIs, parameter contracts, and state isolation.
     fixed_hashes/1,
     group_isolation/1,
     parameters/1,
+    public_api/1,
     trapping/1,
     xofs/1
 ]).
 
 all() ->
-    [fixed_hashes, xofs, parameters, group_isolation, trapping, cancellation].
+    [fixed_hashes, xofs, parameters, group_isolation, public_api, trapping, cancellation].
 
 fixed_hashes(_) ->
     lists:foreach(
@@ -87,7 +88,7 @@ parameters(_) ->
     Message = binary:copy(<<16#A3>>, 65537),
     lists:foreach(
         fun(Algorithm) ->
-            Expected = libdecaf:hash_xof(
+            Expected = libdecaf:hash_xof_cshake(
                 Algorithm, Message, 65537, <<"Function">>, <<"Customization">>
             ),
             Expected = libdecaf_nif:hash_xof_cshake(
@@ -104,7 +105,7 @@ parameters(_) ->
     ),
     lists:foreach(
         fun(Algorithm) ->
-            Expected = libdecaf:hash_xof(Algorithm, Message, 65537, 127),
+            Expected = libdecaf:hash_xof_turboshake(Algorithm, Message, 65537, 127),
             Expected = libdecaf_nif:hash_xof_turboshake(Algorithm, Message, 65537, 127),
             State = libdecaf_nif:hash_xof_turboshake_init(Algorithm, 127),
             Updated = libdecaf_nif:hash_xof_turboshake_update(State, Message),
@@ -120,7 +121,7 @@ parameters(_) ->
     ),
     lists:foreach(
         fun(Algorithm) ->
-            Expected = libdecaf:hash_xof(Algorithm, Message, 65537, <<"Customization">>),
+            Expected = libdecaf:hash_xof_kt(Algorithm, Message, 65537, <<"Customization">>),
             Expected = libdecaf_nif:hash_xof_kt(Algorithm, Message, 65537, <<"Customization">>),
             State = libdecaf_nif:hash_xof_kt_init(Algorithm),
             Updated = libdecaf_nif:hash_xof_kt_update(State, Message),
@@ -129,6 +130,48 @@ parameters(_) ->
             badarg(fun() -> libdecaf_nif:hash_xof_kt_final(Updated, 32, 31) end)
         end,
         [kt128, kt256]
+    ).
+
+public_api(_) ->
+    lists:foreach(
+        fun(Module) ->
+            Exports = Module:module_info(exports),
+            [] = [
+                Export
+             || Export = {Name, _} <- Exports,
+                lists:member(Name, [hash_xof, hash_xof_init, hash_xof_update, hash_xof_final])
+            ]
+        end,
+        [libdecaf, libdecaf_nif]
+    ),
+    Native = libdecaf_nif:module_info(exports),
+    Public = libdecaf:module_info(exports),
+    XOFExports = [
+        Export
+     || Export = {Name, _} <- Native,
+        lists:prefix("hash_xof_", atom_to_list(Name))
+    ],
+    true = XOFExports =/= [],
+    lists:foreach(fun(Export) -> true = lists:member(Export, Public) end, XOFExports),
+    lists:foreach(
+        fun({Group, Algorithms}) ->
+            Init = list_to_atom(atom_to_list(Group) ++ "_init"),
+            Update = list_to_atom(atom_to_list(Group) ++ "_update"),
+            Final = list_to_atom(atom_to_list(Group) ++ "_final"),
+            lists:foreach(
+                fun(Algorithm) ->
+                    Initial = apply(libdecaf, Init, [Algorithm]),
+                    State = apply(libdecaf, Update, [Initial, [<<"a">>, <<"bc">>]]),
+                    Expected = apply(libdecaf, Group, [Algorithm, <<"abc">>, 65537]),
+                    Expected = apply(libdecaf, Final, [State, 65537]),
+                    Expected = call(Group, "_final", [State, 65537]),
+                    Empty = apply(libdecaf, Group, [Algorithm, <<>>, 32]),
+                    Empty = apply(libdecaf, Final, [Initial, 32])
+                end,
+                Algorithms
+            )
+        end,
+        xof_groups()
     ).
 
 xofs(_) ->
@@ -142,11 +185,13 @@ xofs(_) ->
                     State = call(Group, "_update", [Initial, [<<"abc">>, Message]]),
                     lists:foreach(
                         fun(Length) ->
-                            Expected = libdecaf:hash_xof(Algorithm, [<<"abc">>, Message], Length),
+                            Expected = apply(libdecaf, Group, [
+                                Algorithm, [<<"abc">>, Message], Length
+                            ]),
                             Expected = call(Group, "", [Algorithm, [<<"abc">>, Message], Length]),
                             Expected = call(Group, "_final", [State, Length]),
                             Expected = call(Group, "_final", [State, Length]),
-                            Empty = libdecaf:hash_xof(Algorithm, <<>>, Length),
+                            Empty = apply(libdecaf, Group, [Algorithm, <<>>, Length]),
                             Empty = call(Group, "_final", [Initial, Length])
                         end,
                         [0, 32, 169, 65537]
