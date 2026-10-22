@@ -2,6 +2,8 @@
 // -*- mode: c; tab-width: 4; indent-tabs-mode: nil; st-rulers: [132] -*-
 // vim: ts=4 sw=4 ft=c et
 
+#include <keccak_internal.h>
+
 #include "hash_xof.h"
 
 /* Trap Definitions */
@@ -104,6 +106,18 @@ libdecaf_nif_hash_xof_output_trap_dtor(ErlNifEnv *caller_env, void *obj)
     }
     return;
 }
+
+/* Original Keccak padding and unlimited XOF output. */
+{% for name, algorithm in ctx.schema.nif.xof | dictsort %}
+{% if algorithm.legacy_keccak_rate is not none %}
+static void
+{{ algorithm.init }}(struct {{ algorithm.context }} *sponge)
+{
+    static const decaf_kparams_s params = {0, 'A', {{ algorithm.legacy_keccak_rate }}, 0, 0x01, 0x80, 0xFF, 0xFF};
+    decaf_sha3_init(sponge, &params);
+}
+{% endif %}
+{% endfor %}
 
 /* Typed adapters keep the upstream function signatures intact. */
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}

@@ -6,7 +6,7 @@
 Cryptographic primitives backed by libdecaf.
 
 Provides Ed25519/Ed448 signatures, X25519/X448 key agreement,
-Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, and the sponge PRNG.
+Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE and Keccak XOFs, and the sponge PRNG.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2016-02-06", modified => "2026-10-22"}.
@@ -235,6 +235,10 @@ Updates return new resources; finalization leaves the input resource reusable.
 
 -doc """
 Supported extendable-output hash algorithms.
+
+`keccak_xof_128` and `keccak_xof_256` use the original Keccak padding with
+capacities of 256 and 512 bits, respectively. `shake128` and `shake256` use
+the FIPS 202 domain separation suffix.
 """.
 -type hash_xof_algorithm() ::
 ~J{ for name in xof_algorithms }.
@@ -329,6 +333,7 @@ The output length may be any nonnegative number of bytes.
 
 ```erlang
 libdecaf:hash_xof(shake256, <<"abc">>, 64).
+libdecaf:hash_xof(keccak_xof_128, <<"abc">>, 64).
 ```
 """.
 -doc #{group => <<"Hash XOF API">>}.

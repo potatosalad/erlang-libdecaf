@@ -8,6 +8,8 @@
   * Preserve legacy Keccak support in the NIF using the upstream sponge API.
   * Fix native dependency ordering and rebuilds, and update macOS linking flags.
 * Library Support
+  * Original Keccak-XOF-128 and Keccak-XOF-256 through `libdecaf:hash_xof/3` and the incremental XOF API.
+    * Algorithm names: `keccak_xof_128` and `keccak_xof_256`.
   * Streaming Ed25519ph and Ed448ph signing and verification with immutable states.
     * `libdecaf_eddsa:sign_init/2`, `libdecaf_eddsa:sign_init/3`
     * `libdecaf_eddsa:sign_update/2`, `libdecaf_eddsa:sign_final/1`

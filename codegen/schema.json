@@ -125,6 +125,20 @@
           "pattern": "^[a-z][a-zA-Z0-9_]*$",
           "title": "Output",
           "type": "string"
+        },
+        "legacy_keccak_rate": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 200,
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Legacy Keccak Rate"
         }
       },
       "required": [

@@ -277,7 +277,7 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         ),
     ]
     for name, arguments, returns, doc in hash_operations:
-        add(name, arguments, returns, doc, "Hashing" if not name.startswith("hash_xof") else "SHAKE")
+        add(name, arguments, returns, doc, "Hashing" if not name.startswith("hash_xof") else "Hash XOF")
 
     rng = [
         (

@@ -33,6 +33,7 @@ class Hash(Algorithm):
 
 class XOF(Algorithm):
     output: CIdentifier
+    legacy_keccak_rate: int | None = Field(default=None, gt=0, lt=200)
 
 
 class NIF(Model):
