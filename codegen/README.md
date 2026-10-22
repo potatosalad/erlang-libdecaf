@@ -40,10 +40,12 @@ wrapper's own source lines. Algorithm names also seed the atom table.
 `templates0/src/libdecaf_nif.erl.j2` generates the Erlang NIF module. The codegen
 recipe formats both C and Erlang output before applying content signatures.
 
-The Erlang module's exports, native entry points, documentation, and specs are
-rendered from `src/erlang_libdecaf_codegen/context/functions.py`. Function
-definitions, exports, and native entry points are sorted by name and arity. Hash and SHAKE
-profiles use the same singular `nif.hash` and `nif.xof` configuration as C. Keep
+The Erlang module's native exports, entry points, documentation, and specs are
+rendered from `src/erlang_libdecaf_codegen/context/functions.py`. Module
+initialization is written directly in the Erlang template, in an internal section
+below the native functions. Native API definitions and exports are sorted by
+name and arity. Hash and SHAKE profiles use
+the same singular `nif.hash` and `nif.xof` configuration as C. Keep
 resource contracts and native argument/return behavior in sync when adding an
 operation. Native Markdown documentation requires Erlang/OTP 27 or later;
 CI exercises the latest OTP 28 and OTP 29 releases.

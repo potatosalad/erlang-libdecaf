@@ -137,5 +137,5 @@ def test_erlang_native_bindings_match_the_c_registration_table():
     group_operations = re.findall(r'#Name\s*"(_[a-z0-9_]+)"\s*,\s*(\d+)', group_source)
     for group in re.findall(r"LIBDECAF_GROUP_NIFS\((\w+)\)", source):
         native.update((group + operation, int(arity)) for operation, arity in group_operations)
-    generated = {(function.name, function.arity) for function in functions(schema.nif) if function.native}
+    generated = {(function.name, function.arity) for function in functions(schema.nif)}
     assert generated == native

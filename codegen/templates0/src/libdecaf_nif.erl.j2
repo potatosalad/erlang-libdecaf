@@ -29,26 +29,28 @@ prevents the module from loading. These generated bindings require OTP 27 or
 later for native Markdown documentation attributes.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
--moduledoc #{created => "2018-11-27", copyright => "2018-2026, Andrew Bennett"}.
+-moduledoc #{created => "2018-11-27", modified => "2026-10-22"}.
+-moduledoc #{copyright => "Andrew Bennett"}.
 -compile(warn_missing_spec_all).
+
 -on_load(init/0).
 
+%% NIF API
 -export([
-~J{ for function in ctx.nif.functions | selectattr('exported') }.
+~J{ for function in ctx.nif.functions }.
     ~J< function.name >./~J< function.arity >.~J< ',' if not loop.last else '' >.
 ~J{ endfor }.
 ]).
 
 -nifs([
-~J{ for function in ctx.nif.functions | selectattr('native') }.
+~J{ for function in ctx.nif.functions }.
     ~J< function.name >./~J< function.arity >.~J< ',' if not loop.last else '' >.
 ~J{ endfor }.
 ]).
 
--export_type([
-~J{ for name, definition, doc in ctx.types }.
-    ~J< name >./0~J< ',' if not loop.last else '' >.
-~J{ endfor }.
+%% Internal API
+-export([
+    init/0
 ]).
 
 %%% Types
@@ -60,23 +62,33 @@ later for native Markdown documentation attributes.
 -type ~J< name >.() :: ~J< definition >..
 
 ~J{ endfor }.
-%%% API functions
+
+-export_type([
+~J{ for name, definition, doc in ctx.types }.
+    ~J< name >./0~J< ',' if not loop.last else '' >.
+~J{ endfor }.
+]).
+
+%%%=============================================================================
+%%% NIF API functions
+%%%=============================================================================
 
 ~J{ for function in ctx.nif.functions }.
-~J{ if function.doc }.
 -doc """
 ~J< function.doc | wordwrap(110, break_long_words=false) >.
 """.
 -doc #{group => "~J< function.group >."}.
-~J{ else }.
--doc false.
-~J{ endif }.
 -spec ~J< function.spec >..
 ~J< function.name >.(~J< function.parameters >.) ->
-~J{ if function.native }.
     erlang:nif_error({nif_not_loaded, ?MODULE}).
-~J{ else }.
-~J< function.body | indent(4, true) >.
-~J{ endif }.
 
 ~J{ endfor }.
+%%%-----------------------------------------------------------------------------
+%%% Internal functions
+%%%-----------------------------------------------------------------------------
+
+-doc false.
+-spec init() -> ok | {error, {atom(), string()}}.
+init() ->
+    SoName = filename:join(libdecaf:priv_dir(), ?MODULE_STRING),
+    erlang:load_nif(SoName, 0).

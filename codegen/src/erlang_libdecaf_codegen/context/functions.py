@@ -16,23 +16,16 @@ class Function:
     name: str
     arguments: tuple[Argument, ...]
     returns: str
-    doc: str | None
+    doc: str
     group: str
-    body: str | None = None
-    exported: bool = True
 
     @property
     def arity(self) -> int:
         return len(self.arguments)
 
     @property
-    def native(self) -> bool:
-        return self.body is None
-
-    @property
     def parameters(self) -> str:
-        prefix = "_" if self.native else ""
-        return ", ".join(prefix + argument.name for argument in self.arguments)
+        return ", ".join("_" + argument.name for argument in self.arguments)
 
     @property
     def spec(self) -> str:
@@ -43,8 +36,8 @@ class Function:
 def functions(schema: NIFSchema) -> tuple[Function, ...]:
     result: list[Function] = []
 
-    def add(name: str, arguments: list[tuple[str, str]], returns: str, doc: str, group: str, body: str | None = None) -> None:
-        result.append(Function(name, tuple(Argument(*argument) for argument in arguments), returns, doc, group, body))
+    def add(name: str, arguments: list[tuple[str, str]], returns: str, doc: str, group: str) -> None:
+        result.append(Function(name, tuple(Argument(*argument) for argument in arguments), returns, doc, group))
 
     for name, byte_count, title in [("ristretto255", 32, "Ristretto255"), ("decaf448", 56, "Decaf448")]:
         point, scalar, table = f"{name}_point()", f"{name}_scalar()", f"{name}_precomputed()"
@@ -248,12 +241,6 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         ]
         for operation, arguments, returns, doc in operations:
             add(f"{name}_{operation}", arguments, returns, doc, group)
-        for operation, arguments, returns, _ in operations:
-            alias = operation.removeprefix("hash").removeprefix("_")
-            alias_name = name + (f"_{alias}" if alias else "")
-            raw_name = f"{name}_{operation}"
-            body = f"{raw_name}({', '.join(argument[0] for argument in arguments)})."
-            add(alias_name, arguments, returns, f"Compatibility helper for `{raw_name}/{len(arguments)}`.", group, body)
 
     for name in schema.xof:
         operations = [
@@ -279,17 +266,6 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         ]
         for operation, arguments, returns, doc in operations:
             add(f"{name}_{operation}", arguments, returns, doc, "SHAKE")
-        for operation, arguments, returns, _ in operations:
-            alias = {"xof": "", "xof_init": "_init", "xof_update": "_update", "xof_output": "_final"}[operation]
-            raw_name = f"{name}_{operation}"
-            if operation == "xof_output":
-                body = f"{{_NewState, Output}} = {raw_name}(State, OutputLen),\nOutput."
-                returns = "binary()"
-                doc = f"Squeeze `{name}` output bytes and discard the resulting state.\nUse `{raw_name}/2` to continue squeezing from the returned state."
-            else:
-                body = f"{raw_name}({', '.join(argument[0] for argument in arguments)})."
-                doc = f"Compatibility helper for `{raw_name}/{len(arguments)}`."
-            add(f"{name}{alias}", arguments, returns, doc, "SHAKE", body)
 
     rng = [
         (
@@ -325,29 +301,6 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
     ]
     for operation, arguments, returns, doc in rng:
         add(f"spongerng_csprng_{operation}", arguments, returns, doc, "Sponge PRNG")
-    for operation, arguments, returns, _ in rng:
-        raw_name = f"spongerng_csprng_{operation}"
-        body = f"{raw_name}({', '.join(argument[0] for argument in arguments)})."
-        add(
-            f"spongerng_{operation}",
-            arguments,
-            returns,
-            f"Compatibility helper for `{raw_name}/{len(arguments)}`.",
-            "Sponge PRNG",
-            body,
-        )
-
-    result.append(
-        Function(
-            "init",
-            (),
-            "ok | {error, {atom(), string()}}",
-            None,
-            "Internal",
-            "SoName = filename:join(libdecaf:priv_dir(), ?MODULE_STRING),\nerlang:load_nif(SoName, 0).",
-            exported=False,
-        )
-    )
     identifiers = [(function.name, function.arity) for function in result]
     if len(identifiers) != len(set(identifiers)):
         raise ValueError("Generated Erlang function names and arities must be unique")
