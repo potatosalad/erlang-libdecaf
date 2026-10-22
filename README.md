@@ -54,6 +54,23 @@ Add `libdecaf` to your project's dependencies in your `Makefile` for [`erlang.mk
 ]}.
 ```
 
+## Building and testing
+
+Building from source requires Erlang/OTP with development headers, GNU Make 4 or
+later, a C compiler and a C++14 compiler, CMake 3.22 or later, and Python 3.
+Git is also required if the vendored C dependency needs to be fetched.
+
+```sh
+gmake
+gmake tests
+```
+
+The native dependency in `c_deps/ed448goldilocks` is vendored from branch
+`features-20261022-v1.0.5`, based on upstream tag `v1.0.5` with an ARM64
+architecture detection fix. If `c_deps` is removed, the build fetches that branch
+automatically. The first test run downloads the SHA-2, SHA-3, and legacy Keccak
+test vectors. RFC 9496 group test vectors are included in the repository.
+
 ## Usage
 
 ### ECDH
@@ -184,6 +201,78 @@ SigEd448phC = libdecaf_curve448:ed448ph_sign(M, SK448, C).
 libdecaf_curve448:ed448ph_verify(SigEd448phC, M, PK448, C).
 % true
 ```
+
+### Streaming prehash signatures
+
+`libdecaf_eddsa` supports streaming Ed25519ph and Ed448ph signatures and
+verification. Signing takes a keypair resource from `keypair_random/0` or
+`keypair_derive/1`. Each update accepts iodata and returns a new immutable state;
+states can be reused, branched, finalized repeatedly, and shared between
+processes. Contexts are binaries of up to 255 bytes and default to `<<>>`.
+
+```erlang
+Keypair = libdecaf_curve25519:keypair_random(),
+PublicKey = libdecaf_curve25519:keypair_extract_public_key(Keypair),
+S0 = libdecaf_eddsa:sign_init(ed25519ph, Keypair, <<"example">>),
+S1 = libdecaf_eddsa:sign_update(S0, <<"first chunk">>),
+S2 = libdecaf_eddsa:sign_update(S1, [<<"second">>, <<" chunk">>]),
+Signature = libdecaf_eddsa:sign_final(S2),
+
+V0 = libdecaf_eddsa:verify_init(ed25519ph, Signature, PublicKey, <<"example">>),
+V1 = libdecaf_eddsa:verify_update(V0, <<"first chunksecond chunk">>),
+true = libdecaf_eddsa:verify_final(V1).
+```
+
+Use `ed448ph` and a `libdecaf_curve448` keypair for Ed448ph. Matching convenience
+functions are also available on the curve modules:
+`ed25519ph_sign_init/1,2`, `ed25519ph_sign_update/2`,
+`ed25519ph_sign_final/1`, `ed25519ph_verify_init/2,3`,
+`ed25519ph_verify_update/2`, and `ed25519ph_verify_final/1`, with corresponding
+`ed448ph_*` functions on `libdecaf_curve448`.
+
+### Ristretto255 and Decaf448
+
+`libdecaf_ristretto255` and `libdecaf_decaf448` expose the prime-order groups
+defined in [RFC 9496](https://www.rfc-editor.org/rfc/rfc9496.html). Points and
+scalars use canonical little-endian binary encodings: 32 bytes for Ristretto255
+and 56 bytes for Decaf448. Identity points and zero scalars are accepted.
+
+```erlang
+Group = libdecaf_ristretto255,
+Scalar = Group:scalar_random(),
+Point = Group:base_scalarmul(Scalar),
+true = Group:point_is_valid(Point),
+Identity = Group:identity(),
+Identity = Group:point_add(Point, Group:point_negate(Point)),
+Table = Group:precompute(Point),
+Twice = Group:point_double(Point),
+Twice = Group:precomputed_scalarmul(Table, Group:scalar_reduce(<<2>>)).
+```
+
+Both modules provide the same operations:
+
+* `identity/0`, `base/0`, `point_is_valid/1`, and `point_eq/2`.
+* `point_add/2`, `point_sub/2`, `point_negate/1`, and `point_double/1`.
+* `point_scalarmul(Point, Scalar)`, `base_scalarmul(Scalar)`, and
+  `point_double_scalarmul(Point1, Scalar1, Point2, Scalar2)`.
+* `precompute(Point)` and `precomputed_scalarmul(Table, Scalar)`. Tables are
+  immutable resources and can be shared between processes.
+* `scalar_random/0`, `scalar_is_canonical/1`, `scalar_reduce/1`,
+  `scalar_add/2`, `scalar_sub/2`, `scalar_mul/2`, `scalar_negate/1`,
+  `scalar_halve/1`, and `scalar_invert/1`.
+
+`scalar_reduce/1` reduces an arbitrary-length little-endian integer modulo the
+group order. Other scalar operations require canonical inputs; invalid points,
+scalars, and resource types raise `badarg`. The validation functions return
+`false` for invalid inputs. Inverting the zero scalar returns `error`.
+
+`point_from_hash/1` implements RFC 9496 element derivation from **uniformly
+distributed bytes**: 64 bytes for Ristretto255 or 112 bytes for Decaf448.
+Hash or expand messages to the required length before calling this function.
+`point_from_hash_nonuniform/1` exposes the underlying single mapping with a
+32-byte or 56-byte input; its distribution differs from the uniform mapping.
+Point and scalar operations also have prefixed entry points on `libdecaf`, such
+as `libdecaf:ristretto255_point_add/2`.
 
 ### KECCAK
 

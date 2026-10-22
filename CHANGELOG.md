@@ -1,5 +1,27 @@
 # Changelog
 
+## 3.0.0 (????-??-??)
+
+* Fixes
+  * Fix ARM64 architecture detection on macOS to use the generic 64-bit implementation.
+  * Erase temporary Ed25519 and Ed448 keypairs before returning mismatch errors.
+  * Preserve legacy Keccak support in the NIF using the upstream sponge API.
+  * Fix native dependency ordering and rebuilds, and update macOS linking flags.
+* Library Support
+  * Streaming Ed25519ph and Ed448ph signing and verification with immutable states.
+    * `libdecaf_eddsa:sign_init/2`, `libdecaf_eddsa:sign_init/3`
+    * `libdecaf_eddsa:sign_update/2`, `libdecaf_eddsa:sign_final/1`
+    * `libdecaf_eddsa:verify_init/3`, `libdecaf_eddsa:verify_init/4`
+    * `libdecaf_eddsa:verify_update/2`, `libdecaf_eddsa:verify_final/1`
+    * Corresponding `ed25519ph_*` and `ed448ph_*` convenience functions on the curve modules.
+  * Ristretto255 and Decaf448 prime-order groups.
+    * `libdecaf_ristretto255` and `libdecaf_decaf448` point and scalar APIs.
+    * Uniform byte mapping and precomputed multiplication.
+* Enhancements
+  * Upstream update to [`ed448goldilocks` version `features-20261022-v1.0.5`](https://github.com/potatosalad/ed448goldilocks/tree/features-20261022-v1.0.5), based on tag `v1.0.5` (vendored as part of `libdecaf` app).
+  * Add X25519 high-bit, non-canonical coordinate, and low-order input regression tests.
+  * Add RFC 9496 generator, invalid encoding, and uniform byte mapping test vectors.
+
 ## 2.1.1 (2022-08-31)
 
 * Fixes
