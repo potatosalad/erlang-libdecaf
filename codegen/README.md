@@ -40,6 +40,11 @@ wrapper's own source lines. Algorithm names also seed the atom table.
 `templates0/src/libdecaf_nif.erl.j2` generates the Erlang NIF module. The codegen
 recipe formats both C and Erlang output before applying content signatures.
 
+`templates0/src/libdecaf.erl.j2` generates the public hash API from `nif.hash`.
+The algorithm union, per-algorithm records and opaque state types, and all hash
+operations share that list. Add or remove an algorithm there and regenerate;
+the one-shot, init, update, final, and digest-size clauses stay in sync.
+
 The Erlang module's native exports, entry points, documentation, and specs are
 rendered from `src/erlang_libdecaf_codegen/context/functions.py`. Module
 initialization is written directly in the Erlang template, in an internal section
