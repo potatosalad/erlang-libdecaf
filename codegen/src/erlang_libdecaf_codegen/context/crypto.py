@@ -241,14 +241,6 @@ def api_types(schema):
                 ),
             )
         )
-    output_forms = []
-    for family in families(schema):
-        for fun in api_functions_for_family(family):
-            if fun.family == "xof" and fun.operation == "once":
-                output_forms.append("{" + ", ".join([" | ".join(fun.algorithms)] + [arg.type for arg in fun.arguments[2:]]) + "}")
-    result.append(
-        ("xof_output_parameters", " | ".join(output_forms), "Algorithm, output byte length, and optional XOF parameters.")
-    )
     return result
 
 
@@ -373,7 +365,7 @@ Keep KMACXOF and HopMAC states private like their keys.
 State0 = libdecaf:xof_init({cshake128, <<>>, <<"orders/v1">>}),
 State1 = libdecaf:xof_absorb(State0, <<"invoice-42">>),
 {_State2, Output} = libdecaf:xof_squeeze(State1, 32),
-Output = libdecaf:xof({cshake128, 32, <<>>, <<"orders/v1">>}, <<"invoice-42">>).
+Output = libdecaf:xof({cshake128, <<>>, <<"orders/v1">>}, <<"invoice-42">>, 32).
 ```""",
             "xof_absorb": """Add input to an absorbing XOF and return a new state.
 
@@ -393,7 +385,7 @@ State1 = libdecaf:xof_absorb(State0, [<<"a">>, <<"bc">>]),
 {State2, First} = libdecaf:xof_squeeze(State1, 16),
 {_State3, Second} = libdecaf:xof_squeeze(State2, 16),
 Output = <<First/binary, Second/binary>>,
-Output = libdecaf:xof({shake128, 32}, <<"abc">>).
+Output = libdecaf:xof(shake128, <<"abc">>, 32).
 ```""",
         }[fun.name]
 
@@ -463,16 +455,6 @@ def generic_functions(schema):
         ),
         Function(
             "xof",
-            (Argument("Parameters", "xof_output_parameters()"), Argument("Input", "input() | tuple_input()")),
-            "binary()",
-            "Compute XOF bytes from an algorithm/output-length tuple and input.",
-            "XOF API",
-            "xof",
-            "once",
-            result_name="Output",
-        ),
-        Function(
-            "xof",
             (
                 Argument("Parameters", "xof_parameters()"),
                 Argument("Input", "input() | tuple_input()"),
@@ -514,25 +496,15 @@ State = libdecaf:hash_update(libdecaf:hash_init({parallelhash128, 32, 8192, <<"o
 Output = libdecaf:hash_final(State).
 ```"""
     if fun.name == "xof":
-        if fun.arity == 2:
-            return """Return XOF bytes using `{Algorithm, OutputLength, ...Options}` and input.
-
-The tuple places the output byte count immediately after the algorithm. Remaining
-fields have the same order as the algorithm's XOF initializer. TupleHashXOF input
-is a list of separate elements. The result is a binary, not a state.
-
-```erlang
-Output = libdecaf:xof({parallelhashxof128, 32, 8192, <<"orders/v1">>}, <<"invoice-42">>),
-State = libdecaf:xof_absorb(libdecaf:xof_init({parallelhashxof128, 8192, <<"orders/v1">>}), <<"invoice-42">>),
-{_Next, Output} = libdecaf:xof_squeeze(State, 32).
-```"""
         return """Return `OutputLength` bytes using XOF initialization parameters and input.
 
 The parameter atom or tuple is identical to `xof_init/1`; output length is supplied
 separately. For TupleHashXOF, input is a list of separate elements.
 
 ```erlang
-Output = libdecaf:xof({cshake128, <<>>, <<"orders/v1">>}, <<"invoice-42">>, 32),
-Output = libdecaf:xof({cshake128, 32, <<>>, <<"orders/v1">>}, <<"invoice-42">>).
+Parameters = {cshake128, <<>>, <<"orders/v1">>},
+Output = libdecaf:xof(Parameters, <<"invoice-42">>, 32),
+State = libdecaf:xof_absorb(libdecaf:xof_init(Parameters), <<"invoice-42">>),
+{_Next, Output} = libdecaf:xof_squeeze(State, 32).
 ```"""
     return family_doc(schema, fun)

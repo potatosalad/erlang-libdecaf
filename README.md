@@ -113,7 +113,7 @@ tests run inside the image and leave host build artifacts unchanged.
 ### Hash and XOF APIs
 
 `libdecaf` exposes the high-level `hash/2`, `hash_init/1`, `hash_update/2`,
-`hash_final/1`, `xof/2,3`, `xof_init/1`, `xof_absorb/2`, and `xof_squeeze/2` functions.
+`hash_final/1`, `xof/3`, `xof_init/1`, `xof_absorb/2`, and `xof_squeeze/2` functions.
 Initialization parameters are an algorithm atom or a tuple containing the algorithm
 and its options. All output lengths and ParallelHash block sizes are in bytes.
 
@@ -138,9 +138,8 @@ Hash parameters put output length before keys, block sizes, or customization:
 | TupleHash | `{Algorithm, Length}`, `{Algorithm, Length, Customization}` |
 | ParallelHash | `{Algorithm, Length, BlockSize}`, `{Algorithm, Length, BlockSize, Customization}` |
 
-XOF initialization leaves out the output length. `xof/2` takes a tuple that inserts
-output length immediately after the algorithm, while `xof/3` takes initialization
-parameters and a separate output length:
+XOF initialization leaves out the output length. `xof/3` takes the same
+initialization parameters, input, and an explicit output length:
 
 ```erlang
 X0 = libdecaf:xof_init({parallelhashxof128, 8192, <<"orders/v1">>}),
@@ -148,7 +147,6 @@ X1 = libdecaf:xof_absorb(X0, <<"invoice-42">>),
 {X2, First} = libdecaf:xof_squeeze(X1, 16),
 {_X3, Second} = libdecaf:xof_squeeze(X2, 16),
 Output = <<First/binary, Second/binary>>,
-Output = libdecaf:xof({parallelhashxof128, 32, 8192, <<"orders/v1">>}, <<"invoice-42">>),
 Output = libdecaf:xof({parallelhashxof128, 8192, <<"orders/v1">>}, <<"invoice-42">>, 32).
 ```
 
@@ -407,7 +405,7 @@ Tag = libdecaf:hash({kmac128, 32, Key}, <<0, 1, 2, 3>>),
 ```
 
 For incremental input, use `hash_init/1`, `hash_update/2`, and `hash_final/1`.
-For KMACXOF, use `xof/2`, `xof_init/1`, `xof_absorb/2`, and `xof_squeeze/2`.
+For KMACXOF, use `xof/3`, `xof_init/1`, `xof_absorb/2`, and `xof_squeeze/2`.
 States are immutable and contain keyed contexts; keep them private like the key.
 NIST-approved uses require at least 16 key bytes for KMAC128 or 32 for KMAC256.
 The primitive also permits shorter keys as defined by the standard.
@@ -415,7 +413,7 @@ The primitive also permits shorter keys as defined by the standard.
 ### HopMAC, TupleHash, and ParallelHash
 
 HopMAC128/256 follow [RFC 9861, Section 4](https://www.rfc-editor.org/rfc/rfc9861.html#section-4).
-Use `hash/2` for a chosen tag length or `xof/2` for output bytes;
+Use `hash/2` for a chosen tag length or `xof/3` for output bytes;
 their initializers support incremental messages through the shared lifecycles.
 
 TupleHash and ParallelHash, including their XOF variants, follow
@@ -443,7 +441,7 @@ reusable.
 State = libdecaf:xof_absorb(libdecaf:xof_init(shake128), <<"abc">>),
 {Next, First} = libdecaf:xof_squeeze(State, 16),
 {_, Second} = libdecaf:xof_squeeze(Next, 16),
-Whole = libdecaf:xof({shake128, 32}, <<"abc">>),
+Whole = libdecaf:xof(shake128, <<"abc">>, 32),
 Whole = <<First/binary, Second/binary>>.
 ```
 
@@ -715,7 +713,7 @@ Out = libdecaf_sha2:final(Context1).
 ### SHA-3
 
 This compatibility module is deprecated. Use the `libdecaf:hash*` functions
-for `sha3_*` algorithms. For SHAKE, use `libdecaf:xof/2,3`,
+for `sha3_*` algorithms. For SHAKE, use `libdecaf:xof/3`,
 `libdecaf:xof_init/1`, `libdecaf:xof_absorb/2`, and
 `libdecaf:xof_squeeze/2`. The replacement APIs use unwrapped states.
 

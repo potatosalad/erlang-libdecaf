@@ -1,7 +1,7 @@
 ~J{ macro implementation(module, title, hashes, created, xofs=()) }.
 ~J{ set algorithm = hashes[0] }.
 ~J{ set hash_migration = 'Use libdecaf hash family functions and hash_init/1, hash_update/2, hash_final/1 instead.' }.
-~J{ set xof_migration = ' For SHAKE, use libdecaf:xof/2 and libdecaf:xof_init/1, xof_absorb/2, xof_squeeze/2.' if xofs else '' }.
+~J{ set xof_migration = ' For SHAKE, use libdecaf:xof/3 and libdecaf:xof_init/1, xof_absorb/2, xof_squeeze/2.' if xofs else '' }.
 %%% % @format
 -module(~J< module >.).
 -moduledoc """
@@ -10,7 +10,7 @@ Deprecated compatibility API for ~J< title >. with tagged, immutable states.
 New code should use `libdecaf:hash/2,3`, `libdecaf:hash_init/1`,
 `libdecaf:hash_update/2`, and `libdecaf:hash_final/1` directly.
 ~J{ if xofs }.
-For SHAKE, use `libdecaf:xof/2`, `libdecaf:xof_init/1`,
+For SHAKE, use `libdecaf:xof/3`, `libdecaf:xof_init/1`,
 `libdecaf:xof_absorb/2`, and `libdecaf:xof_squeeze/2`.
 ~J{ endif }.
 
@@ -168,7 +168,7 @@ Fixed-output hashes allow truncation up to their maximum digest length.
 SHAKE produces the requested number of XOF bytes, including zero.
 ~J{ endif }.
 """.
--doc #{deprecated => "Use libdecaf:hash/3~J< ' or libdecaf:xof/2 for SHAKE' if xofs else '' >.."}.
+-doc #{deprecated => "Use libdecaf:hash/2~J< ' or libdecaf:xof/3 for SHAKE' if xofs else '' >.."}.
 -spec hash(Type, Data, Length) -> Digest when
     Type :: algorithm(), Data :: iodata(), Length :: non_neg_integer(), Digest :: binary().
 ~J{ for name in hashes }.
@@ -224,7 +224,7 @@ update(State, Data) ->
 Return `Length` SHAKE bytes from iodata in one call.
 This preserves the historical `xof/3` alias for SHAKE through `hash/3`.
 """.
--doc #{deprecated => "Use libdecaf:xof/2."}.
+-doc #{deprecated => "Use libdecaf:xof/3."}.
 -spec xof(Type, Data, Length) -> Output when
     Type :: xof_algorithm(), Data :: iodata(), Length :: non_neg_integer(), Output :: binary().
 ~J{ for name in xofs }.

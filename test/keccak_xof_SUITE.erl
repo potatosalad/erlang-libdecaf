@@ -24,7 +24,7 @@ known_answers(Config) ->
         fun({Type, Message, Hex}) ->
             Input = input(Message),
             Expected = binary:decode_hex(Hex),
-            Expected = libdecaf:xof({Type, byte_size(Expected)}, Input),
+            Expected = libdecaf:xof(Type, Input, byte_size(Expected)),
             Split = byte_size(Input) div 2,
             <<First:Split/binary, Last/binary>> = Input,
             State = libdecaf:xof_absorb(libdecaf:xof_init(Type), [
@@ -46,7 +46,7 @@ known_answers(Config) ->
 large_input_and_output(_) ->
     each(fun(Type) ->
         Chunks = [binary:copy(<<0, 1, 2, 3>>, 65537), [<<"tail">>]],
-        Expected = libdecaf:xof({Type, 131073}, Chunks),
+        Expected = libdecaf:xof(Type, Chunks, 131073),
         State = libdecaf:xof_init(Type),
         Updated = lists:foldl(
             fun(Chunk, Acc) -> libdecaf:xof_absorb(Acc, Chunk) end, State, Chunks
@@ -59,16 +59,16 @@ immutable_states(_) ->
     each(fun(Type) ->
         Initial = libdecaf:xof_init(Type),
         true = is_reference(Initial),
-        Empty = libdecaf:xof({Type, 200}, <<>>),
+        Empty = libdecaf:xof(Type, <<>>, 200),
         First = libdecaf:xof_absorb(Initial, <<"abc">>),
         Second = libdecaf:xof_absorb(Initial, <<"def">>),
         Empty = element(2, libdecaf:xof_squeeze(Initial, 200)),
         <<>> = element(2, libdecaf:xof_squeeze(First, 0)),
-        Abc = libdecaf:xof({Type, 200}, <<"abc">>),
+        Abc = libdecaf:xof(Type, <<"abc">>, 200),
         Abc = element(2, libdecaf:xof_squeeze(First, 200)),
-        Def = libdecaf:xof({Type, 200}, <<"def">>),
+        Def = libdecaf:xof(Type, <<"def">>, 200),
         Def = element(2, libdecaf:xof_squeeze(Second, 200)),
-        Abcd = libdecaf:xof({Type, 200}, <<"abcd">>),
+        Abcd = libdecaf:xof(Type, <<"abcd">>, 200),
         Abcd = element(2, libdecaf:xof_squeeze(libdecaf:xof_absorb(First, <<"d">>), 200))
     end).
 
@@ -76,7 +76,7 @@ invalid_arguments(_) ->
     each(fun(Type) ->
         State = libdecaf:xof_init(Type),
         badarg(fun() -> libdecaf:hash_init(Type) end),
-        badarg(fun() -> libdecaf:xof({Type, -1}, <<>>) end),
+        badarg(fun() -> libdecaf:xof(Type, <<>>, -1) end),
         badarg(fun() -> element(2, libdecaf:xof_squeeze(State, -1)) end),
         badarg(fun() -> libdecaf:hash_update(State, <<>>) end)
     end).

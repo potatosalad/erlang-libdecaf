@@ -66,12 +66,12 @@ shake(_) ->
             Updated = {Algorithm, _} = Module:update(Module:update(Initial, <<"a">>), [<<"bc">>]),
             lists:foreach(
                 fun(Length) ->
-                    Expected = libdecaf:xof({Algorithm, Length}, <<"abc">>),
+                    Expected = libdecaf:xof(Algorithm, <<"abc">>, Length),
                     Expected = Module:hash(Algorithm, [<<"abc">>], Length),
                     Expected = Module:xof(Algorithm, <<"abc">>, Length),
                     Expected = Module:final(Updated, Length),
                     Expected = Module:final(Updated, Length),
-                    Empty = libdecaf:xof({Algorithm, Length}, <<>>),
+                    Empty = libdecaf:xof(Algorithm, <<>>, Length),
                     Empty = Module:final(Initial, Length)
                 end,
                 [0, 1, 32, 65537]

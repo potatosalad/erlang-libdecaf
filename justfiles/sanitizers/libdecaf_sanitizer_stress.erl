@@ -57,7 +57,7 @@ iteration(Index) ->
             tuplehash -> [Input];
             _ -> Input
         end,
-    Whole = libdecaf_nif:xof(list_to_tuple([Algorithm, Length | Parameters]), Data),
+    Whole = libdecaf_nif:xof(list_to_tuple([Algorithm | Parameters]), Data, Length),
     Initial = libdecaf_nif:xof_init(list_to_tuple([Algorithm | Parameters])),
     State = libdecaf_nif:xof_absorb(Initial, [Input]),
     {Next, First} = libdecaf_nif:xof_squeeze(State, Length div 2),

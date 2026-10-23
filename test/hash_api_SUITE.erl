@@ -10,9 +10,10 @@ Fixed digest prefixes, default lengths, parameter tuples, and native dispatch.
     defaults/1,
     parameters/1,
     exports/1,
+    xof_one_shot/1,
     isolation/1
 ]).
-all() -> [fixed_hashes, defaults, parameters, exports, isolation].
+all() -> [fixed_hashes, defaults, parameters, exports, xof_one_shot, isolation].
 
 fixed_hashes(_) ->
     lists:foreach(
@@ -105,13 +106,13 @@ exports(_) ->
         {hash_init, 1},
         {hash_update, 2},
         {hash_final, 1},
-        {xof, 2},
         {xof, 3},
         {xof_init, 1},
         {xof_absorb, 2},
         {xof_squeeze, 2}
     ]),
     Native = libdecaf_nif:module_info(exports),
+    false = lists:member({xof, 2}, Native),
     lists:foreach(
         fun(F) -> true = lists:member(F, Native) end,
         [
@@ -125,6 +126,23 @@ exports(_) ->
     ),
     false = lists:member({hash_init_parallelhash, 4}, Native),
     false = lists:member({parallelhash128_hash_update, 2}, Native).
+
+xof_one_shot(_) ->
+    lists:foreach(
+        fun(Module) ->
+            lists:foreach(
+                fun(Length) ->
+                    Expected = libdecaf_nif:kmacxof128(<<>>, Length, <<>>),
+                    Expected = Module:xof({kmacxof128, <<>>}, <<>>, Length),
+                    Initial = Module:xof_init({kmacxof128, <<>>}),
+                    State = Module:xof_absorb(Initial, <<>>),
+                    {_, Expected} = Module:xof_squeeze(State, Length)
+                end,
+                [0, 32, 65]
+            )
+        end,
+        [libdecaf, libdecaf_nif]
+    ).
 
 isolation(_) ->
     lists:foreach(

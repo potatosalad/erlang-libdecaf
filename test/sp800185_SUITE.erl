@@ -134,7 +134,11 @@ check(Family, Type, Input, Parameters, Expected, Xof) ->
             end,
     lists:foreach(
         fun(Module) ->
-            Expected = apply(Module, Once, [list_to_tuple([Type, Length | Parameters]), Input]),
+            Expected =
+                case Xof of
+                    true -> Module:xof(list_to_tuple([Type | Parameters]), Input, Length);
+                    false -> apply(Module, Once, [list_to_tuple([Type, Length | Parameters]), Input])
+                end,
             Expected = apply(libdecaf_nif, Type, [Input, Length | Parameters]),
             Initial = apply(libdecaf_nif, list_to_atom(atom_to_list(Type) ++ "_" ++ Mode ++ "_init"), tl(InitArgs)),
             true = is_reference(Initial),
@@ -188,20 +192,32 @@ reference_framing(_) ->
                                     true -> 0;
                                     false -> Length * 8
                                 end,
-                            Expected = libdecaf:xof({Cshake, Length, <<"KMAC">>, Custom}, [
-                                EncodedKey, Data, right_encode(Bits)
-                            ]),
+                            Expected = libdecaf:xof(
+                                {Cshake, <<"KMAC">>, Custom},
+                                [
+                                    EncodedKey, Data, right_encode(Bits)
+                                ],
+                                Length
+                            ),
                             check(kmac, selector(Kmac, Xof), Data, [Key, Custom], Expected, Xof),
-                            TupleExpected = libdecaf:xof({Cshake, Length, <<"TupleHash">>, Custom}, [
-                                EncodedElements, right_encode(Bits)
-                            ]),
+                            TupleExpected = libdecaf:xof(
+                                {Cshake, <<"TupleHash">>, Custom},
+                                [
+                                    EncodedElements, right_encode(Bits)
+                                ],
+                                Length
+                            ),
                             check(tuplehash, selector(Tuple, Xof), Elements, [Custom], TupleExpected, Xof),
                             B = 8,
                             Leaves = chunks_nonempty(Data, B),
-                            CVs = [libdecaf:xof({Shake, 200 - Rate}, Leaf) || Leaf <- Leaves],
-                            ParallelExpected = libdecaf:xof({Cshake, Length, <<"ParallelHash">>, Custom}, [
-                                left_encode(B), CVs, right_encode(length(Leaves)), right_encode(Bits)
-                            ]),
+                            CVs = [libdecaf:xof(Shake, Leaf, 200 - Rate) || Leaf <- Leaves],
+                            ParallelExpected = libdecaf:xof(
+                                {Cshake, <<"ParallelHash">>, Custom},
+                                [
+                                    left_encode(B), CVs, right_encode(length(Leaves)), right_encode(Bits)
+                                ],
+                                Length
+                            ),
                             check(parallelhash, selector(Parallel, Xof), Data, [B, Custom], ParallelExpected, Xof)
                         end,
                         [false, true]
@@ -223,7 +239,7 @@ tuple_boundaries(_) ->
             B = libdecaf:hash({Hash, 32}, [<<"ab">>, <<"c">>]),
             true = A =/= B,
             true = libdecaf:hash({Hash, 32}, []) =/= libdecaf:hash({Hash, 32}, [<<>>]),
-            true = libdecaf:xof({Xof, 32}, []) =/= libdecaf:xof({Xof, 32}, [<<>>]),
+            true = libdecaf:xof(Xof, [], 32) =/= libdecaf:xof(Xof, [<<>>], 32),
             State = libdecaf:hash_init({Hash, 32}),
             A = libdecaf:hash_final(libdecaf:hash_update(libdecaf:hash_update(State, <<"a">>), <<"bc">>)),
             false = libdecaf:hash_final(State) =:= A
@@ -261,9 +277,9 @@ length_binding(_) ->
             Short = apply(libdecaf, Name, [list_to_tuple([Type, 16 | Parameters]), Input]),
             Long = apply(libdecaf, Name, [list_to_tuple([Type, 32 | Parameters]), Input]),
             true = Short =/= binary:part(Long, 0, 16),
-            Xof = xof,
-            XofShort = apply(libdecaf, Xof, [list_to_tuple([selector(Type, true), 16 | Parameters]), Input]),
-            XofLong = apply(libdecaf, Xof, [list_to_tuple([selector(Type, true), 32 | Parameters]), Input]),
+            XofParameters = list_to_tuple([selector(Type, true) | Parameters]),
+            XofShort = libdecaf:xof(XofParameters, Input, 16),
+            XofLong = libdecaf:xof(XofParameters, Input, 32),
             XofShort = binary:part(XofLong, 0, 16),
             true = Short =/= XofShort
         end,
@@ -287,8 +303,8 @@ hopmac_reference(_) ->
                     Key = binary:copy(<<42>>, Size),
                     Message = binary:copy(<<19>>, Size),
                     Custom = binary:copy(<<17>>, Size),
-                    Digest = libdecaf:xof({KT, InnerLength, Custom}, Message),
-                    Expected = libdecaf:xof({KT, 169, Digest}, Key),
+                    Digest = libdecaf:xof({KT, Custom}, Message, InnerLength),
+                    Expected = libdecaf:xof({KT, Digest}, Key, 169),
                     check(hopmac, Type, Message, [Key, Custom], Expected, false),
                     check(hopmac, Type, Message, [Key, Custom], Expected, true)
                 end,
@@ -308,17 +324,16 @@ lifecycle(_) ->
                             false -> Hash;
                             true -> Xof
                         end,
-                    Name =
-                        case Mode of
-                            true -> xof;
-                            false -> hash
-                        end,
                     Input =
                         case Family of
                             tuplehash -> [<<"message">>];
                             _ -> <<"message">>
                         end,
-                    Expected = apply(libdecaf, Name, [list_to_tuple([Type, 32 | Parameters]), Input]),
+                    Expected =
+                        case Mode of
+                            true -> libdecaf:xof(list_to_tuple([Type | Parameters]), Input, 32);
+                            false -> libdecaf:hash(list_to_tuple([Type, 32 | Parameters]), Input)
+                        end,
                     check(Family, Type, Input, Parameters, Expected, Mode)
                 end,
                 [false, true]
@@ -378,7 +393,7 @@ invalid_arguments(_) ->
                 fun() -> Module:xof_squeeze(Xof, -1) end,
                 fun() -> Module:hash_update(Hash, [256]) end,
                 fun() -> Module:hash({tuplehash128, 32}, [<<>> | invalid]) end,
-                fun() -> Module:xof({tuplehashxof128, 32}, <<"flattened">>) end,
+                fun() -> Module:xof(tuplehashxof128, <<"flattened">>, 32) end,
                 fun() -> Module:xof_absorb(make_ref(), <<>>) end
             ])
         end,

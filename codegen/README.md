@@ -69,10 +69,9 @@ unpublished output. KT/HopMAC customization resources remain component-owned.
 
 `libdecaf.erl` exposes only the generic high-level interface with runnable examples
 and parameter tables. Generic constructors and one-shot functions expand parameter
-tuples through the selected algorithm's constructor vtable. `xof/2` includes the
-output length in its tuple; `xof/3` uses initializer parameters plus a separate
-output length. The NIF module keeps sparse documentation. `sp800185_SUITE` checks
-public documentation examples and both generic and algorithm-specific native APIs.
+tuples through the selected algorithm's constructor vtable. `xof/3` uses the same
+parameters as `xof_init/1`, with the output byte length as its third argument.
+The NIF module keeps sparse documentation. `sp800185_SUITE` checks public documentation examples and both generic and algorithm-specific native APIs.
 
 The generated deprecated hash modules preserve tagged `{Algorithm, NativeState}`
 tuples, digest truncation, SHAKE aliases, and wrapper argument errors, calling the

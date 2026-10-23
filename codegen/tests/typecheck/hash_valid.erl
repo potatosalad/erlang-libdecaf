@@ -28,7 +28,7 @@ public() ->
     _ = libdecaf:hash({hopmac128, 32, <<"key">>}, <<"abc">>),
     _ = libdecaf:hash({parallelhash128, 32, 8}, <<"abc">>),
     _ = libdecaf:hash({shake128, 32}, <<"abc">>),
-    _ = libdecaf:xof({keccakxof_128, 32}, <<"abc">>),
+    _ = libdecaf:xof(keccakxof_128, <<"abc">>, 32),
     _ = libdecaf:xof_init({cshake128, <<>>, <<"custom">>}),
     _ = libdecaf:xof_init({turboshake128, 31}),
     Initial = libdecaf:xof_init({kt256, <<"custom">>}),

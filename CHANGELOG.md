@@ -14,8 +14,8 @@
   * RFC 9861 KangarooTwelve KT128 and KT256 with one-shot and incremental customization support.
   * RFC 9861 TurboSHAKE128 and TurboSHAKE256 with configurable domain separation bytes.
   * cSHAKE128 and cSHAKE256 with SP 800-185 function-name and customization strings.
-    * `libdecaf:xof/2,3` and `libdecaf:xof_init/1`, using `cshake128` or `cshake256`.
-  * Original Keccak-XOF-128 and Keccak-XOF-256 through `libdecaf:xof/2` and the incremental XOF API.
+    * `libdecaf:xof/3` and `libdecaf:xof_init/1`, using `cshake128` or `cshake256`.
+  * Original Keccak-XOF-128 and Keccak-XOF-256 through `libdecaf:xof/3` and the incremental XOF API.
     * Algorithm names: `keccakxof_128` and `keccakxof_256`.
   * Streaming Ed25519ph and Ed448ph signing and verification with immutable states.
     * `libdecaf_eddsa:sign_init/2`, `libdecaf_eddsa:sign_init/3`
