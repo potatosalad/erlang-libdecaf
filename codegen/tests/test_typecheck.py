@@ -25,7 +25,7 @@ def project(tmp_path_factory):
     directory = tmp_path_factory.mktemp("hash-typecheck")
     source = directory / "src"
     source.mkdir()
-    for module in ("libdecaf", "libdecaf_nif"):
+    for module in ("libdecaf", "libdecaf_nif", "libdecaf_curve25519", "libdecaf_curve448"):
         shutil.copy(root / "src" / f"{module}.erl", source)
     for fixture in Path(__file__).with_name("typecheck").glob("*.erl"):
         shutil.copy(fixture, source)
@@ -50,7 +50,8 @@ def project(tmp_path_factory):
     return directory, dialyzer, str(elp), str(build_info)
 
 
-def test_dialyzer_rejects_wrong_groups_and_parameters(project):
+@pytest.fixture(scope="module")
+def plt(project):
     directory, dialyzer, _, _ = project
     configured_plt = os.environ.get("LIBDECAF_TYPECHECK_PLT")
     plt = Path(configured_plt).resolve() if configured_plt else directory / "otp.plt"
@@ -71,6 +72,11 @@ def test_dialyzer_rejects_wrong_groups_and_parameters(project):
             cwd=directory,
         )
         assert built.returncode == 0, built.stdout
+    return plt
+
+
+def test_dialyzer_rejects_wrong_groups_and_parameters(project, plt):
+    directory, dialyzer, _, _ = project
     base = (dialyzer, "--plt", str(plt), "--no_check_plt", "--src", "src/libdecaf_nif.erl", "src/libdecaf.erl")
     valid = run(*base, "src/hash_valid.erl", cwd=directory)
     assert valid.returncode == 0, valid.stdout
@@ -94,3 +100,37 @@ def test_eqwalizer_rejects_wrong_algorithms_and_parameters(project):
     assert "integer()" in descriptions, invalid.stdout
     assert "kmacxof128" in descriptions and "kmac128" in descriptions, invalid.stdout
     assert "shake128" in descriptions, invalid.stdout
+
+
+def test_dialyzer_rejects_crossed_signing_states(project, plt):
+    directory, dialyzer, _, _ = project
+    base = (
+        dialyzer,
+        "--plt",
+        str(plt),
+        "--no_check_plt",
+        "--src",
+        "src/libdecaf_nif.erl",
+        "src/libdecaf_curve25519.erl",
+        "src/libdecaf_curve448.erl",
+    )
+    valid = run(*base, "src/eddsa_valid.erl", cwd=directory)
+    assert valid.returncode == 0, valid.stdout
+    invalid = run(*base, "src/eddsa_invalid.erl", cwd=directory)
+    assert invalid.returncode == 2, invalid.stdout
+    for function in ("ed25519ph_verify_final", "ed448ph_sign_update", "ed25519ph_sign_init"):
+        assert function in invalid.stdout, invalid.stdout
+    assert "breaks the contract" in invalid.stdout, invalid.stdout
+
+
+def test_eqwalizer_rejects_resource_as_encoded_signing_key(project):
+    directory, _, elp, build_info = project
+    base = (elp, "eqwalize", "--project", build_info, "--no-connect", "--bail-on-error", "--format", "json")
+    valid = run(*base, "libdecaf_nif", "libdecaf_curve25519", "libdecaf_curve448", "eddsa_valid", cwd=directory)
+    assert valid.returncode == 0, valid.stdout
+    invalid = run(*base, "eddsa_invalid", cwd=directory)
+    assert invalid.returncode != 0, invalid.stdout
+    diagnostics = [json.loads(line) for line in invalid.stdout.splitlines() if line.startswith("{")]
+    descriptions = "\n".join(item["description"] for item in diagnostics)
+    assert "ed25519_signing_key" in descriptions, invalid.stdout
+    assert "reference()" in descriptions and "binary()" in descriptions, invalid.stdout
