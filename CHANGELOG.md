@@ -14,8 +14,8 @@
   * RFC 9861 KangarooTwelve KT128 and KT256 with one-shot and incremental customization support.
   * RFC 9861 TurboSHAKE128 and TurboSHAKE256 with configurable domain separation bytes.
   * cSHAKE128 and cSHAKE256 with SP 800-185 function-name and customization strings.
-    * `libdecaf:xof_cshake/5` and `libdecaf:xof_init_cshake/3`, using `cshake128` or `cshake256`.
-  * Original Keccak-XOF-128 and Keccak-XOF-256 through `libdecaf:xof_keccak/3` and the incremental XOF API.
+    * `libdecaf:xof/2,3` and `libdecaf:xof_init/1`, using `cshake128` or `cshake256`.
+  * Original Keccak-XOF-128 and Keccak-XOF-256 through `libdecaf:xof/2` and the incremental XOF API.
     * Algorithm names: `keccakxof_128` and `keccakxof_256`.
   * Streaming Ed25519ph and Ed448ph signing and verification with immutable states.
     * `libdecaf_eddsa:sign_init/2`, `libdecaf_eddsa:sign_init/3`
@@ -30,8 +30,10 @@
   * Add immutable advancing `absorb`/`squeeze` APIs for every XOF family, following the two-phase streaming interface in the SP 800-185 Revision 1 initial public draft.
   * Generate the deprecated `libdecaf_sha2`, `libdecaf_sha3`, and `libdecaf_keccak_sha3` compatibility modules, retaining wrapped states and directing callers to the hash and XOF APIs in `libdecaf`.
   * Add Docker and native ASan, LSan, and UBSan checks for ed448goldilocks and the NIF, including resource cleanup stress.
-  * Add family initializers and one-shot functions with shared `hash_update`/`hash_final` and `xof_absorb`/`xof_squeeze` operations in `libdecaf` and `libdecaf_nif`.
-  * Split XOF families into independent native implementations with dedicated states and trapping lifecycles.
+  * Expose high-level `hash`/`xof` one-shot and streaming APIs in `libdecaf`, with algorithm-specific one-shot NIFs and explicit `_hash_init`/`_xof_init` constructors.
+  * Give Hash and XOF independent contexts, resource types, registries, dispatch, and trapping lifecycles under `hash/` and `xof/`, with each construction in its own component directory.
+  * Reuse the cSHAKE primitive in KMAC, TupleHash, and ParallelHash, the KT primitive in HopMAC, and TurboSHAKE in KT.
+  * Keep algorithm callbacks private and generate component headers with explicit extern declarations, named parameters, and C++ linkage guards.
   * Generate opaque Hash and XOF states that retain initialization parameters, including chosen hash output lengths and KT customization, with human-friendly public documentation and runnable examples.
   * Track C header dependencies so generated atom-table changes rebuild every affected native object.
   * Upstream update to [`ed448goldilocks` version `features-20261022-v1.0.5`](https://github.com/potatosalad/ed448goldilocks/tree/features-20261022-v1.0.5), based on tag `v1.0.5` (vendored as part of `libdecaf` app).

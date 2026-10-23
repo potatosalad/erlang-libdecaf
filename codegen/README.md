@@ -37,66 +37,61 @@ content signature applied after formatting, and repeated generation is stable.
 
 The first stage emits the native registration table, component implementations,
 and Erlang modules. `context/crypto.py` defines the Hash/XOF argument contracts;
-`config.yaml` supplies algorithms, rates, and output defaults. `context/functions.py`
-contains the remaining primitive contracts. Functions, types, and exports are sorted
-lexicographically; specs name arguments and results in `when` clauses.
+`config.yaml` supplies algorithms, rates, and output defaults. Functions, types,
+and exports are sorted lexicographically; specs name arguments and results in
+`when` clauses. Generated headers use `extern`, named parameters, and C++ linkage guards.
 
-Native components own their resource loaders, state destructors, and continuation
-resources. Curves live under `curve25519/` and `curve448/`, the PRNG under `csprng/`,
-and hash constructions under `hash/`, `kmac/`, `tuplehash/`, `parallelhash/`, and `xof/`.
-Curve folders do not add prefixes to native symbols. `libdecaf_nif.c` includes headers,
-registers entry points, and calls loaders on initial load and upgrade.
+Each construction has a component directory: `sha2/`, `sha3/`, `keccak/`, `cshake/`,
+`kmac/`, `hopmac/`, `kt/`, `tuplehash/`, `parallelhash/`, and `turboshake/`.
+Both hash and XOF variants live together. Private callbacks initialize, clone,
+destroy, update, finalize, and output raw contexts. Per-algorithm immutable vtables
+reference these callbacks. Algorithm-specific one-shot NIFs and `_hash_init` /
+`_xof_init` constructors are declared in their component header and exported in
+`libdecaf_nif.erl`. Other NIF-shaped helper functions remain static.
 
-`hash/hash.c` dispatches `hash_update`, `hash_final`, `xof_absorb`, and `xof_squeeze`
-to the component owning the resource. Generic initializers only expand parameter
-tuples into family initializers. Algorithm selection and parameters stay local
-to the owning component. Hash states retain their chosen output length; XOF states
-retain an advancing output cursor. Hash/XOF resources reject the other lifecycle.
+`hash/hash.c` and `xof/xof.c` independently own their API entry points, loaders,
+context structs, VM resource types, algorithm registries, and trapping lifecycles.
+Each API checks only its own resource type and dispatches only to its own algorithm
+descriptors. There is no shared Hash/XOF router or runtime lifecycle mode flag.
+Atom tags survive code upgrades and registry reordering. Hash states retain their
+chosen output length; XOF states retain an absorbing or squeezing phase.
 
-`xof/api_family.c.inc` and `xof/api_lifecycle.c.inc` generate ordinary C functions,
-with component-specific names in sanitizer reports and stack traces. There are no
-C template-instantiation macros, shared state unions, or algorithm operation tables.
-Input and output share a bounded reduction budget. ParallelHash charges for the
-extra leaf permutations needed for small block sizes. TupleHash charges for element
-framing, including empty elements. Traps own their private contexts, retained inputs,
-and output binaries; destructors wipe and release them after cancellation.
+Algorithm composition stays below these independent lifecycles: KMAC, TupleHash,
+and ParallelHash call the cSHAKE initializer; HopMAC calls the KT primitive; KT
+calls TurboSHAKE. The SP 800-185 integer encodings have one implementation under
+`cshake/`. Include directives are emitted for the APIs used by each component.
 
-KT and HopMAC retain customization in immutable native resources, appending it
-only after the message. HopMAC computes the RFC 9861 inner digest (32/64 bytes)
-and uses it as customization for the outer keyed KT invocation. KMAC, TupleHash,
-and ParallelHash encode the chosen hash length, or zero for their XOF variants.
-ParallelHash streams its leaves without a block-sized allocation. The implementation
-processes leaves serially.
+Continuation resources own private context copies, retained input environments,
+and output binaries. Input and output share a bounded reduction budget. TupleHash
+charges for element framing, including empty elements; ParallelHash charges for
+extra leaf permutations at small block sizes. Cancellation wipes contexts and
+unpublished output. KT/HopMAC customization resources remain component-owned.
 
-The public `libdecaf.erl` template explains these lifecycles and generates runnable
-examples for every one-shot and initializer. `libdecaf_nif.erl` keeps sparse native
-documentation. Both use the same exports and named-variable typespecs. Native
-Markdown documentation requires OTP 27 or later; CI exercises OTP 28 and OTP 29.
-`sp800185_SUITE` executes the public function documentation examples.
+`libdecaf.erl` exposes only the generic high-level interface with runnable examples
+and parameter tables. Generic constructors and one-shot functions expand parameter
+tuples through the selected algorithm's constructor vtable. `xof/2` includes the
+output length in its tuple; `xof/3` uses initializer parameters plus a separate
+output length. The NIF module keeps sparse documentation. `sp800185_SUITE` checks
+public documentation examples and both generic and algorithm-specific native APIs.
 
-The generated deprecated `libdecaf_sha2`, `libdecaf_sha3`, and
-`libdecaf_keccak_sha3` modules preserve `{Algorithm, NativeState}` tuples and old
-truncation/SHAKE behavior, calling the current native APIs directly. They direct
-new callers to `libdecaf`.
+The generated deprecated hash modules preserve tagged `{Algorithm, NativeState}`
+tuples, digest truncation, SHAKE aliases, and wrapper argument errors, calling the
+current native APIs directly. Prime-order group templates continue to generate
+Ristretto255/Decaf448 native and Erlang implementations from `context/groups.py`.
+Curve implementations and the PRNG retain their independent component resources.
 
-`context/groups.py` and the prime-order templates generate Ristretto255 and Decaf448
-native implementations and documented Erlang modules. Their precomputation tables
-have independent resource lifecycles. No group-instantiation C macros are used.
-
-Run generator checks with `cd codegen && poetry run pytest`. To run positive and
-intentionally invalid fixtures through the actual Dialyzer and Eqwalizer:
+Run generator checks with `cd codegen && poetry run pytest`. To run fixtures through
+the actual Dialyzer and Eqwalizer:
 
 ```sh
 cd codegen
 LIBDECAF_TYPECHECK=1 poetry run pytest tests/test_typecheck.py
 ```
 
-This requires `gmake elp` and an installed Dialyzer. Set `LIBDECAF_TYPECHECK_PLT`
-to reuse a PLT for the current OTP. Dialyzer checks Hash/XOF opaque state separation;
-Eqwalizer currently treats resource-backed opaque states structurally, but checks
-selectors, tuple forms, keys, block sizes, domain bytes, and tuple-element lists.
-Native checks enforce state and phase separation independently of static analysis.
+This requires `gmake elp` and Dialyzer. Set `LIBDECAF_TYPECHECK_PLT` to reuse a PLT.
+Dialyzer checks opaque Hash/XOF state separation. Eqwalizer checks selectors and
+parameter shapes but currently treats resource-backed opaque states structurally.
 
-`just sanitizers` instruments both ed448goldilocks and the NIF with ASan/UBSan,
-runs upstream tests and focused suites (including all SP 800-185 vectors), and
-performs 10,000 resource/phase/error cleanup iterations across all XOF families.
+`just sanitizers` instruments ed448goldilocks and the NIF with ASan/UBSan, runs
+upstream tests and focused suites (including all SP 800-185 vectors), and performs
+10,000 resource, phase, error, and cancellation cleanup iterations.
