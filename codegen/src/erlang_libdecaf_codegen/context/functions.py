@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from ..schema import NIF as NIFSchema
+from .groups import PRIME_ORDER_GROUPS
 
 
 @dataclass(frozen=True)
@@ -146,7 +147,8 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
     def add(name: str, arguments: list[tuple[str, str]], returns: str, doc: str, group: str) -> None:
         result.append(Function(name, tuple(Argument(*argument) for argument in arguments), returns, doc, group))
 
-    for name, byte_count, title in [("ristretto255", 32, "Ristretto255"), ("decaf448", 56, "Decaf448")]:
+    for group in PRIME_ORDER_GROUPS:
+        name, byte_count, title = group.name, group.encoding_bytes, group.title
         point, scalar, table = f"{name}_point()", f"{name}_scalar()", f"{name}_precomputed()"
         operations = [
             ("identity", [], point, f"Return the {title} identity element in its canonical {byte_count}-byte encoding."),
@@ -443,7 +445,8 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
             result.append(
                 (f"{curve}_{part}", f"<<_:{size * 8}>>", f"A {size}-byte {curve.upper()} {part.replace('_', ' ')} encoding.")
             )
-    for group, size in [("ristretto255", 32), ("decaf448", 56)]:
+    for profile in PRIME_ORDER_GROUPS:
+        group, size = profile.name, profile.encoding_bytes
         for part in ["point", "scalar"]:
             result.append((f"{group}_{part}", f"<<_:{size * 8}>>", f"A canonical {size}-byte {group} {part} encoding."))
         result.append((f"{group}_precomputed", "erlang:nif_resource()", f"An immutable native multiplication table for {group}."))

@@ -9,13 +9,18 @@
 {% for group in ctx.xof_groups %}
 #include "xof/{{ group.name }}.h"
 {% endfor %}
-#include "groups.h"
+{% for group in ctx.prime_order_groups %}
+#include "{{ group.directory }}/{{ group.name }}.h"
+{% endfor %}
 
 /* NIF Callbacks */
 
 static ErlNifFunc libdecaf_nif_funcs[] = {
-    LIBDECAF_GROUP_NIFS(ristretto255),
-    LIBDECAF_GROUP_NIFS(decaf448),
+{% for group in ctx.prime_order_groups %}
+{% for function in ctx.nif.functions if function.name.startswith(group.name + '_') %}
+    {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+{% endfor %}
+{% endfor %}
     /* decaf/ed255.h */
     {"ed25519_derive_keypair", 1, libdecaf_nif_ed25519_derive_keypair_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"ed25519_derive_public_key", 1, libdecaf_nif_ed25519_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
@@ -89,8 +94,10 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     if (libdecaf_nif_{{ group.name }}_load(env) != 0)
         return -1;
 {% endfor %}
-    if (libdecaf_nif_groups_load(env) != 0)
+{% for group in ctx.prime_order_groups %}
+    if (libdecaf_nif_{{ group.name }}_load(env) != 0)
         return -1;
+{% endfor %}
     /* Initialize common atoms */
     (void)libdecaf_nif_make_atoms(env);
     return retval;
@@ -115,8 +122,10 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
     if (libdecaf_nif_{{ group.name }}_load(env) != 0)
         return -1;
 {% endfor %}
-    if (libdecaf_nif_groups_load(env) != 0)
+{% for group in ctx.prime_order_groups %}
+    if (libdecaf_nif_{{ group.name }}_load(env) != 0)
         return -1;
+{% endfor %}
     /* Initialize common atoms */
     (void)libdecaf_nif_make_atoms(env);
     return retval;

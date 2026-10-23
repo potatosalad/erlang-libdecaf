@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from ..schema import Root
 from .nif import NIF
 from .functions import Function, XOFGroup, functions, xof_groups, types
+from .groups import PRIME_ORDER_GROUPS, PrimeOrderGroup
 
 
 @dataclass
@@ -36,3 +37,7 @@ class Context:
     @property
     def xof_groups(self) -> tuple[XOFGroup, ...]:
         return xof_groups(self.schema.nif)
+
+    @property
+    def prime_order_groups(self) -> tuple[PrimeOrderGroup, ...]:
+        return PRIME_ORDER_GROUPS

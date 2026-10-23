@@ -144,10 +144,6 @@ def test_erlang_native_bindings_match_the_c_registration_table():
     schema = Root.model_validate(yaml.safe_load((root / "codegen/config.yaml").read_text()))
     source = (root / "c_src/nif/libdecaf_nif.c").read_text()
     native = {(name, int(arity)) for name, arity in re.findall(r'\{\s*"([a-z0-9_]+)"\s*,\s*(\d+)\s*,\s*libdecaf_nif_', source)}
-    group_source = (root / "c_src/nif/groups.h").read_text()
-    group_operations = re.findall(r'#Name\s*"(_[a-z0-9_]+)"\s*,\s*(\d+)', group_source)
-    for group in re.findall(r"LIBDECAF_GROUP_NIFS\((\w+)\)", source):
-        native.update((group + operation, int(arity)) for operation, arity in group_operations)
     generated = {(function.name, function.arity) for function in functions(schema.nif)}
     assert generated == native
 

@@ -1,0 +1,5 @@
+/* clang-format off */ //-
+{% from 'c_src/nif/prime_order_group.c.inc' import implementation %}
+{% set group = ctx.prime_order_groups | selectattr('name', 'equalto', 'decaf448') | first %}
+{{ implementation(group) }}
+/* clang-format on */ //-

@@ -32,9 +32,23 @@ committed so ordinary builds do not run the generator. Generated files carry a
 content signature applied after formatting, and repeated generation is stable.
 
 The first stage generates `c_src/nif/hash/hash.{c,h}`, the XOF family implementations
-under `c_src/nif/xof/`, and the native registration table in
+under `c_src/nif/xof/`, the Ristretto255 and Decaf448 implementations under their
+curve directories, and the native registration table in
 `c_src/nif/libdecaf_nif.c`. XOFs expose only grouped entry points; there is
 no generic XOF dispatch layer.
+
+Native components own their resource types, destructors, and load functions.
+`csprng/` contains the sponge PRNG; `curve25519/` contains Ed25519, X25519, and
+Ristretto255; `curve448/` contains Ed448, X448, and Decaf448. Curve folders do not
+add a prefix to the native function names. The main NIF file registers functions
+and invokes component loaders on initial load and upgrade; it includes no C
+implementation fragments.
+
+`context/groups.py` supplies the prime-order group metadata used by the native
+templates, registrations, and Erlang bindings. `prime_order_group.c.inc` and
+`prime_order_group.h.inc` expand into ordinary `ristretto255.{c,h}` and
+`decaf448.{c,h}` files. Each implementation owns its aligned precomputation
+tables and resource lifecycle. There are no group-instantiation C macros.
 
 `nif.hash` and `nif.xof` are mappings from algorithm names to metadata. Each
 entry gives its upstream context struct and operation symbols. XOF entries also
