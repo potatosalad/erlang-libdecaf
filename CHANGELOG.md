@@ -7,6 +7,7 @@
   * Erase temporary Ed25519 and Ed448 keypairs before returning mismatch errors.
   * Preserve legacy Keccak support in the NIF using the upstream sponge API.
   * Fix native dependency ordering and rebuilds, and update macOS linking flags.
+  * Fix empty-message null-pointer contract violations in the vendored EdDSA and SHA-512 wrappers.
 * Library Support
   * RFC 9861 KangarooTwelve KT128 and KT256 with one-shot and incremental customization support.
   * RFC 9861 TurboSHAKE128 and TurboSHAKE256 with configurable domain separation bytes.
@@ -24,6 +25,7 @@
     * `libdecaf_ristretto255` and `libdecaf_decaf448` point and scalar APIs.
     * Uniform byte mapping and precomputed multiplication.
 * Enhancements
+  * Add Docker and native ASan, LSan, and UBSan checks for ed448goldilocks and the NIF, including resource cleanup stress.
   * Replace generic XOF entry points with grouped APIs in `libdecaf` and `libdecaf_nif`.
   * Split XOF families into independent native implementations with dedicated states and trapping lifecycles.
   * Generate generic fixed-output hash and grouped XOF APIs with opaque states, explicit customization parameters, and runtime XOF group checks.

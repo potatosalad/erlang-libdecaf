@@ -1,0 +1,29 @@
+diff --git a/src/per_curve/eddsa.tmpl.c b/src/per_curve/eddsa.tmpl.c
+index 2119c7c..9613a90 100644
+--- a/src/per_curve/eddsa.tmpl.c
++++ b/src/per_curve/eddsa.tmpl.c
+@@ -164 +164 @@ static void decaf_ed$(gf_shortname)_sign_internal (
+-        hash_update(hash,message,message_len);
++        if (message_len != 0) hash_update(hash,message,message_len);
+@@ -199 +199 @@ static void decaf_ed$(gf_shortname)_sign_internal (
+-        hash_update(hash,message,message_len);
++        if (message_len != 0) hash_update(hash,message,message_len);
+@@ -349 +349 @@ decaf_error_t decaf_ed$(gf_shortname)_verify (
+-        hash_update(hash,message,message_len);
++        if (message_len != 0) hash_update(hash,message,message_len);
+diff --git a/src/per_curve/eddsa.tmpl.hxx b/src/per_curve/eddsa.tmpl.hxx
+index 7adde57..77a585f 100644
+--- a/src/per_curve/eddsa.tmpl.hxx
++++ b/src/per_curve/eddsa.tmpl.hxx
+@@ -125,0 +126 @@ public:
++        /* The C signing API requires a non-null message even when empty. */
+@@ -129 +130 @@ public:
+-            message.data(),
++            message.size() ? message.data() : reinterpret_cast<const uint8_t *>(""),
+diff --git a/src/public_include/decaf/sha512.hxx b/src/public_include/decaf/sha512.hxx
+index 32e86a3..8185647 100644
+--- a/src/public_include/decaf/sha512.hxx
++++ b/src/public_include/decaf/sha512.hxx
+@@ -50 +50 @@ public:
+-    inline void update(const uint8_t *__restrict__ in, size_t len) DECAF_NOEXCEPT { decaf_sha512_update(wrapped,in,len); }
++    inline void update(const uint8_t *__restrict__ in, size_t len) DECAF_NOEXCEPT { if (len != 0) decaf_sha512_update(wrapped,in,len); }

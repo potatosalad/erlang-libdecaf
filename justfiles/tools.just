@@ -35,3 +35,20 @@ lock:
 [working-directory: 'codegen']
 sign: poetry-install
     poetry run erlang_libdecaf_codegen sign config.yaml .. templates0 templates1
+
+[group('test')]
+sanitizers: sanitizers-docker
+
+[group('test')]
+[linux]
+sanitizers-native:
+    bash "{{justfile_directory()}}/justfiles/sanitizers/run.sh" "{{justfile_directory()}}"
+
+[group('test')]
+sanitizers-docker: sanitizers-docker-build
+    mkdir -p "{{justfile_directory()}}/logs/sanitizers"
+    docker run --rm --volume "{{justfile_directory()}}/logs/sanitizers:/project/logs/sanitizers" --env SANITIZERS_CT_SUITES --env SANITIZERS_STRESS_ITERATIONS --env SANITIZERS_JOBS --env SANITIZERS_COLOR erlang-libdecaf-sanitizers
+
+[group('docker')]
+sanitizers-docker-build:
+    docker build --file justfiles/sanitizers/Dockerfile --tag erlang-libdecaf-sanitizers .

@@ -14,6 +14,12 @@ C_SRC_TYPE ?= shared
 
 C_DEPS_DIR ?= $(BASEDIR)/c_deps
 
+SANITIZE ?= 0
+CFLAGS_SANITIZE ?= -O1 -fsanitize=address,undefined -fno-common -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-sanitize-recover=all
+CXXFLAGS_SANITIZE ?= $(CFLAGS_SANITIZE)
+LDFLAGS_SANITIZE ?= -fsanitize=address,undefined
+ED448GOLDILOCKS_TESTS ?= OFF
+
 # "erl" command.
 
 ERL_CMD ?= erl
@@ -134,6 +140,12 @@ ifneq ($(CROSSCOMPILER),)
 	CXX = $(CROSSCOMPILER)g++
 endif
 
+ifeq ($(SANITIZE),1)
+	CFLAGS += $(CFLAGS_SANITIZE)
+	CXXFLAGS += $(CXXFLAGS_SANITIZE)
+	LDFLAGS += $(LDFLAGS_SANITIZE)
+endif
+
 CFLAGS += \
 	-I"$(ERTS_INCLUDE_DIR)" \
 	-I"$(ERL_INTERFACE_INCLUDE_DIR)" \
@@ -146,15 +158,14 @@ CXXFLAGS += \
 	-I"$(ED448GOLDILOCKS_SRC_DIR)/src/include"
 
 LDLIBS += -L"$(ERL_INTERFACE_LIB_DIR)" \
-	-L"$(ED448GOLDILOCKS_LIB_DIR)" \
-	-ldecaf
+	"$(ED448GOLDILOCKS_OUTPUT_FILE)"
 
 # Dependencies.
 
 ED448GOLDILOCKS_VSN ?= features-20261022-v1.0.5
 ED448GOLDILOCKS_GIT ?= https://github.com/potatosalad/ed448goldilocks.git
 ED448GOLDILOCKS_SRC_DIR ?= $(C_DEPS_DIR)/ed448goldilocks
-ED448GOLDILOCKS_BUILD_DIR ?= $(C_DEPS_DIR)/ed448goldilocks-build
+ED448GOLDILOCKS_BUILD_DIR ?= $(C_DEPS_DIR)/ed448goldilocks-build$(if $(filter 1,$(SANITIZE)),-sanitizers)
 ED448GOLDILOCKS_INCLUDE_DIR ?= $(ED448GOLDILOCKS_BUILD_DIR)/src/GENERATED/include
 ED448GOLDILOCKS_LIB_DIR ?= $(ED448GOLDILOCKS_BUILD_DIR)/src
 ED448GOLDILOCKS_OUTPUT_FILE ?= $(ED448GOLDILOCKS_BUILD_DIR)/src/libdecaf.a
@@ -232,7 +243,8 @@ $(C_DEPS_DIR):
 $(ED448GOLDILOCKS_SRC_DIR)/CMakeLists.txt: | $(C_DEPS_DIR)
 	$(verbose) if [ ! -f $(ED448GOLDILOCKS_SRC_DIR)/CMakeLists.txt ]; then \
 		git clone -n $(ED448GOLDILOCKS_GIT) $(ED448GOLDILOCKS_SRC_DIR) && \
-		(cd $(ED448GOLDILOCKS_SRC_DIR) && git checkout -q $(ED448GOLDILOCKS_VSN)); \
+		(cd $(ED448GOLDILOCKS_SRC_DIR) && git checkout -q $(ED448GOLDILOCKS_VSN)) && \
+		patch -d "$(ED448GOLDILOCKS_SRC_DIR)" -p1 < "$(C_SRC_DIR)/patches/ed448goldilocks-empty-buffers.patch"; \
 	else \
 		true; \
 	fi
@@ -240,12 +252,16 @@ $(ED448GOLDILOCKS_SRC_DIR)/CMakeLists.txt: | $(C_DEPS_DIR)
 $(ED448GOLDILOCKS_MAKE_FILE): $(ED448GOLDILOCKS_SRC_DIR)/CMakeLists.txt $(C_SRC_DIR)/Makefile
 	$(verbose) mkdir -p $(ED448GOLDILOCKS_BUILD_DIR)
 	$(verbose) cd $(ED448GOLDILOCKS_BUILD_DIR) && cmake \
+			-DCMAKE_C_COMPILER="$(CC)" \
+			-DCMAKE_CXX_COMPILER="$(CXX)" \
 			-DENABLE_SHARED=OFF \
 			-DENABLE_STATIC=ON \
 			-DENABLE_STRICT=OFF \
-			-DENABLE_TESTS=OFF \
-			-DCMAKE_C_FLAGS="-fPIC" \
-			-DCMAKE_CXX_FLAGS="-fPIC" \
+			-DENABLE_TESTS=$(ED448GOLDILOCKS_TESTS) \
+			-DENABLE_SANITIZER=$(if $(filter 1,$(SANITIZE)),ON,OFF) \
+			-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+			-DCMAKE_C_FLAGS="-fPIC -g $(if $(filter 1,$(SANITIZE)),$(CFLAGS_SANITIZE))" \
+			-DCMAKE_CXX_FLAGS="-fPIC -g $(if $(filter 1,$(SANITIZE)),$(CXXFLAGS_SANITIZE))" \
 			"$(ED448GOLDILOCKS_SRC_DIR)"
 
 $(ED448GOLDILOCKS_OUTPUT_FILE): $(ED448GOLDILOCKS_MAKE_FILE)
@@ -258,7 +274,7 @@ $(C_SRC_OUTPUT_FILE): $(ALL_DEPS_OUTPUT) $(OBJECTS)
 		$(LDFLAGS) $(if $(filter $(C_SRC_TYPE),shared),-shared) $(LDLIBS) \
 		-o $(C_SRC_OUTPUT_FILE)
 
-$(OBJECTS): $(MAKEFILE_LIST) $(C_SRC_ENV)
+$(OBJECTS): $(MAKEFILE_LIST) $(C_SRC_ENV) | $(ALL_DEPS_OUTPUT)
 
 %.o: %.c
 	$(COMPILE_C) $(OUTPUT_OPTION) $<

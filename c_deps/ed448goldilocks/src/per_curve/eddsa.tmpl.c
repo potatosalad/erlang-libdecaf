@@ -161,7 +161,7 @@ static void decaf_ed$(gf_shortname)_sign_internal (
         /* Hash to create the nonce */
         hash_init_with_dom(hash,prehashed,0,context,context_len);
         hash_update(hash,expanded.seed,sizeof(expanded.seed));
-        hash_update(hash,message,message_len);
+        if (message_len != 0) hash_update(hash,message,message_len);
         decaf_bzero(&expanded, sizeof(expanded));
     }
     
@@ -196,7 +196,7 @@ static void decaf_ed$(gf_shortname)_sign_internal (
         hash_init_with_dom(hash,prehashed,0,context,context_len);
         hash_update(hash,nonce_point,sizeof(nonce_point));
         hash_update(hash,pubkey,DECAF_EDDSA_$(gf_shortname)_PUBLIC_BYTES);
-        hash_update(hash,message,message_len);
+        if (message_len != 0) hash_update(hash,message,message_len);
         uint8_t challenge[2*DECAF_EDDSA_$(gf_shortname)_PRIVATE_BYTES];
         hash_final(hash,challenge,sizeof(challenge));
         hash_destroy(hash);
@@ -346,7 +346,7 @@ decaf_error_t decaf_ed$(gf_shortname)_verify (
         hash_init_with_dom(hash,prehashed,0,context,context_len);
         hash_update(hash,signature,DECAF_EDDSA_$(gf_shortname)_PUBLIC_BYTES);
         hash_update(hash,pubkey,DECAF_EDDSA_$(gf_shortname)_PUBLIC_BYTES);
-        hash_update(hash,message,message_len);
+        if (message_len != 0) hash_update(hash,message,message_len);
         uint8_t challenge[2*DECAF_EDDSA_$(gf_shortname)_PRIVATE_BYTES];
         hash_final(hash,challenge,sizeof(challenge));
         hash_destroy(hash);

@@ -58,7 +58,7 @@ Add `libdecaf` to your project's dependencies in your `Makefile` for [`erlang.mk
 
 Building from source requires Erlang/OTP 27 or later with development headers,
 GNU Make 4 or later, a C compiler and a C++14 compiler, CMake 3.22 or later, and Python 3.
-Git is also required if the vendored C dependency needs to be fetched.
+Git and `patch` are also required if the vendored C dependency needs to be fetched.
 
 ```sh
 gmake
@@ -68,7 +68,8 @@ gmake tests
 The native dependency in `c_deps/ed448goldilocks` is vendored from branch
 `features-20261022-v1.0.5`, based on upstream tag `v1.0.5` with an ARM64
 architecture detection fix. If `c_deps` is removed, the build fetches that branch
-automatically. The first test run downloads the SHA-2, SHA-3, and legacy Keccak
+automatically and reapplies the local empty-buffer fixes from `c_src/patches/`.
+The first test run downloads the SHA-2, SHA-3, and legacy Keccak
 test vectors. RFC 9496 group test vectors are included in the repository.
 
 ## Usage
@@ -87,6 +88,27 @@ gmake eqwalize-all # Run only Eqwalizer
 ELP defaults to its OTP 29.1 build. With OTP 28 or 27, set
 `ELP_OTP_VERSION=28.5` or `ELP_OTP_VERSION=27.3` when installing it.
 The checked-in `.elp.toml` also enables Eqwalizer for ELP editor integrations.
+
+Run the native sanitizer checks with Docker:
+
+```sh
+just sanitizers
+SANITIZERS_STRESS_ITERATIONS=50000 just sanitizers
+```
+
+This builds an ASan-enabled OTP 29 emulator, instruments both ed448goldilocks
+and the NIF with AddressSanitizer and UndefinedBehaviorSanitizer, and enables
+LeakSanitizer at runtime. It runs the upstream `decaf` tests, the current native
+component/hash/XOF Common Test suites, and 10,000 resource/error cleanup iterations.
+Alignment and non-null checks remain enabled. Only OTP's own leak suppressions
+are supplied. Logs and sanitizer reports are retained under `logs/sanitizers/`.
+
+`SANITIZERS_CT_SUITES`, `SANITIZERS_STRESS_ITERATIONS`, `SANITIZERS_JOBS`, and
+`SANITIZERS_COLOR` can customize the run. On Linux with an ASan OTP installation,
+`just sanitizers-native` runs the same checks locally and restores the normal
+native build on exit, including failures. Sanitized upstream objects use the
+separate `c_deps/ed448goldilocks-build-sanitizers/` directory. Docker builds and
+tests run inside the image and leave host build artifacts unchanged.
 
 ### Hash APIs
 

@@ -123,10 +123,11 @@ public:
         }
         
         SecureBuffer out(CRTP::SIG_BYTES);
+        /* The C signing API requires a non-null message even when empty. */
         decaf_ed$(gf_shortname)_keypair_sign (
             out.data(),
             ((const CRTP*)this)->keypair_,
-            message.data(),
+            message.size() ? message.data() : reinterpret_cast<const uint8_t *>(""),
             message.size(),
             0,
             context.data(),

@@ -47,7 +47,7 @@ public:
     inline SHA512() DECAF_NOEXCEPT { decaf_sha512_init(wrapped); }
     
     /** Add more data to running hash */
-    inline void update(const uint8_t *__restrict__ in, size_t len) DECAF_NOEXCEPT { decaf_sha512_update(wrapped,in,len); }
+    inline void update(const uint8_t *__restrict__ in, size_t len) DECAF_NOEXCEPT { if (len != 0) decaf_sha512_update(wrapped,in,len); }
 
     /** Add more data to running hash, C++ version. */
     inline void update(const Block &s) DECAF_NOEXCEPT { update(s.data(),s.size()); }
