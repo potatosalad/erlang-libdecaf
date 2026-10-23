@@ -16,9 +16,9 @@
 
 -spec cshake() -> binary().
 cshake() ->
-    Initial = libdecaf_nif:hash_xof_cshake_init(cshake128, <<>>, <<"example">>),
-    State = libdecaf_nif:hash_xof_cshake_update(Initial, <<"abc">>),
-    libdecaf_nif:hash_xof_cshake_final(State, 32).
+    Initial = libdecaf_nif:xof_cshake_init(cshake128, <<>>, <<"example">>),
+    State = libdecaf_nif:xof_cshake_update(Initial, <<"abc">>),
+    libdecaf_nif:xof_cshake_final(State, 32).
 
 -spec fixed() -> binary().
 fixed() ->
@@ -28,48 +28,48 @@ fixed() ->
 
 -spec kt() -> binary().
 kt() ->
-    Initial = libdecaf_nif:hash_xof_kt_init(kt128),
-    State = libdecaf_nif:hash_xof_kt_update(Initial, <<"abc">>),
-    libdecaf_nif:hash_xof_kt_final(State, 32, <<"example">>).
+    Initial = libdecaf_nif:xof_kt_init(kt128),
+    State = libdecaf_nif:xof_kt_update(Initial, <<"abc">>),
+    libdecaf_nif:xof_kt_final(State, 32, <<"example">>).
 
 -spec shake() -> binary().
 shake() ->
-    Initial = libdecaf_nif:hash_xof_sha3_init(shake128),
-    State = libdecaf_nif:hash_xof_sha3_update(Initial, <<"abc">>),
-    libdecaf_nif:hash_xof_sha3_final(State, 32).
+    Initial = libdecaf_nif:xof_sha3_init(shake128),
+    State = libdecaf_nif:xof_sha3_update(Initial, <<"abc">>),
+    libdecaf_nif:xof_sha3_final(State, 32).
 
 -spec turboshake() -> binary().
 turboshake() ->
-    Initial = libdecaf_nif:hash_xof_turboshake_init(turboshake128, 31),
-    State = libdecaf_nif:hash_xof_turboshake_update(Initial, <<"abc">>),
-    libdecaf_nif:hash_xof_turboshake_final(State, 32).
+    Initial = libdecaf_nif:xof_turboshake_init(turboshake128, 31),
+    State = libdecaf_nif:xof_turboshake_update(Initial, <<"abc">>),
+    libdecaf_nif:xof_turboshake_final(State, 32).
 
 -spec public_cshake() -> binary().
 public_cshake() ->
-    Initial = libdecaf:hash_xof_cshake_init(cshake128, <<>>, <<"example">>),
-    State = libdecaf:hash_xof_cshake_update(Initial, <<"abc">>),
-    libdecaf:hash_xof_cshake_final(State, 32).
+    Initial = libdecaf:xof_cshake_init(cshake128, <<>>, <<"example">>),
+    State = libdecaf:xof_cshake_update(Initial, <<"abc">>),
+    libdecaf:xof_cshake_final(State, 32).
 
 -spec public_kt() -> binary().
 public_kt() ->
-    Initial = libdecaf:hash_xof_kt_init(kt128),
-    State = libdecaf:hash_xof_kt_update(Initial, <<"abc">>),
-    libdecaf:hash_xof_kt_final(State, 32, <<"example">>).
+    Initial = libdecaf:xof_kt_init(kt128),
+    State = libdecaf:xof_kt_update(Initial, <<"abc">>),
+    libdecaf:xof_kt_final(State, 32, <<"example">>).
 
 -spec public_shake() -> binary().
 public_shake() ->
-    Initial = libdecaf:hash_xof_sha3_init(shake128),
-    State = libdecaf:hash_xof_sha3_update(Initial, <<"abc">>),
-    libdecaf:hash_xof_sha3_final(State, 32).
+    Initial = libdecaf:xof_sha3_init(shake128),
+    State = libdecaf:xof_sha3_update(Initial, <<"abc">>),
+    libdecaf:xof_sha3_final(State, 32).
 
 -spec public_turboshake() -> binary().
 public_turboshake() ->
-    Initial = libdecaf:hash_xof_turboshake_init(turboshake128, 31),
-    State = libdecaf:hash_xof_turboshake_update(Initial, <<"abc">>),
-    libdecaf:hash_xof_turboshake_final(State, 32).
+    Initial = libdecaf:xof_turboshake_init(turboshake128, 31),
+    State = libdecaf:xof_turboshake_update(Initial, <<"abc">>),
+    libdecaf:xof_turboshake_final(State, 32).
 
 -spec public_keccak() -> binary().
 public_keccak() ->
-    Initial = libdecaf:hash_xof_keccak_init(keccak_xof_128),
-    State = libdecaf:hash_xof_keccak_update(Initial, <<"abc">>),
-    libdecaf:hash_xof_keccak_final(State, 32).
+    Initial = libdecaf:xof_keccak_init(keccak_xof_128),
+    State = libdecaf:xof_keccak_update(Initial, <<"abc">>),
+    libdecaf:xof_keccak_final(State, 32).

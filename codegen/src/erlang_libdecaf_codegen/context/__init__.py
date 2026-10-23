@@ -31,7 +31,7 @@ class Context:
 
     @property
     def xof_functions(self) -> tuple[Function, ...]:
-        return tuple(function for function in self.nif.functions if function.family == "hash_xof")
+        return tuple(function for function in self.nif.functions if function.family == "xof")
 
     @property
     def xof_groups(self) -> tuple[XOFGroup, ...]:

@@ -24,18 +24,18 @@ known_answers(Config) ->
         fun({Type, Message, Hex}) ->
             Input = input(Message),
             Expected = binary:decode_hex(Hex),
-            Expected = libdecaf:hash_xof_keccak(Type, Input, byte_size(Expected)),
+            Expected = libdecaf:xof_keccak(Type, Input, byte_size(Expected)),
             Split = byte_size(Input) div 2,
             <<First:Split/binary, Last/binary>> = Input,
-            State = libdecaf:hash_xof_keccak_update(libdecaf:hash_xof_keccak_init(Type), [
+            State = libdecaf:xof_keccak_update(libdecaf:xof_keccak_init(Type), [
                 First, [Last]
             ]),
-            Expected = libdecaf:hash_xof_keccak_final(State, byte_size(Expected)),
-            Expected = libdecaf:hash_xof_keccak_final(State, byte_size(Expected)),
+            Expected = libdecaf:xof_keccak_final(State, byte_size(Expected)),
+            Expected = libdecaf:xof_keccak_final(State, byte_size(Expected)),
             lists:foreach(
                 fun(Length) ->
                     Prefix = binary:part(Expected, 0, Length),
-                    Prefix = libdecaf:hash_xof_keccak_final(State, Length)
+                    Prefix = libdecaf:xof_keccak_final(State, Length)
                 end,
                 [0, 1, 32, 136, 168, 169]
             )
@@ -46,38 +46,38 @@ known_answers(Config) ->
 large_input_and_output(_) ->
     each(fun(Type) ->
         Chunks = [binary:copy(<<0, 1, 2, 3>>, 65537), [<<"tail">>]],
-        Expected = libdecaf:hash_xof_keccak(Type, Chunks, 131073),
-        State = libdecaf:hash_xof_keccak_init(Type),
+        Expected = libdecaf:xof_keccak(Type, Chunks, 131073),
+        State = libdecaf:xof_keccak_init(Type),
         Updated = lists:foldl(
-            fun(Chunk, Acc) -> libdecaf:hash_xof_keccak_update(Acc, Chunk) end, State, Chunks
+            fun(Chunk, Acc) -> libdecaf:xof_keccak_update(Acc, Chunk) end, State, Chunks
         ),
-        Expected = libdecaf:hash_xof_keccak_final(Updated, 131073),
-        Expected = libdecaf:hash_xof_keccak_final(Updated, 131073)
+        Expected = libdecaf:xof_keccak_final(Updated, 131073),
+        Expected = libdecaf:xof_keccak_final(Updated, 131073)
     end).
 
 immutable_states(_) ->
     each(fun(Type) ->
-        Initial = libdecaf:hash_xof_keccak_init(Type),
+        Initial = libdecaf:xof_keccak_init(Type),
         true = is_reference(Initial),
-        Empty = libdecaf:hash_xof_keccak(Type, <<>>, 200),
-        First = libdecaf:hash_xof_keccak_update(Initial, <<"abc">>),
-        Second = libdecaf:hash_xof_keccak_update(Initial, <<"def">>),
-        Empty = libdecaf:hash_xof_keccak_final(Initial, 200),
-        <<>> = libdecaf:hash_xof_keccak_final(First, 0),
-        Abc = libdecaf:hash_xof_keccak(Type, <<"abc">>, 200),
-        Abc = libdecaf:hash_xof_keccak_final(First, 200),
-        Def = libdecaf:hash_xof_keccak(Type, <<"def">>, 200),
-        Def = libdecaf:hash_xof_keccak_final(Second, 200),
-        Abcd = libdecaf:hash_xof_keccak(Type, <<"abcd">>, 200),
-        Abcd = libdecaf:hash_xof_keccak_final(libdecaf:hash_xof_keccak_update(First, <<"d">>), 200)
+        Empty = libdecaf:xof_keccak(Type, <<>>, 200),
+        First = libdecaf:xof_keccak_update(Initial, <<"abc">>),
+        Second = libdecaf:xof_keccak_update(Initial, <<"def">>),
+        Empty = libdecaf:xof_keccak_final(Initial, 200),
+        <<>> = libdecaf:xof_keccak_final(First, 0),
+        Abc = libdecaf:xof_keccak(Type, <<"abc">>, 200),
+        Abc = libdecaf:xof_keccak_final(First, 200),
+        Def = libdecaf:xof_keccak(Type, <<"def">>, 200),
+        Def = libdecaf:xof_keccak_final(Second, 200),
+        Abcd = libdecaf:xof_keccak(Type, <<"abcd">>, 200),
+        Abcd = libdecaf:xof_keccak_final(libdecaf:xof_keccak_update(First, <<"d">>), 200)
     end).
 
 invalid_arguments(_) ->
     each(fun(Type) ->
-        State = libdecaf:hash_xof_keccak_init(Type),
+        State = libdecaf:xof_keccak_init(Type),
         badarg(fun() -> libdecaf:hash_init(Type) end),
-        badarg(fun() -> libdecaf:hash_xof_keccak(Type, <<>>, -1) end),
-        badarg(fun() -> libdecaf:hash_xof_keccak_final(State, -1) end),
+        badarg(fun() -> libdecaf:xof_keccak(Type, <<>>, -1) end),
+        badarg(fun() -> libdecaf:xof_keccak_final(State, -1) end),
         badarg(fun() -> libdecaf:hash_update(State, <<>>) end)
     end).
 

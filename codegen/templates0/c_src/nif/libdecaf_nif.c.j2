@@ -5,7 +5,7 @@
 #include "ed448.h"
 #include "hash.h"
 {% for group in ctx.xof_groups %}
-#include "hash_xof/{{ group.name }}.h"
+#include "xof/{{ group.name }}.h"
 {% endfor %}
 #include "groups.h"
 

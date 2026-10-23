@@ -1,15 +1,15 @@
 /* clang-format off */ //-
-{% from 'c_src/nif/hash_xof/lifecycle.c.inc' import lifecycle %}
-{% from 'c_src/nif/hash_xof/entry_points.c.inc' import entry_points %}
+{% from 'c_src/nif/xof/lifecycle.c.inc' import lifecycle %}
+{% from 'c_src/nif/xof/entry_points.c.inc' import entry_points %}
 {% set group = 'kt' %}
-{% set p = 'libdecaf_nif_hash_xof_kt' %}
+{% set p = 'libdecaf_nif_xof_kt' %}
 {% set profile = ctx.schema.nif.xof.values() | selectattr('group', 'equalto', group) | first %}
 #include <keccak_internal.h>
-#include "hash_xof_kt.h"
+#include "xof_kt.h"
 
 #include <assert.h>
 
-typedef struct libdecaf_nif_hash_xof_kt_ctx_s {
+typedef struct libdecaf_nif_xof_kt_ctx_s {
     decaf_keccak_sponge_s root;
     decaf_keccak_sponge_s leaf;
     size_t rate;
@@ -20,12 +20,12 @@ typedef struct libdecaf_nif_hash_xof_kt_ctx_s {
     size_t customization_len;
     bool tree;
     bool finalized;
-} libdecaf_nif_hash_xof_kt_ctx_t;
+} libdecaf_nif_xof_kt_ctx_t;
 
 
 /* RFC 9861 length_encode differs from SP 800-185 right_encode at zero. */
 static size_t
-libdecaf_nif_hash_xof_kt_length_encode(size_t value, uint8_t *encoded)
+libdecaf_nif_xof_kt_length_encode(size_t value, uint8_t *encoded)
 {
     size_t bytes = 0;
     for (size_t remaining = value; remaining != 0; remaining >>= 8) {
@@ -39,7 +39,7 @@ libdecaf_nif_hash_xof_kt_length_encode(size_t value, uint8_t *encoded)
 }
 
 static void
-libdecaf_nif_hash_xof_kt_init(libdecaf_nif_hash_xof_kt_ctx_t *ctx, size_t rate)
+libdecaf_nif_xof_kt_init(libdecaf_nif_xof_kt_ctx_t *ctx, size_t rate)
 {
     decaf_kparams_s params = {0, 'A', (uint8_t)rate, 12, 0x07, 0x80, 0xFF, 0xFF};
     decaf_bzero(ctx, sizeof(*ctx));
@@ -53,15 +53,15 @@ libdecaf_nif_hash_xof_kt_init(libdecaf_nif_hash_xof_kt_ctx_t *ctx, size_t rate)
 {% for name, algorithm in ctx.schema.nif.xof | dictsort %}
 {% if algorithm.kt_rate is not none %}
 static void
-{{ algorithm.init }}(libdecaf_nif_hash_xof_kt_ctx_t *ctx)
+{{ algorithm.init }}(libdecaf_nif_xof_kt_ctx_t *ctx)
 {
-    libdecaf_nif_hash_xof_kt_init(ctx, {{ algorithm.kt_rate }});
+    libdecaf_nif_xof_kt_init(ctx, {{ algorithm.kt_rate }});
 }
 {% endif %}
 {% endfor %}
 
 static void
-libdecaf_nif_hash_xof_kt_emit_leaf(libdecaf_nif_hash_xof_kt_ctx_t *ctx)
+libdecaf_nif_xof_kt_emit_leaf(libdecaf_nif_xof_kt_ctx_t *ctx)
 {
     uint8_t chaining_value[64];
     decaf_sha3_output(&ctx->leaf, chaining_value, ctx->chaining_len);
@@ -73,7 +73,7 @@ libdecaf_nif_hash_xof_kt_emit_leaf(libdecaf_nif_hash_xof_kt_ctx_t *ctx)
 }
 
 static void
-libdecaf_nif_hash_xof_kt_update(libdecaf_nif_hash_xof_kt_ctx_t *ctx, const uint8_t *input, size_t input_len)
+libdecaf_nif_xof_kt_update(libdecaf_nif_xof_kt_ctx_t *ctx, const uint8_t *input, size_t input_len)
 {
     assert(!ctx->finalized);
     while (input_len != 0) {
@@ -89,7 +89,7 @@ libdecaf_nif_hash_xof_kt_update(libdecaf_nif_hash_xof_kt_ctx_t *ctx, const uint8
             decaf_sha3_update(&ctx->leaf, input, take);
             ctx->leaf_len += take;
             if (ctx->leaf_len == 8192) {
-                libdecaf_nif_hash_xof_kt_emit_leaf(ctx);
+                libdecaf_nif_xof_kt_emit_leaf(ctx);
             }
         } else {
             decaf_sha3_update(&ctx->root, input, take);
@@ -101,17 +101,17 @@ libdecaf_nif_hash_xof_kt_update(libdecaf_nif_hash_xof_kt_ctx_t *ctx, const uint8
 }
 
 static void
-libdecaf_nif_hash_xof_kt_output(libdecaf_nif_hash_xof_kt_ctx_t *ctx, uint8_t *output, size_t output_len)
+libdecaf_nif_xof_kt_output(libdecaf_nif_xof_kt_ctx_t *ctx, uint8_t *output, size_t output_len)
 {
     if (!ctx->finalized) {
         uint8_t encoded[sizeof(size_t) + 1];
-        size_t encoded_len = libdecaf_nif_hash_xof_kt_length_encode(ctx->customization_len, encoded);
-        libdecaf_nif_hash_xof_kt_update(ctx, encoded, encoded_len);
+        size_t encoded_len = libdecaf_nif_xof_kt_length_encode(ctx->customization_len, encoded);
+        libdecaf_nif_xof_kt_update(ctx, encoded, encoded_len);
         if (ctx->tree) {
             if (ctx->leaf_len != 0) {
-                libdecaf_nif_hash_xof_kt_emit_leaf(ctx);
+                libdecaf_nif_xof_kt_emit_leaf(ctx);
             }
-            encoded_len = libdecaf_nif_hash_xof_kt_length_encode(ctx->chaining_count, encoded);
+            encoded_len = libdecaf_nif_xof_kt_length_encode(ctx->chaining_count, encoded);
             decaf_sha3_update(&ctx->root, encoded, encoded_len);
             static const uint8_t trailer[2] = {0xFF, 0xFF};
             decaf_sha3_update(&ctx->root, trailer, sizeof(trailer));
@@ -122,7 +122,7 @@ libdecaf_nif_hash_xof_kt_output(libdecaf_nif_hash_xof_kt_ctx_t *ctx, uint8_t *ou
 }
 
 static void
-libdecaf_nif_hash_xof_kt_destroy(libdecaf_nif_hash_xof_kt_ctx_t *ctx)
+libdecaf_nif_xof_kt_destroy(libdecaf_nif_xof_kt_ctx_t *ctx)
 {
     decaf_bzero(ctx, sizeof(*ctx));
 }
@@ -140,7 +140,7 @@ static bool
 }
 
 {{ lifecycle(p, profile.update, profile.output, profile.destroy) }}
-{{ entry_points(p, 'hash_xof_' + group, profile.destroy) }}
+{{ entry_points(p, 'xof_' + group, profile.destroy) }}
 
 /* KT customization is absorbed after the message, then length-encoded by output. */
 ERL_NIF_TERM
@@ -173,7 +173,7 @@ ERL_NIF_TERM
 {
     {{ p }}_ctx_t *old_state;
     if (argc != 3 || !enif_get_resource(env, argv[0], {{ p }}_resource_type, (void **)&old_state)) {
-        return EXCP_BADARG(env, "State must be a hash_xof_kt resource");
+        return EXCP_BADARG(env, "State must be a xof_kt resource");
     }
     unsigned long output_len;
     if (!enif_get_ulong(env, argv[1], &output_len)) {

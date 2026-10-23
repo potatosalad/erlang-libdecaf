@@ -58,7 +58,7 @@ def xof_groups(schema: NIFSchema) -> tuple[XOFGroup, ...]:
     result = []
     for group in sorted({profile.group for profile in schema.xof.values()}):
         algorithms = tuple(sorted(name for name, profile in schema.xof.items() if profile.group == group))
-        result.append(XOFGroup(f"hash_xof_{group}", algorithms))
+        result.append(XOFGroup(f"xof_{group}", algorithms))
     return tuple(result)
 
 
@@ -73,8 +73,8 @@ def xof_functions(schema: NIFSchema) -> tuple[Function, ...]:
                 tuple(Argument(*arg) for arg in arguments),
                 returns,
                 doc,
-                "Hash XOF API",
-                "hash_xof",
+                "XOF API",
+                "xof",
                 operation,
                 group.algorithms,
             )

@@ -11,33 +11,33 @@
     xof_state/0
 ]).
 
--spec algorithm() -> libdecaf_nif:hash_xof_kt_state().
+-spec algorithm() -> libdecaf_nif:xof_kt_state().
 algorithm() ->
-    libdecaf_nif:hash_xof_kt_init(shake128).
+    libdecaf_nif:xof_kt_init(shake128).
 
--spec domain() -> libdecaf_nif:hash_xof_turboshake_state().
+-spec domain() -> libdecaf_nif:xof_turboshake_state().
 domain() ->
-    libdecaf_nif:hash_xof_turboshake_init(turboshake128, <<31>>).
+    libdecaf_nif:xof_turboshake_init(turboshake128, <<31>>).
 
 -spec fixed_state() -> libdecaf_nif:hash_state().
 fixed_state() ->
-    State = libdecaf_nif:hash_xof_sha3_init(shake128),
+    State = libdecaf_nif:xof_sha3_init(shake128),
     libdecaf_nif:hash_update(State, <<"abc">>).
 
--spec xof_state() -> libdecaf_nif:hash_xof_sha3_state().
+-spec xof_state() -> libdecaf_nif:xof_sha3_state().
 xof_state() ->
-    State = libdecaf_nif:hash_xof_kt_init(kt128),
-    libdecaf_nif:hash_xof_sha3_update(State, <<"abc">>).
+    State = libdecaf_nif:xof_kt_init(kt128),
+    libdecaf_nif:xof_sha3_update(State, <<"abc">>).
 
--spec public_algorithm() -> libdecaf:hash_xof_kt_state().
+-spec public_algorithm() -> libdecaf:xof_kt_state().
 public_algorithm() ->
-    libdecaf:hash_xof_kt_init(shake128).
+    libdecaf:xof_kt_init(shake128).
 
--spec public_domain() -> libdecaf:hash_xof_turboshake_state().
+-spec public_domain() -> libdecaf:xof_turboshake_state().
 public_domain() ->
-    libdecaf:hash_xof_turboshake_init(turboshake128, <<31>>).
+    libdecaf:xof_turboshake_init(turboshake128, <<31>>).
 
--spec public_xof_state() -> libdecaf:hash_xof_sha3_state().
+-spec public_xof_state() -> libdecaf:xof_sha3_state().
 public_xof_state() ->
-    State = libdecaf:hash_xof_kt_init(kt128),
-    libdecaf:hash_xof_sha3_update(State, <<"abc">>).
+    State = libdecaf:xof_kt_init(kt128),
+    libdecaf:xof_sha3_update(State, <<"abc">>).

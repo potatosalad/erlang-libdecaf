@@ -29,32 +29,32 @@ all() ->
 
 immutable_states(_) ->
     each(fun(Type, _) ->
-        Initial = libdecaf:hash_xof_cshake_init(Type, <<"KMAC">>, <<"domain">>),
+        Initial = libdecaf:xof_cshake_init(Type, <<"KMAC">>, <<"domain">>),
         true = is_reference(Initial),
-        Empty = libdecaf:hash_xof_cshake(Type, <<>>, 200, <<"KMAC">>, <<"domain">>),
-        First = libdecaf:hash_xof_cshake_update(Initial, <<"one">>),
-        Second = libdecaf:hash_xof_cshake_update(Initial, <<"two">>),
-        Empty = libdecaf:hash_xof_cshake_final(Initial, 200),
-        <<>> = libdecaf:hash_xof_cshake_final(First, 0),
-        One = libdecaf:hash_xof_cshake(Type, <<"one">>, 200, <<"KMAC">>, <<"domain">>),
-        One = libdecaf:hash_xof_cshake_final(First, 200),
-        One = libdecaf:hash_xof_cshake_final(First, 200),
-        Two = libdecaf:hash_xof_cshake(Type, <<"two">>, 200, <<"KMAC">>, <<"domain">>),
-        Two = libdecaf:hash_xof_cshake_final(Second, 200),
+        Empty = libdecaf:xof_cshake(Type, <<>>, 200, <<"KMAC">>, <<"domain">>),
+        First = libdecaf:xof_cshake_update(Initial, <<"one">>),
+        Second = libdecaf:xof_cshake_update(Initial, <<"two">>),
+        Empty = libdecaf:xof_cshake_final(Initial, 200),
+        <<>> = libdecaf:xof_cshake_final(First, 0),
+        One = libdecaf:xof_cshake(Type, <<"one">>, 200, <<"KMAC">>, <<"domain">>),
+        One = libdecaf:xof_cshake_final(First, 200),
+        One = libdecaf:xof_cshake_final(First, 200),
+        Two = libdecaf:xof_cshake(Type, <<"two">>, 200, <<"KMAC">>, <<"domain">>),
+        Two = libdecaf:xof_cshake_final(Second, 200),
         true = One =/= Two
     end).
 
 invalid_arguments(_) ->
     each(fun(Type, Shake) ->
         lists:foreach(fun badarg/1, [
-            fun() -> libdecaf:hash_xof_cshake(Type, <<>>, -1, <<>>, <<>>) end,
-            fun() -> libdecaf:hash_xof_cshake(Type, <<>>, 32, invalid, <<>>) end,
-            fun() -> libdecaf:hash_xof_cshake(Type, <<>>, 32, <<>>, [256]) end,
-            fun() -> libdecaf:hash_xof_cshake(Type, invalid, 32, <<>>, <<"domain">>) end,
-            fun() -> libdecaf:hash_xof_cshake_init(Type, <<>>, invalid) end,
-            fun() -> libdecaf:hash_xof_cshake_init(Type, [256], <<>>) end,
-            fun() -> libdecaf:hash_xof_cshake(Shake, <<>>, 32, <<>>, <<>>) end,
-            fun() -> libdecaf:hash_xof_cshake_init(Shake, <<>>, <<>>) end,
+            fun() -> libdecaf:xof_cshake(Type, <<>>, -1, <<>>, <<>>) end,
+            fun() -> libdecaf:xof_cshake(Type, <<>>, 32, invalid, <<>>) end,
+            fun() -> libdecaf:xof_cshake(Type, <<>>, 32, <<>>, [256]) end,
+            fun() -> libdecaf:xof_cshake(Type, invalid, 32, <<>>, <<"domain">>) end,
+            fun() -> libdecaf:xof_cshake_init(Type, <<>>, invalid) end,
+            fun() -> libdecaf:xof_cshake_init(Type, [256], <<>>) end,
+            fun() -> libdecaf:xof_cshake(Shake, <<>>, 32, <<>>, <<>>) end,
+            fun() -> libdecaf:xof_cshake_init(Shake, <<>>, <<>>) end,
             fun() -> libdecaf:hash_init(Type) end
         ])
     end).
@@ -67,13 +67,13 @@ large_customization(Config) ->
                 Custom = input(CustomSpec),
                 Message = input(MessageSpec),
                 Prefix = binary:decode_hex(Hex),
-                Output = libdecaf:hash_xof_cshake(Type, Message, 131073, Name, Custom),
+                Output = libdecaf:xof_cshake(Type, Message, 131073, Name, Custom),
                 Prefix = binary:part(Output, 0, byte_size(Prefix)),
-                State = libdecaf:hash_xof_cshake_init(Type, [Name], [[], Custom]),
+                State = libdecaf:xof_cshake_init(Type, [Name], [[], Custom]),
                 true = is_reference(State),
-                Updated = libdecaf:hash_xof_cshake_update(State, [Message]),
-                Output = libdecaf:hash_xof_cshake_final(Updated, 131073),
-                Output = libdecaf:hash_xof_cshake_final(Updated, 131073);
+                Updated = libdecaf:xof_cshake_update(State, [Message]),
+                Output = libdecaf:xof_cshake_final(Updated, 131073),
+                Output = libdecaf:xof_cshake_final(Updated, 131073);
             (_) ->
                 ok
         end,
@@ -114,19 +114,19 @@ shake_equivalence(_) ->
     each(fun(Type, Shake) ->
         lists:foreach(
             fun(Message) ->
-                State = libdecaf:hash_xof_cshake_update(
-                    libdecaf:hash_xof_cshake_init(Type), Message
+                State = libdecaf:xof_cshake_update(
+                    libdecaf:xof_cshake_init(Type), Message
                 ),
-                Explicit = libdecaf:hash_xof_cshake_update(
-                    libdecaf:hash_xof_cshake_init(Type, [], [<<>>]), Message
+                Explicit = libdecaf:xof_cshake_update(
+                    libdecaf:xof_cshake_init(Type, [], [<<>>]), Message
                 ),
                 lists:foreach(
                     fun(Length) ->
-                        Expected = libdecaf:hash_xof_sha3(Shake, Message, Length),
-                        Expected = libdecaf:hash_xof_cshake(Type, Message, Length),
-                        Expected = libdecaf:hash_xof_cshake(Type, Message, Length, <<>>, []),
-                        Expected = libdecaf:hash_xof_cshake_final(State, Length),
-                        Expected = libdecaf:hash_xof_cshake_final(Explicit, Length)
+                        Expected = libdecaf:xof_sha3(Shake, Message, Length),
+                        Expected = libdecaf:xof_cshake(Type, Message, Length),
+                        Expected = libdecaf:xof_cshake(Type, Message, Length, <<>>, []),
+                        Expected = libdecaf:xof_cshake_final(State, Length),
+                        Expected = libdecaf:xof_cshake_final(Explicit, Length)
                     end,
                     [0, 32, 169, 65537]
                 )
@@ -145,15 +145,15 @@ badarg(Fun) ->
 
 check(Type, Name, Custom, Message, Expected) ->
     Length = byte_size(Expected),
-    Expected = libdecaf:hash_xof_cshake(Type, Message, Length, Name, Custom),
+    Expected = libdecaf:xof_cshake(Type, Message, Length, Name, Custom),
     Split = byte_size(Message) div 2,
     <<First:Split/binary, Last/binary>> = Message,
-    State = libdecaf:hash_xof_cshake_init(Type, Name, Custom),
-    Updated = libdecaf:hash_xof_cshake_update(libdecaf:hash_xof_cshake_update(State, [First]), [
+    State = libdecaf:xof_cshake_init(Type, Name, Custom),
+    Updated = libdecaf:xof_cshake_update(libdecaf:xof_cshake_update(State, [First]), [
         Last
     ]),
-    Expected = libdecaf:hash_xof_cshake_final(Updated, Length),
-    Expected = libdecaf:hash_xof_cshake_final(Updated, Length).
+    Expected = libdecaf:xof_cshake_final(Updated, Length),
+    Expected = libdecaf:xof_cshake_final(Updated, Length).
 
 each(Fun) ->
     lists:foreach(fun({Type, Shake}) -> Fun(Type, Shake) end, [

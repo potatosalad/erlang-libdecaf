@@ -109,7 +109,7 @@ nif:
     keccak_xof_128:
       group: keccak
       context: decaf_keccak_sponge_s
-      init: libdecaf_nif_hash_xof_keccak_128_init
+      init: libdecaf_nif_xof_keccak_128_init
       update: decaf_sha3_update
       output: decaf_sha3_output
       destroy: decaf_sha3_destroy
@@ -117,26 +117,26 @@ nif:
     keccak_xof_256:
       group: keccak
       context: decaf_keccak_sponge_s
-      init: libdecaf_nif_hash_xof_keccak_256_init
+      init: libdecaf_nif_xof_keccak_256_init
       update: decaf_sha3_update
       output: decaf_sha3_output
       destroy: decaf_sha3_destroy
       legacy_keccak_rate: 136
     kt128:
       group: kt
-      context: libdecaf_nif_hash_xof_kt_ctx_s
-      init: libdecaf_nif_hash_xof_kt128_init
-      update: libdecaf_nif_hash_xof_kt_update
-      output: libdecaf_nif_hash_xof_kt_output
-      destroy: libdecaf_nif_hash_xof_kt_destroy
+      context: libdecaf_nif_xof_kt_ctx_s
+      init: libdecaf_nif_xof_kt128_init
+      update: libdecaf_nif_xof_kt_update
+      output: libdecaf_nif_xof_kt_output
+      destroy: libdecaf_nif_xof_kt_destroy
       kt_rate: 168
     kt256:
       group: kt
-      context: libdecaf_nif_hash_xof_kt_ctx_s
-      init: libdecaf_nif_hash_xof_kt256_init
-      update: libdecaf_nif_hash_xof_kt_update
-      output: libdecaf_nif_hash_xof_kt_output
-      destroy: libdecaf_nif_hash_xof_kt_destroy
+      context: libdecaf_nif_xof_kt_ctx_s
+      init: libdecaf_nif_xof_kt256_init
+      update: libdecaf_nif_xof_kt_update
+      output: libdecaf_nif_xof_kt_output
+      destroy: libdecaf_nif_xof_kt_destroy
       kt_rate: 136
     shake128:
       group: sha3
@@ -155,7 +155,7 @@ nif:
     turboshake128:
       group: turboshake
       context: decaf_keccak_sponge_s
-      init: libdecaf_nif_hash_xof_turboshake128_init
+      init: libdecaf_nif_xof_turboshake128_init
       update: decaf_sha3_update
       output: decaf_sha3_output
       destroy: decaf_sha3_destroy
@@ -163,7 +163,7 @@ nif:
     turboshake256:
       group: turboshake
       context: decaf_keccak_sponge_s
-      init: libdecaf_nif_hash_xof_turboshake256_init
+      init: libdecaf_nif_xof_turboshake256_init
       update: decaf_sha3_update
       output: decaf_sha3_output
       destroy: decaf_sha3_destroy

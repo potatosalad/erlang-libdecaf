@@ -1,17 +1,17 @@
 /* clang-format off */ //-
-{% from 'c_src/nif/hash_xof/lifecycle.c.inc' import lifecycle %}
-{% from 'c_src/nif/hash_xof/entry_points.c.inc' import entry_points %}
+{% from 'c_src/nif/xof/lifecycle.c.inc' import lifecycle %}
+{% from 'c_src/nif/xof/entry_points.c.inc' import entry_points %}
 {% set group = 'cshake' %}
-{% set p = 'libdecaf_nif_hash_xof_cshake' %}
+{% set p = 'libdecaf_nif_xof_cshake' %}
 {% set profile = ctx.schema.nif.xof.values() | selectattr('group', 'equalto', group) | first %}
 #include <keccak_internal.h>
-#include "hash_xof_cshake.h"
+#include "xof_cshake.h"
 
 typedef decaf_keccak_sponge_s {{ p }}_ctx_t;
 
 /* SP 800-185 encodes lengths in bits, with the integer's byte count first. */
 static size_t
-libdecaf_nif_hash_xof_cshake_left_encode(size_t value, uint8_t *encoded)
+libdecaf_nif_xof_cshake_left_encode(size_t value, uint8_t *encoded)
 {
     size_t bytes = 1;
     for (size_t remaining = value; (remaining >>= 8) != 0; bytes++) {
@@ -27,7 +27,7 @@ libdecaf_nif_hash_xof_cshake_left_encode(size_t value, uint8_t *encoded)
  * Return 1 on success, 0 for invalid input, or -1 on allocation failure.
  * The ordinary absorb/update paths handle yielding for large prefixes. */
 static int
-libdecaf_nif_hash_xof_cshake_prefix(ErlNifEnv *env, size_t rate, ERL_NIF_TERM function_name,
+libdecaf_nif_xof_cshake_prefix(ErlNifEnv *env, size_t rate, ERL_NIF_TERM function_name,
                                    ERL_NIF_TERM customization, ERL_NIF_TERM *prefix, bool *customized)
 {
     ErlNifBinary name, custom;
@@ -42,9 +42,9 @@ libdecaf_nif_hash_xof_cshake_prefix(ErlNifEnv *env, size_t rate, ERL_NIF_TERM fu
         return 1;
     }
     uint8_t header[2 * (sizeof(size_t) + 1)], encoded_custom[sizeof(size_t) + 1];
-    size_t header_len = libdecaf_nif_hash_xof_cshake_left_encode(rate, header);
-    header_len += libdecaf_nif_hash_xof_cshake_left_encode(name.size * 8, header + header_len);
-    size_t custom_len = libdecaf_nif_hash_xof_cshake_left_encode(custom.size * 8, encoded_custom);
+    size_t header_len = libdecaf_nif_xof_cshake_left_encode(rate, header);
+    header_len += libdecaf_nif_xof_cshake_left_encode(name.size * 8, header + header_len);
+    size_t custom_len = libdecaf_nif_xof_cshake_left_encode(custom.size * 8, encoded_custom);
     size_t remainder = (header_len + name.size % rate + custom_len + custom.size % rate) % rate;
     size_t padding_len = (rate - remainder) % rate;
     ERL_NIF_TERM parts[5];
@@ -85,7 +85,7 @@ static bool
 }
 
 {{ lifecycle(p, profile.update, profile.output, profile.destroy) }}
-{{ entry_points(p, 'hash_xof_' + group, profile.destroy) }}
+{{ entry_points(p, 'xof_' + group, profile.destroy) }}
 
 /* Only cSHAKE builds SP 800-185 prefixes and selects the 0x04 domain. */
 ERL_NIF_TERM

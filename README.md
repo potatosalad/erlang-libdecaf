@@ -99,41 +99,41 @@ and `_init`, `_update`, and `_final` functions. Algorithm atoms select the varia
 
 | Prefix | Algorithms |
 | --- | --- |
-| `hash_xof_cshake` | `cshake128`, `cshake256` |
-| `hash_xof_keccak` | `keccak_xof_128`, `keccak_xof_256` |
-| `hash_xof_kt` | `kt128`, `kt256` |
-| `hash_xof_sha3` | `shake128`, `shake256` |
-| `hash_xof_turboshake` | `turboshake128`, `turboshake256` |
+| `xof_cshake` | `cshake128`, `cshake256` |
+| `xof_keccak` | `keccak_xof_128`, `keccak_xof_256` |
+| `xof_kt` | `kt128`, `kt256` |
+| `xof_sha3` | `shake128`, `shake256` |
+| `xof_turboshake` | `turboshake128`, `turboshake256` |
 
 ```erlang
 S0 = libdecaf:hash_init(sha3_256),
 S1 = libdecaf:hash_update(S0, <<"abc">>),
 Digest = libdecaf:hash_final(S1).
 
-X0 = libdecaf:hash_xof_sha3_init(shake128),
-X1 = libdecaf:hash_xof_sha3_update(X0, <<"abc">>),
-Output = libdecaf:hash_xof_sha3_final(X1, 32).
+X0 = libdecaf:xof_sha3_init(shake128),
+X1 = libdecaf:xof_sha3_update(X0, <<"abc">>),
+Output = libdecaf:xof_sha3_final(X1, 32).
 
 %% cSHAKE takes function-name and customization strings.
-C0 = libdecaf:hash_xof_cshake_init(cshake128, <<>>, <<"example">>),
-C1 = libdecaf:hash_xof_cshake_update(C0, <<"abc">>),
-CustomOutput = libdecaf:hash_xof_cshake_final(C1, 32).
+C0 = libdecaf:xof_cshake_init(cshake128, <<>>, <<"example">>),
+C1 = libdecaf:xof_cshake_update(C0, <<"abc">>),
+CustomOutput = libdecaf:xof_cshake_final(C1, 32).
 
 %% TurboSHAKE takes an integer domain byte in 1..127.
-Turbo = libdecaf:hash_xof_turboshake(turboshake128, <<"abc">>, 32, 31).
+Turbo = libdecaf:xof_turboshake(turboshake128, <<"abc">>, 32, 31).
 
 %% KT customization is supplied at finalization, after the message.
-K0 = libdecaf:hash_xof_kt_init(kt128),
-K1 = libdecaf:hash_xof_kt_update(K0, <<"abc">>),
-TreeOutput = libdecaf:hash_xof_kt_final(K1, 32, <<"example">>).
+K0 = libdecaf:xof_kt_init(kt128),
+K1 = libdecaf:xof_kt_update(K0, <<"abc">>),
+TreeOutput = libdecaf:xof_kt_final(K1, 32, <<"example">>).
 ```
 
 Hash states are immutable native resources. XOF states have an opaque type for each group, such as
-`libdecaf:hash_xof_sha3_state()` and `libdecaf:hash_xof_kt_state()`.
+`libdecaf:xof_sha3_state()` and `libdecaf:xof_kt_state()`.
 Dialyzer rejects calls that mix groups, and the NIF checks them at runtime.
 Eqwalizer checks the algorithm and parameter types, but currently does not
 distinguish these opaque resource types. Grouped XOF APIs are available from
-both `libdecaf` and `libdecaf_nif`; generic `hash_xof*` entry points are removed.
+both `libdecaf` and `libdecaf_nif`; generic `xof*` entry points are removed.
 
 ### ECDH
 

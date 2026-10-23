@@ -156,31 +156,31 @@ parameters(_) ->
     Message = binary:copy(<<16#A3>>, 65537),
     lists:foreach(
         fun(Algorithm) ->
-            Expected = libdecaf:hash_xof_cshake(
+            Expected = libdecaf:xof_cshake(
                 Algorithm, Message, 65537, <<"Function">>, <<"Customization">>
             ),
-            Expected = libdecaf_nif:hash_xof_cshake(
+            Expected = libdecaf_nif:xof_cshake(
                 Algorithm, [Message], 65537, <<"Function">>, <<"Customization">>
             ),
-            State = libdecaf_nif:hash_xof_cshake_init(
+            State = libdecaf_nif:xof_cshake_init(
                 Algorithm, <<"Function">>, <<"Customization">>
             ),
-            Updated = libdecaf_nif:hash_xof_cshake_update(State, Message),
-            Expected = libdecaf_nif:hash_xof_cshake_final(Updated, 65537),
-            badarg(fun() -> libdecaf_nif:hash_xof_cshake_init(Algorithm, 31, <<>>) end)
+            Updated = libdecaf_nif:xof_cshake_update(State, Message),
+            Expected = libdecaf_nif:xof_cshake_final(Updated, 65537),
+            badarg(fun() -> libdecaf_nif:xof_cshake_init(Algorithm, 31, <<>>) end)
         end,
         [cshake128, cshake256]
     ),
     lists:foreach(
         fun(Algorithm) ->
-            Expected = libdecaf:hash_xof_turboshake(Algorithm, Message, 65537, 127),
-            Expected = libdecaf_nif:hash_xof_turboshake(Algorithm, Message, 65537, 127),
-            State = libdecaf_nif:hash_xof_turboshake_init(Algorithm, 127),
-            Updated = libdecaf_nif:hash_xof_turboshake_update(State, Message),
-            Expected = libdecaf_nif:hash_xof_turboshake_final(Updated, 65537),
+            Expected = libdecaf:xof_turboshake(Algorithm, Message, 65537, 127),
+            Expected = libdecaf_nif:xof_turboshake(Algorithm, Message, 65537, 127),
+            State = libdecaf_nif:xof_turboshake_init(Algorithm, 127),
+            Updated = libdecaf_nif:xof_turboshake_update(State, Message),
+            Expected = libdecaf_nif:xof_turboshake_final(Updated, 65537),
             lists:foreach(
                 fun(Domain) ->
-                    badarg(fun() -> libdecaf_nif:hash_xof_turboshake_init(Algorithm, Domain) end)
+                    badarg(fun() -> libdecaf_nif:xof_turboshake_init(Algorithm, Domain) end)
                 end,
                 [0, 128, <<31>>]
             )
@@ -189,13 +189,13 @@ parameters(_) ->
     ),
     lists:foreach(
         fun(Algorithm) ->
-            Expected = libdecaf:hash_xof_kt(Algorithm, Message, 65537, <<"Customization">>),
-            Expected = libdecaf_nif:hash_xof_kt(Algorithm, Message, 65537, <<"Customization">>),
-            State = libdecaf_nif:hash_xof_kt_init(Algorithm),
-            Updated = libdecaf_nif:hash_xof_kt_update(State, Message),
-            Expected = libdecaf_nif:hash_xof_kt_final(Updated, 65537, <<"Customization">>),
-            Expected = libdecaf_nif:hash_xof_kt_final(Updated, 65537, <<"Customization">>),
-            badarg(fun() -> libdecaf_nif:hash_xof_kt_final(Updated, 32, 31) end)
+            Expected = libdecaf:xof_kt(Algorithm, Message, 65537, <<"Customization">>),
+            Expected = libdecaf_nif:xof_kt(Algorithm, Message, 65537, <<"Customization">>),
+            State = libdecaf_nif:xof_kt_init(Algorithm),
+            Updated = libdecaf_nif:xof_kt_update(State, Message),
+            Expected = libdecaf_nif:xof_kt_final(Updated, 65537, <<"Customization">>),
+            Expected = libdecaf_nif:xof_kt_final(Updated, 65537, <<"Customization">>),
+            badarg(fun() -> libdecaf_nif:xof_kt_final(Updated, 32, 31) end)
         end,
         [kt128, kt256]
     ).
@@ -207,7 +207,7 @@ public_api(_) ->
             [] = [
                 Export
              || Export = {Name, _} <- Exports,
-                lists:member(Name, [hash_xof, hash_xof_init, hash_xof_update, hash_xof_final]) orelse
+                lists:member(Name, [xof, xof_init, xof_update, xof_final]) orelse
                     lists:any(
                         fun(Prefix) -> lists:prefix(Prefix, atom_to_list(Name)) end,
                         ["hash_sha2", "hash_sha3", "hash_keccak"]
@@ -232,7 +232,7 @@ public_api(_) ->
     XOFExports = [
         Export
      || Export = {Name, _} <- Native,
-        lists:prefix("hash_xof_", atom_to_list(Name))
+        lists:prefix("xof_", atom_to_list(Name))
     ],
     true = XOFExports =/= [],
     lists:foreach(fun(Export) -> true = lists:member(Export, Public) end, XOFExports),
@@ -332,20 +332,20 @@ trapping(_) ->
         xof_groups()
     ),
     C0 = traced(
-        fun() -> libdecaf_nif:hash_xof_cshake_init(cshake128, Message, Message) end,
-        [continuation(hash_xof_cshake, "absorb")]
+        fun() -> libdecaf_nif:xof_cshake_init(cshake128, Message, Message) end,
+        [continuation(xof_cshake, "absorb")]
     ),
-    C1 = libdecaf_nif:hash_xof_cshake_update(C0, <<"abc">>),
-    CExpected = libdecaf_nif:hash_xof_cshake(cshake128, <<"abc">>, 32, Message, Message),
-    CExpected = libdecaf_nif:hash_xof_cshake_final(C1, 32),
-    K0 = libdecaf_nif:hash_xof_kt_init(kt128),
-    KExpected = libdecaf_nif:hash_xof_kt(kt128, <<>>, 1000001, Message),
+    C1 = libdecaf_nif:xof_cshake_update(C0, <<"abc">>),
+    CExpected = libdecaf_nif:xof_cshake(cshake128, <<"abc">>, 32, Message, Message),
+    CExpected = libdecaf_nif:xof_cshake_final(C1, 32),
+    K0 = libdecaf_nif:xof_kt_init(kt128),
+    KExpected = libdecaf_nif:xof_kt(kt128, <<>>, 1000001, Message),
     KExpected = traced(
-        fun() -> libdecaf_nif:hash_xof_kt_final(K0, 1000001, Message) end,
-        [continuation(hash_xof_kt, "absorb"), continuation(hash_xof_kt, "squeeze")]
+        fun() -> libdecaf_nif:xof_kt_final(K0, 1000001, Message) end,
+        [continuation(xof_kt, "absorb"), continuation(xof_kt, "squeeze")]
     ),
-    badarg(fun() -> libdecaf_nif:hash_xof_cshake(cshake128, 42, 32, <<>>, <<>>) end),
-    badarg(fun() -> libdecaf_nif:hash_xof_kt(kt128, 42, 32, <<>>) end).
+    badarg(fun() -> libdecaf_nif:xof_cshake(cshake128, 42, 32, <<>>, <<>>) end),
+    badarg(fun() -> libdecaf_nif:xof_kt(kt128, 42, 32, <<>>) end).
 
 cancellation(_) ->
     Message = binary:copy(<<42>>, 8000001),
@@ -371,13 +371,13 @@ cancellation(_) ->
         xof_groups()
     ),
     cancelled(
-        fun() -> libdecaf_nif:hash_xof_cshake_init(cshake128, Message, Message) end,
-        continuation(hash_xof_cshake, "absorb")
+        fun() -> libdecaf_nif:xof_cshake_init(cshake128, Message, Message) end,
+        continuation(xof_cshake, "absorb")
     ),
-    State = libdecaf_nif:hash_xof_kt_init(kt128),
+    State = libdecaf_nif:xof_kt_init(kt128),
     cancelled(
-        fun() -> libdecaf_nif:hash_xof_kt_final(State, 32, Message) end,
-        continuation(hash_xof_kt, "absorb")
+        fun() -> libdecaf_nif:xof_kt_final(State, 32, Message) end,
+        continuation(xof_kt, "absorb")
     ).
 
 continuation(Group, Phase) ->
@@ -476,9 +476,9 @@ fixed_hash_algorithms() ->
 
 xof_groups() ->
     [
-        {hash_xof_cshake, [cshake128, cshake256]},
-        {hash_xof_keccak, [keccak_xof_128, keccak_xof_256]},
-        {hash_xof_kt, [kt128, kt256]},
-        {hash_xof_sha3, [shake128, shake256]},
-        {hash_xof_turboshake, [turboshake128, turboshake256]}
+        {xof_cshake, [cshake128, cshake256]},
+        {xof_keccak, [keccak_xof_128, keccak_xof_256]},
+        {xof_kt, [kt128, kt256]},
+        {xof_sha3, [shake128, shake256]},
+        {xof_turboshake, [turboshake128, turboshake256]}
     ].
