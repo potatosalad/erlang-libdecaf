@@ -3,52 +3,45 @@
 -typing([eqwalizer]).
 -export([
     algorithm/0,
+    block_size/0,
     domain/0,
     fixed_state/0,
     kmac_algorithm/0,
-    kmac_state/0,
+    native_xof_state/0,
     public_algorithm/0,
-    public_domain/0,
-    public_xof_state/0,
-    xof_state/0
+    tuple_input/0
 ]).
 
--spec algorithm() -> libdecaf_nif:xof_kt_state().
+-spec algorithm() -> State when State :: libdecaf_nif:xof_state().
 algorithm() ->
-    libdecaf_nif:xof_kt_init(shake128).
+    libdecaf_nif:xof_init_kt(shake128).
 
--spec domain() -> libdecaf_nif:xof_turboshake_state().
+-spec block_size() -> State when State :: libdecaf:hash_state().
+block_size() ->
+    libdecaf:hash_init_parallelhash(parallelhash128, 32, <<8>>).
+
+-spec domain() -> State when State :: libdecaf_nif:xof_state().
 domain() ->
-    libdecaf_nif:xof_turboshake_init(turboshake128, <<31>>).
+    libdecaf_nif:xof_init_turboshake(turboshake128, <<31>>).
 
--spec fixed_state() -> libdecaf_nif:hash_state().
+-spec fixed_state() -> State when State :: libdecaf:hash_state().
 fixed_state() ->
-    State = libdecaf_nif:xof_sha3_init(shake128),
-    libdecaf_nif:hash_update(State, <<"abc">>).
+    State = libdecaf:xof_init_sha3(shake128),
+    libdecaf:hash_update(State, <<"abc">>).
 
--spec xof_state() -> libdecaf_nif:xof_sha3_state().
-xof_state() ->
-    State = libdecaf_nif:xof_kt_init(kt128),
-    libdecaf_nif:xof_sha3_update(State, <<"abc">>).
-
--spec kmac_algorithm() -> State when State :: libdecaf_nif:kmac_state().
+-spec kmac_algorithm() -> State when State :: libdecaf_nif:hash_state().
 kmac_algorithm() ->
-    libdecaf_nif:kmac_init(shake128, <<"key">>).
+    libdecaf_nif:hash_init_kmac(kmacxof128, 32, <<"key">>).
 
--spec kmac_state() -> State when State :: libdecaf:kmac_state().
-kmac_state() ->
-    State = libdecaf:xof_cshake_init(cshake128),
-    libdecaf:kmac_update(State, <<"abc">>).
+-spec native_xof_state() -> State when State :: libdecaf_nif:xof_state().
+native_xof_state() ->
+    State = libdecaf_nif:hash_init_kt(kt128),
+    libdecaf_nif:xof_absorb(State, <<"abc">>).
 
--spec public_algorithm() -> libdecaf:xof_kt_state().
+-spec public_algorithm() -> State when State :: libdecaf:xof_state().
 public_algorithm() ->
-    libdecaf:xof_kt_init(shake128).
+    libdecaf:xof_init_kmac(kmac128, <<"key">>).
 
--spec public_domain() -> libdecaf:xof_turboshake_state().
-public_domain() ->
-    libdecaf:xof_turboshake_init(turboshake128, <<31>>).
-
--spec public_xof_state() -> libdecaf:xof_sha3_state().
-public_xof_state() ->
-    State = libdecaf:xof_kt_init(kt128),
-    libdecaf:xof_sha3_update(State, <<"abc">>).
+-spec tuple_input() -> Output when Output :: binary().
+tuple_input() ->
+    libdecaf:hash_tuplehash(tuplehash128, <<"flattened">>, 32).

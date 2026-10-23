@@ -1,0 +1,5 @@
+/* clang-format off */ //-
+{% from 'c_src/nif/xof/api_header.h.inc' import header %}
+{% set f = ctx.crypto_families | selectattr('name', 'equalto', 'hopmac') | first %}
+{{ header(f) }}
+/* clang-format on */ //-

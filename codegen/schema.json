@@ -1,28 +1,26 @@
 {
   "$defs": {
+    "DerivedSponge": {
+      "additionalProperties": false,
+      "properties": {
+        "rate": {
+          "enum": [
+            136,
+            168
+          ],
+          "title": "Rate",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rate"
+      ],
+      "title": "DerivedSponge",
+      "type": "object"
+    },
     "Hash": {
       "additionalProperties": false,
       "properties": {
-        "context": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Context",
-          "type": "string"
-        },
-        "init": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Init",
-          "type": "string"
-        },
-        "update": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Update",
-          "type": "string"
-        },
-        "destroy": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Destroy",
-          "type": "string"
-        },
         "default_output_len": {
           "exclusiveMinimum": 0,
           "title": "Default Output Len",
@@ -32,11 +30,6 @@
           "exclusiveMinimum": 0,
           "title": "Max Output Len",
           "type": "integer"
-        },
-        "final": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Final",
-          "type": "string"
         },
         "legacy_keccak_rate": {
           "anyOf": [
@@ -54,63 +47,10 @@
         }
       },
       "required": [
-        "context",
-        "init",
-        "update",
-        "destroy",
         "default_output_len",
-        "max_output_len",
-        "final"
+        "max_output_len"
       ],
       "title": "Hash",
-      "type": "object"
-    },
-    "KMAC": {
-      "additionalProperties": false,
-      "properties": {
-        "context": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Context",
-          "type": "string"
-        },
-        "init": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Init",
-          "type": "string"
-        },
-        "update": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Update",
-          "type": "string"
-        },
-        "destroy": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Destroy",
-          "type": "string"
-        },
-        "rate": {
-          "enum": [
-            136,
-            168
-          ],
-          "title": "Rate",
-          "type": "integer"
-        },
-        "output": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Output",
-          "type": "string"
-        }
-      },
-      "required": [
-        "context",
-        "init",
-        "update",
-        "destroy",
-        "rate",
-        "output"
-      ],
-      "title": "KMAC",
       "type": "object"
     },
     "NIF": {
@@ -133,13 +73,40 @@
           "title": "Hash",
           "type": "object"
         },
+        "hopmac": {
+          "patternProperties": {
+            "^[a-z][a-zA-Z0-9_]*$": {
+              "$ref": "#/$defs/DerivedSponge"
+            }
+          },
+          "title": "Hopmac",
+          "type": "object"
+        },
         "kmac": {
           "patternProperties": {
             "^[a-z][a-zA-Z0-9_]*$": {
-              "$ref": "#/$defs/KMAC"
+              "$ref": "#/$defs/DerivedSponge"
             }
           },
           "title": "Kmac",
+          "type": "object"
+        },
+        "parallelhash": {
+          "patternProperties": {
+            "^[a-z][a-zA-Z0-9_]*$": {
+              "$ref": "#/$defs/DerivedSponge"
+            }
+          },
+          "title": "Parallelhash",
+          "type": "object"
+        },
+        "tuplehash": {
+          "patternProperties": {
+            "^[a-z][a-zA-Z0-9_]*$": {
+              "$ref": "#/$defs/DerivedSponge"
+            }
+          },
+          "title": "Tuplehash",
           "type": "object"
         },
         "xof": {
@@ -158,34 +125,14 @@
     "XOF": {
       "additionalProperties": false,
       "properties": {
-        "context": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Context",
-          "type": "string"
-        },
-        "init": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Init",
-          "type": "string"
-        },
-        "update": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Update",
-          "type": "string"
-        },
-        "destroy": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Destroy",
-          "type": "string"
+        "default_output_len": {
+          "exclusiveMinimum": 0,
+          "title": "Default Output Len",
+          "type": "integer"
         },
         "group": {
           "pattern": "^[a-z][a-zA-Z0-9_]*$",
           "title": "Group",
-          "type": "string"
-        },
-        "output": {
-          "pattern": "^[a-z][a-zA-Z0-9_]*$",
-          "title": "Output",
           "type": "string"
         },
         "legacy_keccak_rate": {
@@ -245,15 +192,44 @@
           ],
           "default": null,
           "title": "Kt Rate"
+        },
+        "sp800185": {
+          "anyOf": [
+            {
+              "enum": [
+                "kmac",
+                "tuplehash",
+                "parallelhash"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sp800185"
+        },
+        "sp800185_rate": {
+          "anyOf": [
+            {
+              "enum": [
+                136,
+                168
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sp800185 Rate"
         }
       },
       "required": [
-        "context",
-        "init",
-        "update",
-        "destroy",
-        "group",
-        "output"
+        "default_output_len",
+        "group"
       ],
       "title": "XOF",
       "type": "object"

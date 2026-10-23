@@ -2,88 +2,44 @@
 -module(hash_valid).
 -typing([eqwalizer]).
 -export([
-    cshake/0,
     fixed/0,
-    kt/0,
-    kmac/0,
-    public_kmac/0,
-    public_cshake/0,
-    public_keccak/0,
-    public_kt/0,
-    public_shake/0,
-    public_turboshake/0,
-    shake/0,
-    turboshake/0
+    native/0,
+    public/0,
+    tuple/0
 ]).
 
--spec cshake() -> binary().
-cshake() ->
-    Initial = libdecaf_nif:xof_cshake_init(cshake128, <<>>, <<"example">>),
-    State = libdecaf_nif:xof_cshake_update(Initial, <<"abc">>),
-    libdecaf_nif:xof_cshake_final(State, 32).
-
--spec fixed() -> binary().
+-spec fixed() -> Output when Output :: binary().
 fixed() ->
-    Initial = libdecaf_nif:hash_init(sha3_256),
-    State = libdecaf_nif:hash_update(Initial, <<"abc">>),
-    libdecaf_nif:hash_final(State).
+    Initial = libdecaf:hash_init({sha3_256, 16}),
+    libdecaf:hash_final(libdecaf:hash_update(Initial, <<"abc">>)).
 
--spec kt() -> binary().
-kt() ->
-    Initial = libdecaf_nif:xof_kt_init(kt128),
-    State = libdecaf_nif:xof_kt_update(Initial, <<"abc">>),
-    libdecaf_nif:xof_kt_final(State, 32, <<"example">>).
+-spec native() -> Output when Output :: binary().
+native() ->
+    Hash = libdecaf_nif:hash_init_kmac(kmac128, 32, <<"key">>, <<"custom">>),
+    _ = libdecaf_nif:hash_final(libdecaf_nif:hash_update(Hash, <<"abc">>)),
+    Initial = libdecaf_nif:xof_init_kmac(kmacxof256, <<"key">>),
+    State = libdecaf_nif:xof_absorb(Initial, <<"abc">>),
+    {Next, First} = libdecaf_nif:xof_squeeze(State, 16),
+    {_, Last} = libdecaf_nif:xof_squeeze(Next, 16),
+    <<First/binary, Last/binary>>.
 
--spec kmac() -> Tag when Tag :: binary().
-kmac() ->
-    Initial = libdecaf_nif:kmac_init(kmac128, <<"key">>),
-    State = libdecaf_nif:kmac_update(Initial, <<"abc">>),
-    libdecaf_nif:kmac_final(State, 32).
+-spec public() -> Output when Output :: binary().
+public() ->
+    _ = libdecaf:hash_hopmac(hopmac128, <<"abc">>, 32, <<"key">>),
+    _ = libdecaf:hash_parallelhash(parallelhash128, <<"abc">>, 32, 8),
+    _ = libdecaf:hash_sha3(shake128, <<"abc">>, 32),
+    _ = libdecaf:xof_keccak(keccakxof_128, <<"abc">>, 32),
+    _ = libdecaf:xof_init({cshake128, <<>>, <<"custom">>}),
+    _ = libdecaf:xof_init({turboshake128, 31}),
+    Initial = libdecaf:xof_init_kt(kt256, <<"custom">>),
+    State = libdecaf:xof_absorb(Initial, <<"abc">>),
+    {_, Output} = libdecaf:xof_squeeze(State, 32),
+    Output.
 
--spec public_kmac() -> Tag when Tag :: binary().
-public_kmac() ->
-    Initial = libdecaf:kmac_init(kmac256, <<"key">>, <<"example">>),
-    State = libdecaf:kmac_update(Initial, <<"abc">>),
-    libdecaf:kmac_final(State, 32).
-
--spec shake() -> binary().
-shake() ->
-    Initial = libdecaf_nif:xof_sha3_init(shake128),
-    State = libdecaf_nif:xof_sha3_update(Initial, <<"abc">>),
-    libdecaf_nif:xof_sha3_final(State, 32).
-
--spec turboshake() -> binary().
-turboshake() ->
-    Initial = libdecaf_nif:xof_turboshake_init(turboshake128, 31),
-    State = libdecaf_nif:xof_turboshake_update(Initial, <<"abc">>),
-    libdecaf_nif:xof_turboshake_final(State, 32).
-
--spec public_cshake() -> binary().
-public_cshake() ->
-    Initial = libdecaf:xof_cshake_init(cshake128, <<>>, <<"example">>),
-    State = libdecaf:xof_cshake_update(Initial, <<"abc">>),
-    libdecaf:xof_cshake_final(State, 32).
-
--spec public_kt() -> binary().
-public_kt() ->
-    Initial = libdecaf:xof_kt_init(kt128),
-    State = libdecaf:xof_kt_update(Initial, <<"abc">>),
-    libdecaf:xof_kt_final(State, 32, <<"example">>).
-
--spec public_shake() -> binary().
-public_shake() ->
-    Initial = libdecaf:xof_sha3_init(shake128),
-    State = libdecaf:xof_sha3_update(Initial, <<"abc">>),
-    libdecaf:xof_sha3_final(State, 32).
-
--spec public_turboshake() -> binary().
-public_turboshake() ->
-    Initial = libdecaf:xof_turboshake_init(turboshake128, 31),
-    State = libdecaf:xof_turboshake_update(Initial, <<"abc">>),
-    libdecaf:xof_turboshake_final(State, 32).
-
--spec public_keccak() -> binary().
-public_keccak() ->
-    Initial = libdecaf:xof_keccak_init(keccak_xof_128),
-    State = libdecaf:xof_keccak_update(Initial, <<"abc">>),
-    libdecaf:xof_keccak_final(State, 32).
+-spec tuple() -> Output when Output :: binary().
+tuple() ->
+    _ = libdecaf:hash_tuplehash(tuplehash128, [<<"a">>, <<"bc">>], 32),
+    Initial = libdecaf:xof_init_tuplehash(tuplehashxof128, <<"custom">>),
+    State = libdecaf:xof_absorb(Initial, [<<"a">>, <<"bc">>]),
+    {_, Output} = libdecaf:xof_squeeze(State, 32),
+    Output.

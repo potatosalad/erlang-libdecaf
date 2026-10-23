@@ -1,36 +1,5 @@
 /* clang-format off */ //-
-{% from 'c_src/nif/xof/lifecycle.c.inc' import lifecycle %}
-{% from 'c_src/nif/xof/entry_points.c.inc' import entry_points %}
-{% set group = 'keccak' %}
-{% set p = 'libdecaf_nif_xof_keccak' %}
-{% set profile = ctx.schema.nif.xof.values() | selectattr('group', 'equalto', group) | first %}
-#include <keccak_internal.h>
-#include "xof_keccak.h"
-
-typedef decaf_keccak_sponge_s {{ p }}_ctx_t;
-
-{% for name, algorithm in ctx.schema.nif.xof | dictsort if algorithm.group == group %}
-static void
-{{ algorithm.init }}({{ p }}_ctx_t *state)
-{
-    static const decaf_kparams_s params = {0, 'A', {{ algorithm.legacy_keccak_rate }}, 0, 0x01, 0x80, 0xFF, 0xFF};
-    decaf_sha3_init(state, &params);
-}
-{% endfor %}
-
-static bool
-{{ p }}_select(ErlNifEnv *env, ERL_NIF_TERM algorithm, {{ p }}_ctx_t *state)
-{
-{% for name, profile in ctx.schema.nif.xof | dictsort if profile.group == group %}
-    if (enif_is_identical(algorithm, ATOM({{ name }}))) {
-        {{ profile.init }}(state);
-        return true;
-    }
-{% endfor %}
-    return false;
-}
-
-{{ lifecycle(p, profile.update, profile.output, profile.destroy, streaming=true,
-             absorbing="!state->finalized" if group == 'kt' else "state->params->flags == 'A'") }}
-{{ entry_points(p, 'xof_' + group, profile.destroy) }}
+{% from 'c_src/nif/xof/api_family.c.inc' import implementation with context %}
+{% set f = ctx.crypto_families | selectattr('name', 'equalto', 'keccak') | first %}
+{{ implementation(f) }}
 /* clang-format on */ //-

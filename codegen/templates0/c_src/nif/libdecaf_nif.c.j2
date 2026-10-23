@@ -6,9 +6,8 @@
 #include "curve448/ed448.h"
 #include "curve448/x448.h"
 #include "hash/hash.h"
-#include "kmac/kmac.h"
-{% for group in ctx.xof_groups %}
-#include "xof/{{ group.name }}.h"
+{% for family in ctx.crypto_families %}
+#include "{{ family.header }}"
 {% endfor %}
 {% for group in ctx.prime_order_groups %}
 #include "{{ group.directory }}/{{ group.name }}.h"
@@ -53,19 +52,8 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"x25519", 2, libdecaf_nif_x25519_2, ERL_NIF_NORMAL_JOB_BOUND},
     {"x448_derive_public_key", 1, libdecaf_nif_x448_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"x448", 2, libdecaf_nif_x448_2, ERL_NIF_NORMAL_JOB_BOUND},
-    /* Generic fixed-output hash API. */
-    {"hash", 2, libdecaf_nif_hash_2, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash", 3, libdecaf_nif_hash_3, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_final", 1, libdecaf_nif_hash_final_1, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_final", 2, libdecaf_nif_hash_final_2, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_init", 1, libdecaf_nif_hash_init_1, ERL_NIF_NORMAL_JOB_BOUND},
-    {"hash_update", 2, libdecaf_nif_hash_update_2, ERL_NIF_NORMAL_JOB_BOUND},
-    /* KMAC API. */
-{% for function in ctx.kmac_functions %}
-    {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_NORMAL_JOB_BOUND},
-{% endfor %}
-    /* Grouped XOF APIs. */
-{% for function in ctx.xof_functions %}
+    /* Hash and XOF APIs. */
+{% for function in ctx.crypto_functions %}
     {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_NORMAL_JOB_BOUND},
 {% endfor %}
     /* decaf/spongerng.h */
@@ -93,12 +81,8 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
         return -1;
     if (libdecaf_nif_ed448_load(env) != 0)
         return -1;
-    if (libdecaf_nif_hash_load(env) != 0)
-        return -1;
-    if (libdecaf_nif_kmac_load(env) != 0)
-        return -1;
-{% for group in ctx.xof_groups %}
-    if (libdecaf_nif_{{ group.name }}_load(env) != 0)
+{% for family in ctx.crypto_families %}
+    if ({{ family.prefix }}_load(env) != 0)
         return -1;
 {% endfor %}
 {% for group in ctx.prime_order_groups %}
@@ -123,12 +107,8 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
         return -1;
     if (libdecaf_nif_ed448_load(env) != 0)
         return -1;
-    if (libdecaf_nif_hash_load(env) != 0)
-        return -1;
-    if (libdecaf_nif_kmac_load(env) != 0)
-        return -1;
-{% for group in ctx.xof_groups %}
-    if (libdecaf_nif_{{ group.name }}_load(env) != 0)
+{% for family in ctx.crypto_families %}
+    if ({{ family.prefix }}_load(env) != 0)
         return -1;
 {% endfor %}
 {% for group in ctx.prime_order_groups %}

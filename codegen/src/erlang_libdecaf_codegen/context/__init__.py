@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from ..schema import Root
 from .nif import NIF
-from .functions import Function, XOFGroup, functions, xof_groups, types
+from .functions import functions, xof_groups, types
 from .groups import PRIME_ORDER_GROUPS, PrimeOrderGroup
 
 
@@ -19,7 +19,16 @@ class Context:
 
     def reset_atoms(self) -> None:
         self.nif = NIF(functions=functions(self.schema.nif))
-        for name in self.schema.nif.atoms + list(self.schema.nif.hash) + list(self.schema.nif.kmac) + list(self.schema.nif.xof):
+        names = (
+            self.schema.nif.atoms
+            + list(self.schema.nif.hash)
+            + list(self.schema.nif.kmac)
+            + list(self.schema.nif.hopmac)
+            + list(self.schema.nif.xof)
+        )
+        for family in self.derived_families:
+            names += list(getattr(self.schema.nif, family))
+        for name in names:
             self.nif.make_atom(name)
 
     @property
@@ -28,22 +37,38 @@ class Context:
 
     @property
     def opaque_type_names(self) -> set[str]:
-        return {"hash_state", "kmac_state"} | {group.state_type for group in xof_groups(self.schema.nif)}
+        return {"hash_state", "xof_state"}
 
     @property
-    def kmac_functions(self) -> tuple[Function, ...]:
-        return tuple(function for function in self.nif.functions if function.family == "kmac")
+    def crypto_families(self):
+        from .crypto import families
+
+        return families(self.schema.nif)
+
+    def crypto_profiles(self, family):
+        from .crypto import profiles
+
+        return profiles(self.schema.nif, family)
+
+    def crypto_doc(self, function):
+        from .crypto import public_doc
+
+        return public_doc(self.schema.nif, function)
 
     @property
-    def xof_functions(self) -> tuple[Function, ...]:
-        return tuple(function for function in self.nif.functions if function.family == "xof")
+    def crypto_functions(self):
+        return tuple(f for f in self.nif.functions if f.family in ("hash", "xof"))
 
     @property
-    def xof_groups(self) -> tuple[XOFGroup, ...]:
+    def xof_groups(self):
         return xof_groups(self.schema.nif)
 
-    def hash_algorithms(self, prefix: str) -> tuple[str, ...]:
-        return tuple(name for name in sorted(self.schema.nif.hash) if name.startswith(prefix))
+    @property
+    def derived_families(self):
+        return ("parallelhash", "tuplehash")
+
+    def hash_algorithms(self, prefix):
+        return tuple(n for n in sorted(self.schema.nif.hash) if n.startswith(prefix))
 
     @property
     def prime_order_groups(self) -> tuple[PrimeOrderGroup, ...]:

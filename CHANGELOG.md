@@ -9,13 +9,14 @@
   * Fix native dependency ordering and rebuilds, and update macOS linking flags.
   * Fix empty-message null-pointer contract violations in the vendored EdDSA and SHA-512 wrappers.
 * Library Support
-  * SP 800-185 KMAC128 and KMAC256 with customization, immutable incremental states, dedicated NIF resources, and all KMAC vectors from draft-ietf-ipsecme-sha3-02 and NIST's six samples.
+  * SP 800-185 KMAC, TupleHash, and ParallelHash at strengths 128 and 256, including their XOF variants, all 36 NIST sample vectors, and all 18 KMAC vectors from draft-ietf-ipsecme-sha3-02.
+  * RFC 9861 HopMAC128 and HopMAC256 with keyed Hash and XOF lifecycles.
   * RFC 9861 KangarooTwelve KT128 and KT256 with one-shot and incremental customization support.
   * RFC 9861 TurboSHAKE128 and TurboSHAKE256 with configurable domain separation bytes.
   * cSHAKE128 and cSHAKE256 with SP 800-185 function-name and customization strings.
-    * `libdecaf:xof_cshake/5` and `libdecaf:xof_cshake_init/3`, using `cshake128` or `cshake256`.
+    * `libdecaf:xof_cshake/5` and `libdecaf:xof_init_cshake/3`, using `cshake128` or `cshake256`.
   * Original Keccak-XOF-128 and Keccak-XOF-256 through `libdecaf:xof_keccak/3` and the incremental XOF API.
-    * Algorithm names: `keccak_xof_128` and `keccak_xof_256`.
+    * Algorithm names: `keccakxof_128` and `keccakxof_256`.
   * Streaming Ed25519ph and Ed448ph signing and verification with immutable states.
     * `libdecaf_eddsa:sign_init/2`, `libdecaf_eddsa:sign_init/3`
     * `libdecaf_eddsa:sign_update/2`, `libdecaf_eddsa:sign_final/1`
@@ -29,9 +30,10 @@
   * Add immutable advancing `absorb`/`squeeze` APIs for every XOF family, following the two-phase streaming interface in the SP 800-185 Revision 1 initial public draft.
   * Generate the deprecated `libdecaf_sha2`, `libdecaf_sha3`, and `libdecaf_keccak_sha3` compatibility modules, retaining wrapped states and directing callers to the hash and XOF APIs in `libdecaf`.
   * Add Docker and native ASan, LSan, and UBSan checks for ed448goldilocks and the NIF, including resource cleanup stress.
-  * Replace generic XOF entry points with grouped APIs in `libdecaf` and `libdecaf_nif`.
+  * Add family initializers and one-shot functions with shared `hash_update`/`hash_final` and `xof_absorb`/`xof_squeeze` operations in `libdecaf` and `libdecaf_nif`.
   * Split XOF families into independent native implementations with dedicated states and trapping lifecycles.
-  * Generate generic fixed-output hash and grouped XOF APIs with opaque states, explicit customization parameters, and runtime XOF group checks.
+  * Generate opaque Hash and XOF states that retain initialization parameters, including chosen hash output lengths and KT customization, with human-friendly public documentation and runnable examples.
+  * Track C header dependencies so generated atom-table changes rebuild every affected native object.
   * Upstream update to [`ed448goldilocks` version `features-20261022-v1.0.5`](https://github.com/potatosalad/ed448goldilocks/tree/features-20261022-v1.0.5), based on tag `v1.0.5` (vendored as part of `libdecaf` app).
   * Add X25519 high-bit, non-canonical coordinate, and low-order input regression tests.
   * Add RFC 9496 generator, invalid encoding, and uniform byte mapping test vectors.

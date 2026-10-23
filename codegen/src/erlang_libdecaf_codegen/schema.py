@@ -11,17 +11,9 @@ class Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class Algorithm(Model):
-    context: CIdentifier
-    init: CIdentifier
-    update: CIdentifier
-    destroy: CIdentifier
-
-
-class Hash(Algorithm):
+class Hash(Model):
     default_output_len: int = Field(gt=0)
     max_output_len: int = Field(gt=0)
-    final: CIdentifier
     legacy_keccak_rate: int | None = Field(default=None, gt=0, le=200)
 
     @model_validator(mode="after")
@@ -31,30 +23,42 @@ class Hash(Algorithm):
         return self
 
 
-class XOF(Algorithm):
+class XOF(Model):
+    default_output_len: int = Field(gt=0)
     group: CIdentifier
-    output: CIdentifier
     legacy_keccak_rate: int | None = Field(default=None, gt=0, lt=200)
     cshake_rate: int | None = Field(default=None, gt=0, lt=200)
     turbo_rate: int | None = Field(default=None, gt=0, lt=200)
     kt_rate: Literal[136, 168] | None = None
+    sp800185: Literal["kmac", "tuplehash", "parallelhash"] | None = None
+    sp800185_rate: Literal[136, 168] | None = None
 
     @model_validator(mode="after")
     def valid_padding(self) -> Self:
-        if sum(rate is not None for rate in (self.legacy_keccak_rate, self.cshake_rate, self.turbo_rate, self.kt_rate)) > 1:
+        if (
+            sum(
+                rate is not None
+                for rate in (self.legacy_keccak_rate, self.cshake_rate, self.turbo_rate, self.kt_rate, self.sp800185_rate)
+            )
+            > 1
+        ):
             raise ValueError("An XOF can select only one sponge initialization mode")
+        if (self.sp800185 is None) != (self.sp800185_rate is None):
+            raise ValueError("SP 800-185 XOFs require a construction and sponge rate")
         return self
 
 
-class KMAC(Algorithm):
+class DerivedSponge(Model):
     rate: Literal[136, 168]
-    output: CIdentifier
 
 
 class NIF(Model):
     atoms: list[CIdentifier] = Field(default_factory=list)
     hash: dict[CIdentifier, Hash] = Field(default_factory=dict)
-    kmac: dict[CIdentifier, KMAC] = Field(default_factory=dict)
+    hopmac: dict[CIdentifier, DerivedSponge] = Field(default_factory=dict)
+    kmac: dict[CIdentifier, DerivedSponge] = Field(default_factory=dict)
+    parallelhash: dict[CIdentifier, DerivedSponge] = Field(default_factory=dict)
+    tuplehash: dict[CIdentifier, DerivedSponge] = Field(default_factory=dict)
     xof: dict[CIdentifier, XOF] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -65,6 +69,7 @@ class NIF(Model):
                 profile.cshake_rate is not None,
                 profile.turbo_rate is not None,
                 profile.kt_rate is not None,
+                profile.sp800185,
             )
             if profile.group in modes and modes[profile.group] != mode:
                 raise ValueError("Algorithms in an API group must accept the same parameters")

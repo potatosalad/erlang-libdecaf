@@ -23,7 +23,9 @@ fixed_hashes(_) ->
                 fun({Algorithm, DefaultLength}) ->
                     lists:foreach(
                         fun(Message) ->
-                            Expected = libdecaf:hash(Algorithm, Message),
+                            Expected = libdecaf:hash_final(
+                                libdecaf:hash_update(libdecaf:hash_init(Algorithm), Message)
+                            ),
                             DefaultLength = byte_size(Expected),
                             Expected = Module:hash(Algorithm, [Message]),
                             Expected = Module:hash(Algorithm, Message, DefaultLength),
@@ -34,7 +36,7 @@ fixed_hashes(_) ->
                             Expected = Module:final(Updated),
                             Expected = Module:final(Updated),
                             Expected = Module:final(Module:update(Initial, Message)),
-                            Empty = libdecaf:hash(Algorithm, <<>>),
+                            Empty = libdecaf:hash_final(libdecaf:hash_init(Algorithm)),
                             Empty = Module:final(Initial),
                             lists:foreach(
                                 fun(Length) ->
@@ -104,7 +106,7 @@ invalid_arguments(_) ->
     Module = libdecaf_sha3,
     rejected(fun() -> Module:xof(sha3_256, <<>>, 32) end, [sha3_256, <<>>, 32]),
     badarg(fun() -> Module:final({shake128, libdecaf_nif:hash_init(sha3_256)}, 32) end),
-    badarg(fun() -> Module:final({sha3_256, libdecaf_nif:xof_sha3_init(shake128)}, 32) end).
+    badarg(fun() -> Module:final({sha3_256, libdecaf_nif:xof_init_sha3(shake128)}, 32) end).
 
 deprecation_and_examples(_) ->
     lists:foreach(

@@ -1,26 +1,5 @@
 /* clang-format off */ //-
-{% set group = 'keccak' %}
-#ifndef LIBDECAF_NIF_XOF_KECCAK_H
-#define LIBDECAF_NIF_XOF_KECCAK_H
-
-#include "../libdecaf_nif.h"
-#include <stdbool.h>
-#include <decaf/shake.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern ErlNifResourceType *libdecaf_nif_xof_keccak_resource_type;
-int libdecaf_nif_xof_keccak_load(ErlNifEnv *env);
-
-{% for function in ctx.xof_functions if function.algorithms and ctx.schema.nif.xof[function.algorithms[0]].group == group %}
-ERL_NIF_TERM {{ function.c_name }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-{% endfor %}
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+{% from 'c_src/nif/xof/api_header.h.inc' import header %}
+{% set f = ctx.crypto_families | selectattr('name', 'equalto', 'keccak') | first %}
+{{ header(f) }}
 /* clang-format on */ //-

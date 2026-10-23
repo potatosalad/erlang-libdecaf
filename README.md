@@ -110,52 +110,70 @@ native build on exit, including failures. Sanitized upstream objects use the
 separate `c_deps/ed448goldilocks-build-sanitizers/` directory. Docker builds and
 tests run inside the image and leave host build artifacts unchanged.
 
-### Hash APIs
+### Hash and XOF APIs
 
-Fixed-output hashes use `hash/2,3`, `hash_init/1`, `hash_update/2`, and
-`hash_final/1,2` in both `libdecaf` and `libdecaf_nif`. Algorithm atoms select
-SHA-2, SHA-3, or Keccak; the native state retains the selected algorithm.
-
-XOFs use the following grouped APIs. Each prefix provides one-shot hashing
-and `_init`, `_update`, and `_final` functions. Algorithm atoms select the variant.
-
-| Prefix | Algorithms |
-| --- | --- |
-| `xof_cshake` | `cshake128`, `cshake256` |
-| `xof_keccak` | `keccak_xof_128`, `keccak_xof_256` |
-| `xof_kt` | `kt128`, `kt256` |
-| `xof_sha3` | `shake128`, `shake256` |
-| `xof_turboshake` | `turboshake128`, `turboshake256` |
+Use the Hash API when the output length is known in advance. Choose the algorithm
+and options with `hash_init/1` or a family initializer; add input with
+`hash_update/2`, then get the chosen number of bytes with `hash_final/1`.
+Family functions such as `hash_sha3/2,3` compute the same result in one call.
 
 ```erlang
-S0 = libdecaf:hash_init(sha3_256),
+S0 = libdecaf:hash_init({sha3_256, 16}),
 S1 = libdecaf:hash_update(S0, <<"abc">>),
-Digest = libdecaf:hash_final(S1).
-
-X0 = libdecaf:xof_sha3_init(shake128),
-X1 = libdecaf:xof_sha3_update(X0, <<"abc">>),
-Output = libdecaf:xof_sha3_final(X1, 32).
-
-%% cSHAKE takes function-name and customization strings.
-C0 = libdecaf:xof_cshake_init(cshake128, <<>>, <<"example">>),
-C1 = libdecaf:xof_cshake_update(C0, <<"abc">>),
-CustomOutput = libdecaf:xof_cshake_final(C1, 32).
-
-%% TurboSHAKE takes an integer domain byte in 1..127.
-Turbo = libdecaf:xof_turboshake(turboshake128, <<"abc">>, 32, 31).
-
-%% KT customization is supplied at finalization, after the message.
-K0 = libdecaf:xof_kt_init(kt128),
-K1 = libdecaf:xof_kt_update(K0, <<"abc">>),
-TreeOutput = libdecaf:xof_kt_final(K1, 32, <<"example">>).
+Digest = libdecaf:hash_final(S1),
+Digest = libdecaf:hash_sha3(sha3_256, <<"abc">>, 16).
 ```
 
-Hash states are immutable native resources. XOF states have an opaque type for each group, such as
-`libdecaf:xof_sha3_state()` and `libdecaf:xof_kt_state()`.
-Dialyzer rejects calls that mix groups, and the NIF checks them at runtime.
-Eqwalizer checks the algorithm and parameter types, but currently does not
-distinguish these opaque resource types. Grouped XOF APIs are available from
-both `libdecaf` and `libdecaf_nif`; generic `xof*` entry points are removed.
+Use the XOF API to read an extensible stream. Absorb all input before squeezing;
+keep the returned state to advance output. One-shot XOF functions return bytes.
+
+```erlang
+X0 = libdecaf:xof_init_sha3(shake128),
+X1 = libdecaf:xof_absorb(X0, <<"abc">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Output = <<First/binary, Second/binary>>,
+Output = libdecaf:xof_sha3(shake128, <<"abc">>, 32).
+```
+
+| Family | Hash selectors | XOF selectors |
+| --- | --- | --- |
+| `sha2` | `sha2_512` | — |
+| `sha3` | `sha3_224`, `sha3_256`, `sha3_384`, `sha3_512`, `shake128`, `shake256` | `shake128`, `shake256` |
+| `keccak` | `keccak_224`, `keccak_256`, `keccak_384`, `keccak_512`, `keccakxof_128`, `keccakxof_256` | `keccakxof_128`, `keccakxof_256` |
+| `cshake` | `cshake128`, `cshake256` | same |
+| `hopmac` | `hopmac128`, `hopmac256` | same |
+| `kmac` | `kmac128`, `kmac256` | `kmacxof128`, `kmacxof256` |
+| `kt` | `kt128`, `kt256` | same |
+| `parallelhash` | `parallelhash128`, `parallelhash256` | `parallelhashxof128`, `parallelhashxof256` |
+| `tuplehash` | `tuplehash128`, `tuplehash256` | `tuplehashxof128`, `tuplehashxof256` |
+| `turboshake` | `turboshake128`, `turboshake256` | same |
+
+Initializers are named `hash_init_<family>` and `xof_init_<family>`; one-shot
+functions are `hash_<family>` and `xof_<family>`. Hash arguments put output length
+before keys, customization, or ParallelHash block size. Parameter tuples to
+`hash_init/1` and `xof_init/1` use the same argument order as their family initializer.
+
+Lengths and block sizes are in **bytes**. Message, key, and customization inputs
+accept iodata. TupleHash one-shot input is a list of separate elements; each
+`hash_update/2` or `xof_absorb/2` call adds one complete element. ParallelHash's
+block size affects the digest; update chunk boundaries do not. Blocks are processed
+serially in constant memory. TurboSHAKE's domain is an integer in `1..127`, default
+`16#1F`. KT customization is chosen at initialization and retained until finalization.
+KT and TurboSHAKE hash defaults are 32 bytes at strength 128 and 64 at strength 256.
+
+KMAC, TupleHash, and ParallelHash bind hash output length into the computation.
+Compute at the desired length; truncating a longer hash or using the XOF prefix
+produces a different result. Their XOF selectors use distinct framing.
+SHAKE and Keccak XOF selectors require an explicit output length in the Hash API.
+
+`hash_state()` and `xof_state()` are opaque native resources without Erlang record
+wrapping. States are immutable and may be reused; a squeezing state rejects new
+input even after a zero-byte squeeze. Keep keyed states private. Dialyzer checks
+Hash/XOF state separation. Eqwalizer checks algorithm and parameter types, but
+currently treats resource-backed opaque state types structurally. Native checks
+enforce state and phase separation. Both modules expose the same native interface;
+`libdecaf` provides detailed usage documentation and examples.
 
 ### ECDH
 
@@ -360,34 +378,53 @@ as `libdecaf:ristretto255_point_add/2`.
 
 ### KMAC
 
-`libdecaf:kmac/4,5` implements SP 800-185 KMAC128 and KMAC256. Keys,
+`libdecaf:hash_kmac/4,5` implements SP 800-185 KMAC128 and KMAC256. Keys,
 messages, and optional customization accept iodata. Output lengths are in bytes
 and are bound into the tag: compute at the required length instead of truncating.
 
 ```erlang
 Key = list_to_binary(lists:seq(16#40, 16#5F)),
-Tag = libdecaf:kmac(kmac128, Key, <<0, 1, 2, 3>>, 32),
+Tag = libdecaf:hash_kmac(kmac128, <<0, 1, 2, 3>>, 32, Key),
 <<"E5780B0D3EA6F7D3A429C5706AA43A00FADBD7D49628839E3187243F456EE14E">> = binary:encode_hex(Tag).
 ```
 
-For incremental input, use `kmac_init/2,3`, `kmac_update/2`, and `kmac_final/2`.
+For incremental input, use `hash_init_kmac/3,4`, `hash_update/2`, and `hash_final/1`.
+For KMACXOF, use `xof_kmac/4,5`, `xof_init_kmac/2,3`, `xof_absorb/2`, and `xof_squeeze/2`.
 States are immutable and contain keyed contexts; keep them private like the key.
 NIST-approved uses require at least 16 key bytes for KMAC128 or 32 for KMAC256.
 The primitive also permits shorter keys as defined by the standard.
+
+### HopMAC, TupleHash, and ParallelHash
+
+HopMAC128/256 follow [RFC 9861, Section 4](https://www.rfc-editor.org/rfc/rfc9861.html#section-4).
+Use `hash_hopmac/4,5` for a chosen tag length or `xof_hopmac/4,5` for output bytes;
+their initializers support incremental messages through the shared lifecycles.
+
+TupleHash and ParallelHash, including their XOF variants, follow
+[NIST SP 800-185](https://csrc.nist.gov/pubs/sp/800/185/final).
+The two-phase XOF interface also follows the
+[Revision 1 initial public draft](https://csrc.nist.gov/pubs/sp/800/185/r1/ipd).
+All six published sample vectors for each of KMAC, KMACXOF, TupleHash,
+TupleHashXOF, ParallelHash, and ParallelHashXOF are checked against the NIF and public API.
+
+```erlang
+TupleDigest = libdecaf:hash_tuplehash(tuplehash128, [<<"alice">>, <<"invoice-42">>], 32),
+ParallelDigest = libdecaf:hash_parallelhash(parallelhash128, <<"message">>, 32, 8192).
+```
 
 ### KECCAK
 
 #### XOF streams
 
-Every XOF family provides `absorb/2` and `squeeze/2` operations. Continue with
+Every XOF family uses `xof_absorb/2` and `xof_squeeze/2`. Continue with
 the returned state to read consecutive output chunks. A squeezing state rejects
 further absorption, even after a zero-byte squeeze. The original state remains
-reusable. Existing `update` and `final` functions remain available.
+reusable.
 
 ```erlang
-State = libdecaf:xof_sha3_absorb(libdecaf:xof_sha3_init(shake128), <<"abc">>),
-{Next, First} = libdecaf:xof_sha3_squeeze(State, 16),
-{_, Second} = libdecaf:xof_sha3_squeeze(Next, 16),
+State = libdecaf:xof_absorb(libdecaf:xof_init_sha3(shake128), <<"abc">>),
+{Next, First} = libdecaf:xof_squeeze(State, 16),
+{_, Second} = libdecaf:xof_squeeze(Next, 16),
 Whole = libdecaf:xof_sha3(shake128, <<"abc">>, 32),
 Whole = <<First/binary, Second/binary>>.
 ```
@@ -453,8 +490,8 @@ Sponge1 = libdecaf_spongerng:stir(Sponge0, <<"test">>),
 
 ### KECCAK-SHA-3
 
-This compatibility module is deprecated. Use `libdecaf:hash/2,3`,
-`libdecaf:hash_init/1`, `libdecaf:hash_update/2`, and `libdecaf:hash_final/1,2`
+This compatibility module is deprecated. Use `libdecaf:hash_keccak/2,3`,
+`libdecaf:hash_init/1`, `libdecaf:hash_update/2`, and `libdecaf:hash_final/1`
 with the same `keccak_*` algorithm names. The replacement APIs use unwrapped states.
 
 #### `libdecaf_keccak_sha3:hash/2`
@@ -597,8 +634,8 @@ Out = libdecaf_keccak_sha3:final(Sponge1).
 
 ### SHA-2
 
-This compatibility module is deprecated. Use `libdecaf:hash/2,3`,
-`libdecaf:hash_init/1`, `libdecaf:hash_update/2`, and `libdecaf:hash_final/1,2`
+This compatibility module is deprecated. Use `libdecaf:hash_sha2/2,3`,
+`libdecaf:hash_init/1`, `libdecaf:hash_update/2`, and `libdecaf:hash_final/1`
 with `sha2_512`. The replacement APIs use unwrapped states.
 
 #### `libdecaf_sha2:hash/2`
@@ -661,8 +698,8 @@ Out = libdecaf_sha2:final(Context1).
 
 This compatibility module is deprecated. Use the `libdecaf:hash*` functions
 for `sha3_*` algorithms. For SHAKE, use `libdecaf:xof_sha3/3`,
-`libdecaf:xof_sha3_init/1`, `libdecaf:xof_sha3_update/2`, and
-`libdecaf:xof_sha3_final/2`. The replacement APIs use unwrapped states.
+`libdecaf:xof_init_sha3/1`, `libdecaf:xof_absorb/2`, and
+`libdecaf:xof_squeeze/2`. The replacement APIs use unwrapped states.
 
 #### `libdecaf_sha3:hash/2`
 

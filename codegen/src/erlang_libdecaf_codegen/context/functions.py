@@ -66,189 +66,6 @@ def xof_groups(schema: NIFSchema) -> tuple[XOFGroup, ...]:
     return tuple(result)
 
 
-def xof_functions(schema: NIFSchema) -> tuple[Function, ...]:
-    result = []
-
-    def add(group, operation, arguments, returns, doc):
-        name = group.name + ("" if operation == "once" else f"_{operation}")
-        result.append(
-            Function(
-                name,
-                tuple(Argument(*arg) for arg in arguments),
-                returns,
-                doc,
-                "XOF API",
-                "xof",
-                operation,
-                group.algorithms,
-                {"init": "State", "update": "NewState", "absorb": "NewState", "squeeze": "Result"}.get(operation, "Output"),
-            )
-        )
-
-    for group in xof_groups(schema):
-        state = f"{group.state_type}()"
-        algorithm = [("Algorithm", f"{group.algorithm_type}()")]
-        basic = algorithm + [("Input", "iodata()"), ("Length", "non_neg_integer()")]
-        add(group, "once", basic, "binary()", "Hash iodata and return `Length` XOF bytes using default parameters.")
-        add(group, "init", algorithm, state, "Create an immutable native XOF state using default parameters.")
-        add(
-            group,
-            "update",
-            [("State", state), ("Input", "iodata()")],
-            state,
-            "Absorb iodata and return a new state in this XOF group. The input state remains reusable.",
-        )
-        add(
-            group,
-            "absorb",
-            [("State", state), ("Input", "iodata()")],
-            state,
-            "Absorb iodata and return a new absorbing state, as in `update/2`.\n"
-            "A state returned by squeeze has entered the output phase and rejects further input.",
-        )
-        add(
-            group,
-            "squeeze",
-            [("State", state), ("Length", "non_neg_integer()")],
-            f"{{{state}, binary()}}",
-            "Return `{NextState, Output}` containing the next `Length` bytes of the XOF stream.\n"
-            "Continue with `NextState` to obtain subsequent bytes. Even a zero-byte squeeze\n"
-            "starts the output phase, after which absorb/update calls raise an argument error.\n"
-            "The input state remains reusable; squeezing it again repeats the same bytes.",
-        )
-        add(
-            group,
-            "final",
-            [("State", state), ("Length", "non_neg_integer()")],
-            "binary()",
-            "Return `Length` XOF bytes without changing the state.",
-        )
-        profile = schema.xof[group.algorithms[0]]
-        if profile.cshake_rate is not None:
-            extra = [("FunctionName", "iodata()"), ("Customization", "iodata()")]
-            add(
-                group,
-                "once",
-                basic + extra,
-                "binary()",
-                "Hash iodata with SP 800-185 function-name and customization strings.\nBoth empty strings produce the corresponding SHAKE output.",
-            )
-            add(
-                group,
-                "init",
-                algorithm + extra,
-                state,
-                "Create a cSHAKE state with SP 800-185 function-name and customization strings.",
-            )
-        if profile.turbo_rate is not None:
-            extra = [("Domain", "1..127")]
-            add(group, "once", basic + extra, "binary()", "Hash iodata using a TurboSHAKE domain byte in `1..127`.")
-            add(group, "init", algorithm + extra, state, "Create a TurboSHAKE state with a domain byte in `1..127`.")
-        if profile.kt_rate is not None:
-            extra = [("Customization", "iodata()")]
-            add(
-                group,
-                "once",
-                basic + extra,
-                "binary()",
-                "Hash iodata using a KangarooTwelve customization string appended per RFC 9861.",
-            )
-            add(
-                group,
-                "final",
-                [("State", state), ("Length", "non_neg_integer()")] + extra,
-                "binary()",
-                "Finalize KangarooTwelve with a customization string. The input state remains reusable.",
-            )
-            add(
-                group,
-                "squeeze",
-                [("State", state), ("Length", "non_neg_integer()"), ("Customization", "iodata()")],
-                f"{{{state}, binary()}}",
-                "Begin squeezing KangarooTwelve with customization, returning `{NextState, Output}`.\n"
-                "Supply customization only before squeezing begins, then continue with `squeeze/2`.",
-            )
-    return tuple(sorted(result, key=lambda function: (function.name, function.arity)))
-
-
-def kmac_functions(schema: NIFSchema) -> tuple[Function, ...]:
-    if not schema.kmac:
-        return ()
-    result = []
-
-    def add(name, arguments, returns, doc, result_name):
-        result.append(
-            Function(
-                name,
-                tuple(Argument(*argument) for argument in arguments),
-                returns,
-                doc,
-                "KMAC API",
-                family="kmac",
-                algorithms=tuple(sorted(schema.kmac)),
-                result_name=result_name,
-            )
-        )
-
-    basic = [("Type", "kmac_algorithm()"), ("Key", "iodata()"), ("Data", "iodata()"), ("Length", "non_neg_integer()")]
-    custom = [("Customization", "iodata()")]
-    init = [("Type", "kmac_algorithm()"), ("Key", "iodata()")]
-    add(
-        "kmac",
-        basic,
-        "binary()",
-        "Compute a KMAC128 or KMAC256 tag with empty customization.\n\n"
-        "`Length` is the requested number of bytes, including zero. KMAC encodes this\n"
-        "length into the computation: requesting fewer bytes changes the tag rather\n"
-        "than truncating a longer result. Keys and messages accept iodata.\n"
-        "The primitive accepts any key length; NIST-approved uses require at least\n"
-        "16 key bytes for KMAC128 or 32 for KMAC256 (SP 800-185r1 IPD, Section 9.4.1).",
-        "Tag",
-    )
-    add(
-        "kmac",
-        basic + custom,
-        "binary()",
-        "Compute a KMAC tag using SP 800-185 customization iodata.\n\n"
-        "`Customization` provides domain separation; use an empty string for the\n"
-        "IPsec/IKEv2 constructions in draft-ietf-ipsecme-sha3-02. `Length` is in\n"
-        "bytes and is bound into the computation, so tags must not be truncated.",
-        "Tag",
-    )
-    for arguments in (init, init + custom):
-        add(
-            "kmac_init",
-            arguments,
-            "kmac_state()",
-            "Create an immutable keyed KMAC state for incremental messages.\n\n"
-            + ("Customization defaults to the empty string. " if arguments == init else "Customization accepts iodata. ")
-            + "The native state retains the algorithm\n"
-            "and keyed sponge context. Keep it private like the key; updates return\n"
-            "new states and finalization leaves the input state reusable.",
-            "State",
-        )
-    add(
-        "kmac_update",
-        [("State", "kmac_state()"), ("Data", "iodata()")],
-        "kmac_state()",
-        "Absorb message iodata and return a new keyed KMAC state.\n\n"
-        "The original state remains reusable. States from hash or XOF APIs are\n"
-        "incompatible and raise an argument error.",
-        "NewState",
-    )
-    add(
-        "kmac_final",
-        [("State", "kmac_state()"), ("Length", "non_neg_integer()")],
-        "binary()",
-        "Return a KMAC tag of exactly `Length` bytes without changing the state.\n\n"
-        "Each call binds the requested length into the tag. To obtain a shorter\n"
-        "tag, finalize again at that length; truncating a longer tag is incorrect.\n"
-        "The state remains usable for additional updates or finalizations.",
-        "Tag",
-    )
-    return tuple(sorted(result, key=lambda function: (function.name, function.arity)))
-
-
 def functions(schema: NIFSchema) -> tuple[Function, ...]:
     result: list[Function] = []
 
@@ -551,49 +368,9 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
             "Diffie-Hellman",
         )
 
-    hash_operations = [
-        (
-            "hash",
-            [("Type", "hash_algorithm()"), ("Data", "iodata()")],
-            "binary()",
-            "Hash iodata using the configured default digest length.",
-        ),
-        (
-            "hash",
-            [("Type", "hash_algorithm()"), ("Data", "iodata()"), ("Length", "non_neg_integer()")],
-            "binary()",
-            "Hash iodata and return Length bytes. The length must not exceed the configured maximum for the algorithm.",
-        ),
-        (
-            "hash_init",
-            [("Type", "hash_algorithm()")],
-            "hash_state()",
-            "Create an immutable native hash state. The resource retains the algorithm and its default digest length.",
-        ),
-        (
-            "hash_update",
-            [("State", "hash_state()"), ("Data", "iodata()")],
-            "hash_state()",
-            "Absorb iodata and return a new native hash state. The original state remains reusable.",
-        ),
-        (
-            "hash_final",
-            [("State", "hash_state()")],
-            "binary()",
-            "Return the digest using the state's configured default length. The input state remains reusable.",
-        ),
-        (
-            "hash_final",
-            [("State", "hash_state()"), ("Length", "non_neg_integer()")],
-            "binary()",
-            "Return Length digest bytes without changing the input state. The length must not exceed the configured maximum.",
-        ),
-    ]
-    for name, arguments, returns, doc in hash_operations:
-        result_name = {"hash_init": "State", "hash_update": "NewState"}.get(name, "Digest")
-        add(name, arguments, returns, doc, "Hash API", result_name=result_name)
-    result.extend(xof_functions(schema))
-    result.extend(kmac_functions(schema))
+    from .crypto import api_functions
+
+    result.extend(api_functions(schema))
 
     rng = [
         (
@@ -651,22 +428,10 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
         ),
         ("spongerng_state", "erlang:nif_resource()", "A sponge PRNG resource. Continue with each operation's returned state."),
     ]
-    if schema.kmac:
-        result.extend(
-            [
-                ("kmac_algorithm", " | ".join(sorted(schema.kmac)), "SP 800-185 KMAC variants accepted by the KMAC API."),
-                ("kmac_state", "erlang:nif_resource()", "An immutable keyed KMAC resource. Keep this state private like its key."),
-            ]
-        )
-    for group in xof_groups(schema):
-        result.append((group.algorithm_type, " | ".join(group.algorithms), f"Algorithms accepted by `{group.name}/3`."))
-        result.append(
-            (
-                group.state_type,
-                "erlang:nif_resource()",
-                f"An opaque native `{group.name}` state. States from other groups are incompatible.",
-            )
-        )
+    from .crypto import api_types
+
+    result = [entry for entry in result if entry[0] not in ("hash_algorithm", "hash_state")]
+    result.extend(api_types(schema))
     for curve, size in [("ed25519", 32), ("ed448", 57)]:
         for part, byte_count in [("secret_key", size), ("public_key", size), ("signature", size * 2)]:
             result.append(

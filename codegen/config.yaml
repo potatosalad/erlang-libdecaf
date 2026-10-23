@@ -14,172 +14,130 @@ nif:
   - undefined
   hash:
     keccak_224:
-      context: decaf_keccak_sponge_s
       default_output_len: 28
       max_output_len: 28
-      init: libdecaf_nif_hash_keccak_224_init
-      update: decaf_sha3_update
-      final: decaf_sha3_final
-      destroy: decaf_sha3_destroy
       legacy_keccak_rate: 144
     keccak_256:
-      context: decaf_keccak_sponge_s
       default_output_len: 32
       max_output_len: 32
-      init: libdecaf_nif_hash_keccak_256_init
-      update: decaf_sha3_update
-      final: decaf_sha3_final
-      destroy: decaf_sha3_destroy
       legacy_keccak_rate: 136
     keccak_384:
-      context: decaf_keccak_sponge_s
       default_output_len: 48
       max_output_len: 48
-      init: libdecaf_nif_hash_keccak_384_init
-      update: decaf_sha3_update
-      final: decaf_sha3_final
-      destroy: decaf_sha3_destroy
       legacy_keccak_rate: 104
     keccak_512:
-      context: decaf_keccak_sponge_s
       default_output_len: 64
       max_output_len: 64
-      init: libdecaf_nif_hash_keccak_512_init
-      update: decaf_sha3_update
-      final: decaf_sha3_final
-      destroy: decaf_sha3_destroy
       legacy_keccak_rate: 72
     sha2_512:
-      context: decaf_sha512_ctx_s
       default_output_len: 64
       max_output_len: 64
-      init: decaf_sha512_init
-      update: decaf_sha512_update
-      final: decaf_sha512_final
-      destroy: decaf_sha512_destroy
     sha3_224:
-      context: decaf_sha3_224_ctx_s
       default_output_len: 28
       max_output_len: 28
-      init: decaf_sha3_224_init
-      update: decaf_sha3_224_update
-      final: decaf_sha3_224_final
-      destroy: decaf_sha3_224_destroy
     sha3_256:
-      context: decaf_sha3_256_ctx_s
       default_output_len: 32
       max_output_len: 32
-      init: decaf_sha3_256_init
-      update: decaf_sha3_256_update
-      final: decaf_sha3_256_final
-      destroy: decaf_sha3_256_destroy
     sha3_384:
-      context: decaf_sha3_384_ctx_s
       default_output_len: 48
       max_output_len: 48
-      init: decaf_sha3_384_init
-      update: decaf_sha3_384_update
-      final: decaf_sha3_384_final
-      destroy: decaf_sha3_384_destroy
     sha3_512:
-      context: decaf_sha3_512_ctx_s
       default_output_len: 64
       max_output_len: 64
-      init: decaf_sha3_512_init
-      update: decaf_sha3_512_update
-      final: decaf_sha3_512_final
-      destroy: decaf_sha3_512_destroy
   kmac:
     kmac128:
-      context: decaf_keccak_sponge_s
       rate: 168
-      init: decaf_shake128_gen_init
-      update: decaf_sha3_update
-      output: decaf_sha3_output
-      destroy: decaf_sha3_destroy
     kmac256:
-      context: decaf_keccak_sponge_s
       rate: 136
-      init: decaf_shake256_gen_init
-      update: decaf_sha3_update
-      output: decaf_sha3_output
-      destroy: decaf_sha3_destroy
+  parallelhash:
+    parallelhash128:
+      rate: 168
+    parallelhash256:
+      rate: 136
+  tuplehash:
+    tuplehash128:
+      rate: 168
+    tuplehash256:
+      rate: 136
   xof:
     cshake128:
       group: cshake
-      context: decaf_keccak_sponge_s
-      init: decaf_shake128_gen_init
-      update: decaf_sha3_update
-      output: decaf_sha3_output
-      destroy: decaf_sha3_destroy
       cshake_rate: 168
+      default_output_len: 32
     cshake256:
       group: cshake
-      context: decaf_keccak_sponge_s
-      init: decaf_shake256_gen_init
-      update: decaf_sha3_update
-      output: decaf_sha3_output
-      destroy: decaf_sha3_destroy
       cshake_rate: 136
-    keccak_xof_128:
+      default_output_len: 64
+    keccakxof_128:
       group: keccak
-      context: decaf_keccak_sponge_s
-      init: libdecaf_nif_xof_keccak_128_init
-      update: decaf_sha3_update
-      output: decaf_sha3_output
-      destroy: decaf_sha3_destroy
       legacy_keccak_rate: 168
-    keccak_xof_256:
+      default_output_len: 32
+    keccakxof_256:
       group: keccak
-      context: decaf_keccak_sponge_s
-      init: libdecaf_nif_xof_keccak_256_init
-      update: decaf_sha3_update
-      output: decaf_sha3_output
-      destroy: decaf_sha3_destroy
       legacy_keccak_rate: 136
+      default_output_len: 64
     kt128:
       group: kt
-      context: libdecaf_nif_xof_kt_ctx_s
-      init: libdecaf_nif_xof_kt128_init
-      update: libdecaf_nif_xof_kt_update
-      output: libdecaf_nif_xof_kt_output
-      destroy: libdecaf_nif_xof_kt_destroy
       kt_rate: 168
+      default_output_len: 32
     kt256:
       group: kt
-      context: libdecaf_nif_xof_kt_ctx_s
-      init: libdecaf_nif_xof_kt256_init
-      update: libdecaf_nif_xof_kt_update
-      output: libdecaf_nif_xof_kt_output
-      destroy: libdecaf_nif_xof_kt_destroy
       kt_rate: 136
+      default_output_len: 64
     shake128:
       group: sha3
-      context: decaf_keccak_sponge_s
-      init: decaf_shake128_gen_init
-      update: decaf_sha3_update
-      output: decaf_sha3_output
-      destroy: decaf_sha3_destroy
+      default_output_len: 32
     shake256:
       group: sha3
-      context: decaf_keccak_sponge_s
-      init: decaf_shake256_gen_init
-      update: decaf_sha3_update
-      output: decaf_sha3_output
-      destroy: decaf_sha3_destroy
+      default_output_len: 64
     turboshake128:
       group: turboshake
-      context: decaf_keccak_sponge_s
-      init: libdecaf_nif_xof_turboshake128_init
-      update: decaf_sha3_update
-      output: decaf_sha3_output
-      destroy: decaf_sha3_destroy
       turbo_rate: 168
+      default_output_len: 32
     turboshake256:
       group: turboshake
-      context: decaf_keccak_sponge_s
-      init: libdecaf_nif_xof_turboshake256_init
-      update: decaf_sha3_update
-      output: decaf_sha3_output
-      destroy: decaf_sha3_destroy
       turbo_rate: 136
+      default_output_len: 64
+    kmacxof128:
+      group: kmac
+      sp800185: kmac
+      sp800185_rate: 168
+      default_output_len: 32
+    kmacxof256:
+      group: kmac
+      sp800185: kmac
+      sp800185_rate: 136
+      default_output_len: 64
+    parallelhashxof128:
+      group: parallelhash
+      sp800185: parallelhash
+      sp800185_rate: 168
+      default_output_len: 32
+    parallelhashxof256:
+      group: parallelhash
+      sp800185: parallelhash
+      sp800185_rate: 136
+      default_output_len: 64
+    tuplehashxof128:
+      group: tuplehash
+      sp800185: tuplehash
+      sp800185_rate: 168
+      default_output_len: 32
+    tuplehashxof256:
+      group: tuplehash
+      sp800185: tuplehash
+      sp800185_rate: 136
+      default_output_len: 64
+    hopmac128:
+      group: hopmac
+      kt_rate: 168
+      default_output_len: 32
+    hopmac256:
+      group: hopmac
+      kt_rate: 136
+      default_output_len: 64
+  hopmac:
+    hopmac128:
+      rate: 168
+    hopmac256:
+      rate: 136

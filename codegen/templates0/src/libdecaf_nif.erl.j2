@@ -1,40 +1,8 @@
 %%% % @format
 -module(libdecaf_nif).
 -moduledoc """
-Low-level native bindings for libdecaf cryptographic operations.
-
-This module exposes Ed25519/Ed448 signatures, X25519/X448 key agreement,
-Ristretto255/Decaf448 groups, SHA-2/SHA-3, legacy Keccak, SHAKE, cSHAKE,
-Keccak XOFs, TurboSHAKE, KangarooTwelve, KMAC, and the sponge PRNG.
-For convenience APIs, see `libdecaf_curve25519`, `libdecaf_curve448`,
-`libdecaf_eddsa`, `libdecaf_ristretto255`, `libdecaf_decaf448`,
-`libdecaf_sha2`, `libdecaf_sha3`, and `libdecaf_spongerng`.
-
-Signing and key-agreement inputs use the fixed-size binary encodings documented
-by the types below. Hash, XOF, and sponge-PRNG input accepts iodata. Ed25519's
-`no_context` selects pure Ed25519; context binaries select its context/prehash
-variants. Ed448 always takes a context binary of at most 255 bytes.
-
-Hash, XOF, keypair, and precomputation resources are immutable and can be
-shared between processes. Operations return new hash/XOF/PRNG states; retain
-those returned states to advance an input or output stream. Keep secret keys
-and PRNG states private. KMAC resources contain keyed sponge contexts and must
-also be kept private. KMAC tag lengths are measured in bytes and are included
-in the computation; requesting a shorter tag is different from truncation.
-
-XOF `absorb` operations return new absorbing states. `squeeze` returns
-`{NextState, Output}` and advances the output cursor in `NextState`.
-Further absorption into a squeezing state raises an argument error, including
-after a zero-byte squeeze. `update` and `final` remain snapshot convenience APIs.
-
-Group operations accept canonical encodings, including identity points and zero
-scalars. Validation functions return `false` for invalid terms. Arithmetic with
-invalid encodings raises `badarg`; scalar inversion returns `error` for zero.
-Key agreement returns `error` when the upstream operation rejects the input.
-
-The native library loads automatically with this module. NIF loading failure
-prevents the module from loading. These generated bindings require OTP 27 or
-later for native Markdown documentation attributes.
+Native libdecaf bindings. For Hash and XOF usage and examples, see `m:libdecaf`.
+Lengths are in bytes. Resources are immutable; retain returned states to advance them.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2018-11-27", modified => "2026-10-22"}.

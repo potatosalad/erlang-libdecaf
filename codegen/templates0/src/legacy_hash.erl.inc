@@ -1,17 +1,17 @@
 ~J{ macro implementation(module, title, hashes, created, xofs=()) }.
 ~J{ set algorithm = hashes[0] }.
-~J{ set hash_migration = 'Use libdecaf:hash/2,3 and libdecaf:hash_init/1, hash_update/2, hash_final/1,2 instead.' }.
-~J{ set xof_migration = ' For SHAKE, use libdecaf:xof_sha3/3 and libdecaf:xof_sha3_init/1, xof_sha3_update/2, xof_sha3_final/2.' if xofs else '' }.
+~J{ set hash_migration = 'Use libdecaf hash family functions and hash_init/1, hash_update/2, hash_final/1 instead.' }.
+~J{ set xof_migration = ' For SHAKE, use libdecaf:xof_sha3/3 and libdecaf:xof_init_sha3/1, xof_absorb/2, xof_squeeze/2.' if xofs else '' }.
 %%% % @format
 -module(~J< module >.).
 -moduledoc """
 Deprecated compatibility API for ~J< title >. with tagged, immutable states.
 
-New code should use `libdecaf:hash/2,3`, `libdecaf:hash_init/1`,
-`libdecaf:hash_update/2`, and `libdecaf:hash_final/1,2` directly.
+New code should use `libdecaf:hash_~J< 'sha2' if algorithm.startswith('sha2') else 'sha3' if algorithm.startswith('sha3') else 'keccak' >./2,3`, `libdecaf:hash_init/1`,
+`libdecaf:hash_update/2`, and `libdecaf:hash_final/1` directly.
 ~J{ if xofs }.
-For SHAKE, use `libdecaf:xof_sha3/3`, `libdecaf:xof_sha3_init/1`,
-`libdecaf:xof_sha3_update/2`, and `libdecaf:xof_sha3_final/2`.
+For SHAKE, use `libdecaf:xof_sha3/3`, `libdecaf:xof_init_sha3/1`,
+`libdecaf:xof_absorb/2`, and `libdecaf:xof_squeeze/2`.
 ~J{ endif }.
 
 This module retains the historical `{Algorithm, NativeState}` wrapper and
@@ -42,7 +42,7 @@ For example, the replacement incremental API needs no wrapper:
 State0 = libdecaf:hash_init(~J< algorithm >.),
 State1 = libdecaf:hash_update(State0, [<<"a">>, <<"bc">>]),
 Digest = libdecaf:hash_final(State1),
-Digest = libdecaf:hash(~J< algorithm >., <<"abc">>).
+Digest = libdecaf:hash_~J< 'sha2' if algorithm.startswith('sha2') else 'sha3' if algorithm.startswith('sha3') else 'keccak' >.(~J< algorithm >., <<"abc">>).
 ```
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
@@ -91,7 +91,7 @@ SHAKE algorithms accepted by `hash/3`, `xof/3`, and `init/1`.
 -doc """
 A legacy `{Algorithm, NativeState}` tuple for SHAKE.
 """.
--type xof_state() :: {xof_algorithm(), libdecaf_nif:xof_sha3_state()}.
+-type xof_state() :: {xof_algorithm(), libdecaf_nif:xof_state()}.
 ~J{ endif }.
 
 -export_type([
@@ -120,7 +120,7 @@ SHAKE requires `final/2`.
 -spec final(State) -> Digest when State :: hash_state(), Digest :: binary().
 ~J{ for name in hashes }.
 final({~J< name >., State}) ->
-    libdecaf_nif:hash_final(State, ~J< ctx.schema.nif.hash[name].default_output_len >.);
+    libdecaf_nif:hash_final(State);
 ~J{ endfor }.
 final(State) ->
     erlang:error({badarg, [State]}).
@@ -133,15 +133,15 @@ maximum.
 SHAKE accepts any nonnegative output length.
 ~J{ endif }.
 """.
--doc #{deprecated => "Use libdecaf:hash_final/2~J< ' or libdecaf:xof_sha3_final/2' if xofs else '' >. with an unwrapped state."}.
+-doc #{deprecated => "Use libdecaf:hash_final/1~J< ' or libdecaf:xof_squeeze/2' if xofs else '' >. with an unwrapped state."}.
 -spec final(State, Length) -> Digest when State :: state(), Length :: non_neg_integer(), Digest :: binary().
 ~J{ for name in hashes }.
 final({~J< name >., State}, Length) ->
-    libdecaf_nif:hash_final(State, Length);
+    binary:part(libdecaf_nif:hash_final(State), 0, Length);
 ~J{ endfor }.
 ~J{ for name in xofs }.
 final({~J< name >., State}, Length) ->
-    libdecaf_nif:xof_sha3_final(State, Length);
+    element(2, libdecaf_nif:xof_squeeze(State, Length));
 ~J{ endfor }.
 final(State, Length) ->
     erlang:error({badarg, [State, Length]}).
@@ -152,11 +152,11 @@ Hash iodata using the algorithm's default digest length.
 SHAKE requires an explicit output length with `hash/3` or `xof/3`.
 ~J{ endif }.
 """.
--doc #{deprecated => "Use libdecaf:hash/2."}.
+-doc #{deprecated => "Use libdecaf:hash_~J< 'sha2' if algorithm.startswith('sha2') else 'sha3' if algorithm.startswith('sha3') else 'keccak' >./2."}.
 -spec hash(Type, Data) -> Digest when Type :: hash_algorithm(), Data :: iodata(), Digest :: binary().
 ~J{ for name in hashes }.
 hash(~J< name >., Data) ->
-    libdecaf_nif:hash(~J< name >., Data, ~J< ctx.schema.nif.hash[name].default_output_len >.);
+    libdecaf_nif:hash_~J< 'sha2' if name.startswith('sha2') else 'sha3' if name.startswith('sha3') else 'keccak' >.(~J< name >., Data, ~J< ctx.schema.nif.hash[name].default_output_len >.);
 ~J{ endfor }.
 hash(Type, Data) ->
     erlang:error({badarg, [Type, Data]}).
@@ -168,12 +168,12 @@ Fixed-output hashes allow truncation up to their maximum digest length.
 SHAKE produces the requested number of XOF bytes, including zero.
 ~J{ endif }.
 """.
--doc #{deprecated => "Use libdecaf:hash/3~J< ' or libdecaf:xof_sha3/3 for SHAKE' if xofs else '' >.."}.
+-doc #{deprecated => "Use libdecaf:hash_~J< 'sha2' if algorithm.startswith('sha2') else 'sha3' if algorithm.startswith('sha3') else 'keccak' >./3~J< ' or libdecaf:xof_sha3/3 for SHAKE' if xofs else '' >.."}.
 -spec hash(Type, Data, Length) -> Digest when
     Type :: algorithm(), Data :: iodata(), Length :: non_neg_integer(), Digest :: binary().
 ~J{ for name in hashes }.
 hash(~J< name >., Data, Length) ->
-    libdecaf_nif:hash(~J< name >., Data, Length);
+    libdecaf_nif:hash_~J< 'sha2' if name.startswith('sha2') else 'sha3' if name.startswith('sha3') else 'keccak' >.(~J< name >., Data, Length);
 ~J{ endfor }.
 ~J{ for name in xofs }.
 hash(~J< name >., Data, Length) ->
@@ -189,7 +189,7 @@ Pass the returned tuple to `update/2` and `final/1,2` in this module.
 SHAKE states can only be finalized with an explicit output length.
 ~J{ endif }.
 """.
--doc #{deprecated => "Use libdecaf:hash_init/1~J< ' or libdecaf:xof_sha3_init/1' if xofs else '' >.; retain the unwrapped state."}.
+-doc #{deprecated => "Use libdecaf:hash_init/1~J< ' or libdecaf:xof_init_sha3/1' if xofs else '' >.; retain the unwrapped state."}.
 -spec init(Type) -> State when Type :: algorithm(), State :: state().
 ~J{ for name in hashes }.
 init(~J< name >.) ->
@@ -197,7 +197,7 @@ init(~J< name >.) ->
 ~J{ endfor }.
 ~J{ for name in xofs }.
 init(~J< name >.) ->
-    {~J< name >., libdecaf_nif:xof_sha3_init(~J< name >.)};
+    {~J< name >., libdecaf_nif:xof_init_sha3(~J< name >.)};
 ~J{ endfor }.
 init(Type) ->
     erlang:error({badarg, [Type]}).
@@ -206,7 +206,7 @@ init(Type) ->
 Absorb iodata and return a new `{Algorithm, NativeState}` tuple.
 The algorithm tag is preserved and the input tuple remains reusable.
 """.
--doc #{deprecated => "Use libdecaf:hash_update/2~J< ' or libdecaf:xof_sha3_update/2' if xofs else '' >. with an unwrapped state."}.
+-doc #{deprecated => "Use libdecaf:hash_update/2~J< ' or libdecaf:xof_absorb/2' if xofs else '' >. with an unwrapped state."}.
 -spec update(State, Data) -> NewState when State :: state(), Data :: iodata(), NewState :: state().
 ~J{ for name in hashes }.
 update({~J< name >., State}, Data) ->
@@ -214,7 +214,7 @@ update({~J< name >., State}, Data) ->
 ~J{ endfor }.
 ~J{ for name in xofs }.
 update({~J< name >., State}, Data) ->
-    {~J< name >., libdecaf_nif:xof_sha3_update(State, Data)};
+    {~J< name >., libdecaf_nif:xof_absorb(State, Data)};
 ~J{ endfor }.
 update(State, Data) ->
     erlang:error({badarg, [State, Data]}).
