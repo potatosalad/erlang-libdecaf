@@ -24,16 +24,16 @@ turboshake_vectors(Config) ->
             Expected = binary:decode_hex(Hex),
             lists:foreach(
                 fun(Module) ->
-                    Output = Module:xof_turboshake(Type, Data, Length, Domain),
+                    Output = Module:xof({Type, Length, Domain}, Data),
                     Expected = binary:part(Output, Offset, byte_size(Expected)),
-                    State0 = Module:xof_init_turboshake(Type, Domain),
+                    State0 = Module:xof_init({Type, Domain}),
                     State1 = lists:foldl(
                         fun(Chunk, State) -> Module:xof_absorb(State, Chunk) end, State0, chunks(Data, 137)
                     ),
                     {_, Output} = Module:xof_squeeze(State1, Length),
                     {_, Output} = Module:xof_squeeze(State1, Length),
-                    Output = Module:hash_turboshake(Type, Data, Length, Domain),
-                    Hash = Module:hash_update(Module:hash_init_turboshake(Type, Length, Domain), Data),
+                    Output = Module:hash({Type, Length, Domain}, Data),
+                    Hash = Module:hash_update(Module:hash_init({Type, Length, Domain}), Data),
                     Output = Module:hash_final(Hash)
                 end,
                 [libdecaf, libdecaf_nif]
@@ -52,16 +52,16 @@ kt_vectors(Config) ->
             Expected = binary:decode_hex(Hex),
             lists:foreach(
                 fun(Module) ->
-                    Output = Module:xof_kt(Type, Data, Length, [Custom]),
+                    Output = Module:xof({Type, Length, [Custom]}, Data),
                     Expected = binary:part(Output, Offset, byte_size(Expected)),
-                    State0 = Module:xof_init_kt(Type, [Custom]),
+                    State0 = Module:xof_init({Type, [Custom]}),
                     State1 = lists:foldl(
                         fun(Chunk, State) -> Module:xof_absorb(State, Chunk) end, State0, chunks(Data, 137)
                     ),
                     {_, Output} = Module:xof_squeeze(State1, Length),
                     {_, Output} = Module:xof_squeeze(State1, Length),
-                    Output = Module:hash_kt(Type, Data, Length, Custom),
-                    Hash = Module:hash_update(Module:hash_init_kt(Type, Length, Custom), Data),
+                    Output = Module:hash({Type, Length, Custom}, Data),
+                    Hash = Module:hash_update(Module:hash_init({Type, Length, Custom}), Data),
                     Output = Module:hash_final(Hash)
                 end,
                 [libdecaf, libdecaf_nif]
@@ -79,11 +79,11 @@ kt_boundaries(_) ->
                     lists:foreach(
                         fun(CustomLength) ->
                             Custom = input({pattern, CustomLength}),
-                            State0 = libdecaf:xof_init_kt(Type, Custom),
+                            State0 = libdecaf:xof_init({Type, Custom}),
                             State1 = lists:foldl(
                                 fun(Chunk, State) -> libdecaf:xof_absorb(State, Chunk) end, State0, chunks(Data, 137)
                             ),
-                            Expected = libdecaf:xof_kt(Type, Data, 200, Custom),
+                            Expected = libdecaf:xof({Type, 200, Custom}, Data),
                             {Next, A} = libdecaf:xof_squeeze(State1, 1),
                             {_, B} = libdecaf:xof_squeeze(Next, 199),
                             Expected = <<A/binary, B/binary>>
@@ -102,16 +102,16 @@ kt_customization(_) ->
         fun(Type) ->
             Message = input({pattern, 65539}),
             Custom = input({pattern, 200001}),
-            State = libdecaf:xof_absorb(libdecaf:xof_init_kt(Type, [[], Custom]), Message),
-            Expected = libdecaf:xof_kt(Type, Message, 131073, Custom),
+            State = libdecaf:xof_absorb(libdecaf:xof_init({Type, [[], Custom]}), Message),
+            Expected = libdecaf:xof({Type, 131073, Custom}, Message),
             {_, Expected} = libdecaf:xof_squeeze(State, 131073),
             {_, Expected} = libdecaf:xof_squeeze(State, 131073),
-            EmptyCustom = libdecaf:xof_kt(Type, Message, 131073),
+            EmptyCustom = libdecaf:xof({Type, 131073}, Message),
             true = EmptyCustom =/= Expected,
             {Next, <<>>} = libdecaf:xof_squeeze(State, 0),
             badarg(fun() -> libdecaf:xof_absorb(Next, <<>>) end),
-            badarg(fun() -> libdecaf:xof_init_kt(Type, invalid) end),
-            badarg(fun() -> libdecaf:hash_init_kt(Type, 32, 31) end)
+            badarg(fun() -> libdecaf:xof_init({Type, invalid}) end),
+            badarg(fun() -> libdecaf:hash_init({Type, 32, 31}) end)
         end,
         [kt128, kt256]
     ).
@@ -121,14 +121,14 @@ domain_validation(_) ->
         fun(Type) ->
             lists:foreach(
                 fun(Domain) ->
-                    badarg(fun() -> libdecaf:xof_turboshake(Type, <<>>, 32, Domain) end),
-                    badarg(fun() -> libdecaf:xof_init_turboshake(Type, Domain) end),
-                    badarg(fun() -> libdecaf:hash_init_turboshake(Type, 32, Domain) end)
+                    badarg(fun() -> libdecaf:xof({Type, 32, Domain}, <<>>) end),
+                    badarg(fun() -> libdecaf:xof_init({Type, Domain}) end),
+                    badarg(fun() -> libdecaf:hash_init({Type, 32, Domain}) end)
                 end,
                 [-1, 0, 128, 256, <<31>>, invalid]
             ),
-            Expected = libdecaf:xof_turboshake(Type, <<"abc">>, 32),
-            Expected = libdecaf:xof_turboshake(Type, <<"abc">>, 32, 16#1F)
+            Expected = libdecaf:xof({Type, 32}, <<"abc">>),
+            Expected = libdecaf:xof({Type, 32, 16#1F}, <<"abc">>)
         end,
         [turboshake128, turboshake256]
     ).

@@ -1,0 +1,14 @@
+#ifndef LIBDECAF_NIF_SP800185_H
+#define LIBDECAF_NIF_SP800185_H
+#include "../libdecaf_nif.h"
+#include <stdbool.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern size_t libdecaf_nif_sp800185_left_encode(size_t value, uint8_t *encoded);
+extern size_t libdecaf_nif_sp800185_right_encode(size_t value, uint8_t *encoded);
+extern bool libdecaf_nif_sp800185_binary(ErlNifEnv *env, const uint8_t *input, size_t length, ERL_NIF_TERM *term);
+#ifdef __cplusplus
+}
+#endif
+#endif

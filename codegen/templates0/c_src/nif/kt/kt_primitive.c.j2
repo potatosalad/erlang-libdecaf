@@ -1,0 +1,6 @@
+{% from 'c_src/nif/kt/primitive.c.inc' import primitive %}
+#include <keccak_internal.h>
+#include "kt_primitive.h"
+#include "../turboshake/turboshake_primitive.h"
+#include <assert.h>
+{{ primitive('libdecaf_nif_kt') }}

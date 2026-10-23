@@ -76,7 +76,7 @@ def test_dialyzer_rejects_wrong_groups_and_parameters(project):
     assert valid.returncode == 0, valid.stdout
     invalid = run(*base, "src/hash_invalid.erl", cwd=directory)
     assert invalid.returncode == 2, invalid.stdout
-    for function in ("hash_update", "hash_init_kmac", "xof_absorb", "xof_init_turboshake", "xof_init_kt", "hash_init_parallelhash"):
+    for function in ("hash_update", "hash_init", "xof_absorb", "turboshake128_xof_init", "kt128_xof_init"):
         assert function in invalid.stdout, invalid.stdout
     assert "libdecaf:hash_update" in invalid.stdout, invalid.stdout
     assert "breaks the contract" in invalid.stdout, invalid.stdout
@@ -92,4 +92,5 @@ def test_eqwalizer_rejects_wrong_algorithms_and_parameters(project):
     diagnostics = [json.loads(line) for line in invalid.stdout.splitlines() if line.startswith("{")]
     descriptions = "\n".join(item["description"] for item in diagnostics)
     assert "integer()" in descriptions, invalid.stdout
-    assert "kt128" in descriptions and "shake128" in descriptions, invalid.stdout
+    assert "kmacxof128" in descriptions and "kmac128" in descriptions, invalid.stdout
+    assert "shake128" in descriptions, invalid.stdout

@@ -1,5 +1,0 @@
-/* clang-format off */ //-
-{% from 'c_src/nif/xof/api_family.c.inc' import implementation with context %}
-{% set f = ctx.crypto_families | selectattr('name', 'equalto', 'sha3') | first %}
-{{ implementation(f) }}
-/* clang-format on */ //-

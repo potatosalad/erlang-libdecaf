@@ -1,0 +1,13 @@
+#ifndef LIBDECAF_NIF_TURBOSHAKE_PRIMITIVE_H
+#define LIBDECAF_NIF_TURBOSHAKE_PRIMITIVE_H
+#include <decaf/shake.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern void libdecaf_nif_turboshake_init(decaf_keccak_sponge_s *state, size_t rate, uint8_t domain);
+extern void libdecaf_nif_turboshake_absorb(decaf_keccak_sponge_s *state, const uint8_t *input, size_t length);
+extern void libdecaf_nif_turboshake_squeeze(decaf_keccak_sponge_s *state, uint8_t *output, size_t length);
+#ifdef __cplusplus
+}
+#endif
+#endif

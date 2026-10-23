@@ -1,0 +1,5 @@
+/* clang-format off */ //-
+{% from 'c_src/nif/component.h.inc' import header %}
+{% set f = ctx.crypto_families | selectattr('name', 'equalto', 'cshake') | first %}
+{{ header(f, ctx.crypto_algorithms(f)) }}
+/* clang-format on */ //-

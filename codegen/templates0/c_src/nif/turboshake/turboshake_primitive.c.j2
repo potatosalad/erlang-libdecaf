@@ -1,0 +1,21 @@
+#include <keccak_internal.h>
+#include "turboshake_primitive.h"
+
+void
+libdecaf_nif_turboshake_init(decaf_keccak_sponge_s *state, size_t rate, uint8_t domain)
+{
+    decaf_kparams_s params = {0, 'A', (uint8_t)rate, 12, domain, 0x80, 0xFF, 0xFF};
+    decaf_sha3_init(state, &params);
+}
+
+void
+libdecaf_nif_turboshake_absorb(decaf_keccak_sponge_s *state, const uint8_t *input, size_t length)
+{
+    decaf_sha3_update(state, input, length);
+}
+
+void
+libdecaf_nif_turboshake_squeeze(decaf_keccak_sponge_s *state, uint8_t *output, size_t length)
+{
+    decaf_sha3_output(state, output, length);
+}

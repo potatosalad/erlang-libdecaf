@@ -55,6 +55,27 @@ class Context:
 
         return public_doc(self.schema.nif, function)
 
+    def crypto_algorithms(self, family=None):
+        from .crypto import native_algorithms
+
+        return tuple(a for a in native_algorithms(self.schema.nif) if family is None or a.family.name == family.name)
+
+    @property
+    def crypto_max_arity(self):
+        return max(f.arity for f in self.crypto_functions)
+
+    @property
+    def public_crypto_type_names(self):
+        from .crypto import api_types
+
+        return {name for name, _, _ in api_types(self.schema.nif)}
+
+    @property
+    def public_crypto_functions(self):
+        from .crypto import public_functions
+
+        return public_functions(self.schema.nif)
+
     @property
     def crypto_functions(self):
         return tuple(f for f in self.nif.functions if f.family in ("hash", "xof"))

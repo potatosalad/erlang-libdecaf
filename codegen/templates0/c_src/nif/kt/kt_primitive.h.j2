@@ -1,0 +1,26 @@
+#ifndef LIBDECAF_NIF_KT_PRIMITIVE_H
+#define LIBDECAF_NIF_KT_PRIMITIVE_H
+#include <decaf/shake.h>
+#include <stdbool.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+typedef struct libdecaf_nif_kt_raw_ctx_s {
+    decaf_keccak_sponge_s root;
+    decaf_keccak_sponge_s leaf;
+    size_t rate;
+    size_t chaining_len;
+    size_t root_len;
+    size_t leaf_len;
+    size_t chaining_count;
+    size_t customization_len;
+    bool tree;
+    bool finalized;
+} libdecaf_nif_kt_raw_ctx_t;
+extern void libdecaf_nif_kt_raw_init(libdecaf_nif_kt_raw_ctx_t *state, size_t rate);
+extern void libdecaf_nif_kt_raw_update(libdecaf_nif_kt_raw_ctx_t *state, const uint8_t *input, size_t length);
+extern void libdecaf_nif_kt_raw_output(libdecaf_nif_kt_raw_ctx_t *state, uint8_t *output, size_t length);
+#ifdef __cplusplus
+}
+#endif
+#endif

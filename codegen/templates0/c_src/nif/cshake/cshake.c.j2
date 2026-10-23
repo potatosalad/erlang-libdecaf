@@ -1,0 +1,5 @@
+/* clang-format off */ //-
+{% from 'c_src/nif/component.c.inc' import implementation with context %}
+{% set f = ctx.crypto_families | selectattr('name', 'equalto', 'cshake') | first %}
+{{ implementation(f) }}
+/* clang-format on */ //-

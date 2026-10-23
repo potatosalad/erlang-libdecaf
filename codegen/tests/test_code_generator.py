@@ -148,6 +148,24 @@ def test_erlang_native_bindings_match_the_c_registration_table():
     generated = {(function.name, function.arity) for function in functions(schema.nif)}
     assert generated == native
 
+    # Every NIF-shaped declaration in crypto component headers corresponds to
+    # an exported Erlang NIF; private callbacks must stay inside their C file.
+    from erlang_libdecaf_codegen.context.crypto import native_algorithms, api_functions
+
+    headers = {a.family.header for a in native_algorithms(schema.nif)} | {"hash/hash.h", "xof/xof.h"}
+    declarations = set()
+    for name in headers:
+        header = (root / "c_src/nif" / name).read_text()
+        assert "#ifdef __cplusplus" in header and 'extern "C" {' in header
+        declarations.update(
+            (name, int(arity))
+            for name, arity in re.findall(
+                r"extern ERL_NIF_TERM libdecaf_nif_([a-z0-9_]+)_(\d+)\(ErlNifEnv \*env, int argc, const ERL_NIF_TERM argv\[\]\);",
+                header,
+            )
+        )
+    assert declarations == {(f.name, f.arity) for f in api_functions(schema.nif)}
+
 
 def test_hash_default_output_cannot_exceed_maximum():
     root = Path(__file__).resolve().parents[2]

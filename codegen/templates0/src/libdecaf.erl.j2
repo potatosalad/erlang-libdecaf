@@ -4,16 +4,16 @@
 Hash messages, authenticate data, and read extensible output streams with libdecaf.
 
 Use the **Hash API** when you know the output length in advance: initialize with
-`hash_init/1` or a family initializer, add data with `hash_update/2`, and get bytes
-with `hash_final/1`. The `hash_*` one-shot functions do the same work in one call.
+`hash_init/1`, add data with `hash_update/2`, and get bytes
+with `hash_final/1`. `hash/2` does the same work in one call.
 
 Use the **XOF API** when you want to read output incrementally: initialize with
-`xof_init/1` or a family initializer, add data with `xof_absorb/2`, then call
-`xof_squeeze/2` repeatedly, keeping the returned state. One-shot `xof_*` functions
+`xof_init/1`, add data with `xof_absorb/2`, then call
+`xof_squeeze/2` repeatedly, keeping the returned state. One-shot `xof/2,3` functions
 return bytes. Once squeezing starts, the returned state cannot absorb more input.
 
-Hash and XOF states are distinct opaque native resources, with no Erlang record
-wrapping. They are immutable: keep each returned state to advance; reuse an older
+Hash and XOF states are opaque and belong to their corresponding lifecycle.
+They are immutable: keep each returned state to advance; reuse an older
 state to branch the input or repeat output. Lengths and ParallelHash block sizes
 are measured in **bytes**, and message, key, and customization inputs accept iodata.
 For TupleHash, one-shot input is a list of elements, while each update/absorb call
@@ -31,7 +31,7 @@ See [NIST SP 800-185r1 IPD](https://csrc.nist.gov/pubs/sp/800/185/r1/ipd) and
 [RFC 9861](https://www.rfc-editor.org/rfc/rfc9861.html).
 
 ```erlang
-Digest = libdecaf:hash_sha3(sha3_256, <<"abc">>),
+Digest = libdecaf:hash(sha3_256, <<"abc">>),
 <<"3A985DA74FE225B2045C172D6BD390BD855F086E3E9D525B46BFE24511431532">> = binary:encode_hex(Digest).
 ```
 """.
@@ -42,35 +42,34 @@ Digest = libdecaf:hash_sha3(sha3_256, <<"abc">>),
 ~J{ for family in ('hash', 'xof') }.
 %% ~J< 'Hash' if family == 'hash' else 'XOF' >. API
 -export([
-~J{ for function in ctx.crypto_functions if function.family == family }.
+~J{ for function in ctx.public_crypto_functions if function.family == family }.
     ~J< function.name >./~J< function.arity >.~J< ',' if not loop.last else '' >.
 ~J{ endfor }.
 ]).
 ~J{ endfor }.
--export([
-    priv_dir/0
-]).
 
--export_type([
-~J{ for name, definition, doc in ctx.types if name.startswith(('hash_', 'xof_')) }.
-    ~J< name >./0~J< ',' if not loop.last else '' >.
-~J{ endfor }.
-]).
+
 
 %%% Types
-~J{ for name, definition, doc in ctx.types if name.startswith(('hash_', 'xof_')) }.
+~J{ for name, definition, doc in ctx.types if name in ctx.public_crypto_type_names }.
 -doc """
 ~J< doc >.
 """.
 -type ~J< name >.() :: libdecaf_nif:~J< name >.().
 
 ~J{ endfor }.
+-export_type([
+~J{ for name, definition, doc in ctx.types if name in ctx.public_crypto_type_names }.
+    ~J< name >./0~J< ',' if not loop.last else '' >.
+~J{ endfor }.
+]).
+
 ~J{ for family in ('hash', 'xof') }.
 %%%=============================================================================
 %%% ~J< 'Hash' if family == 'hash' else 'XOF' >. API functions
 %%%=============================================================================
 
-~J{ for function in ctx.crypto_functions if function.family == family }.
+~J{ for function in ctx.public_crypto_functions if function.family == family }.
 -doc """
 ~J< ctx.crypto_doc(function) >.
 """.
@@ -81,21 +80,3 @@ Digest = libdecaf:hash_sha3(sha3_256, <<"abc">>),
 
 ~J{ endfor }.
 ~J{ endfor }.
-%%%-----------------------------------------------------------------------------
-%%% Internal functions
-%%%-----------------------------------------------------------------------------
-
--doc false.
--spec priv_dir() -> Directory when Directory :: file:filename_all().
-priv_dir() ->
-    case code:priv_dir(?MODULE) of
-        {error, bad_name} ->
-            case code:which(?MODULE) of
-                Filename when is_list(Filename) ->
-                    filename:join([filename:dirname(Filename), "../priv"]);
-                _ ->
-                    "../priv"
-            end;
-        Dir ->
-            Dir
-    end.

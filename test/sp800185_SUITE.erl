@@ -119,8 +119,7 @@ check(Family, Type, Input, Parameters, Expected, Xof) ->
             true -> "xof";
             false -> "hash"
         end,
-    Once = list_to_atom(Mode ++ "_" ++ atom_to_list(Family)),
-    Init = list_to_atom(Mode ++ "_init_" ++ atom_to_list(Family)),
+    Once = list_to_atom(Mode),
     Update =
         case Xof of
             true -> xof_absorb;
@@ -135,8 +134,9 @@ check(Family, Type, Input, Parameters, Expected, Xof) ->
             end,
     lists:foreach(
         fun(Module) ->
-            Expected = apply(Module, Once, [Type, Input, Length | Parameters]),
-            Initial = apply(Module, Init, InitArgs),
+            Expected = apply(Module, Once, [list_to_tuple([Type, Length | Parameters]), Input]),
+            Expected = apply(libdecaf_nif, Type, [Input, Length | Parameters]),
+            Initial = apply(libdecaf_nif, list_to_atom(atom_to_list(Type) ++ "_" ++ Mode ++ "_init"), tl(InitArgs)),
             true = is_reference(Initial),
             GenericInit =
                 case Xof of
@@ -188,24 +188,20 @@ reference_framing(_) ->
                                     true -> 0;
                                     false -> Length * 8
                                 end,
-                            Expected = libdecaf:xof_cshake(
-                                Cshake, [EncodedKey, Data, right_encode(Bits)], Length, <<"KMAC">>, Custom
-                            ),
+                            Expected = libdecaf:xof({Cshake, Length, <<"KMAC">>, Custom}, [
+                                EncodedKey, Data, right_encode(Bits)
+                            ]),
                             check(kmac, selector(Kmac, Xof), Data, [Key, Custom], Expected, Xof),
-                            TupleExpected = libdecaf:xof_cshake(
-                                Cshake, [EncodedElements, right_encode(Bits)], Length, <<"TupleHash">>, Custom
-                            ),
+                            TupleExpected = libdecaf:xof({Cshake, Length, <<"TupleHash">>, Custom}, [
+                                EncodedElements, right_encode(Bits)
+                            ]),
                             check(tuplehash, selector(Tuple, Xof), Elements, [Custom], TupleExpected, Xof),
                             B = 8,
                             Leaves = chunks_nonempty(Data, B),
-                            CVs = [libdecaf:xof_sha3(Shake, Leaf, 200 - Rate) || Leaf <- Leaves],
-                            ParallelExpected = libdecaf:xof_cshake(
-                                Cshake,
-                                [left_encode(B), CVs, right_encode(length(Leaves)), right_encode(Bits)],
-                                Length,
-                                <<"ParallelHash">>,
-                                Custom
-                            ),
+                            CVs = [libdecaf:xof({Shake, 200 - Rate}, Leaf) || Leaf <- Leaves],
+                            ParallelExpected = libdecaf:xof({Cshake, Length, <<"ParallelHash">>, Custom}, [
+                                left_encode(B), CVs, right_encode(length(Leaves)), right_encode(Bits)
+                            ]),
                             check(parallelhash, selector(Parallel, Xof), Data, [B, Custom], ParallelExpected, Xof)
                         end,
                         [false, true]
@@ -223,12 +219,12 @@ reference_framing(_) ->
 tuple_boundaries(_) ->
     lists:foreach(
         fun({Hash, Xof}) ->
-            A = libdecaf:hash_tuplehash(Hash, [<<"a">>, <<"bc">>], 32),
-            B = libdecaf:hash_tuplehash(Hash, [<<"ab">>, <<"c">>], 32),
+            A = libdecaf:hash({Hash, 32}, [<<"a">>, <<"bc">>]),
+            B = libdecaf:hash({Hash, 32}, [<<"ab">>, <<"c">>]),
             true = A =/= B,
-            true = libdecaf:hash_tuplehash(Hash, [], 32) =/= libdecaf:hash_tuplehash(Hash, [<<>>], 32),
-            true = libdecaf:xof_tuplehash(Xof, [], 32) =/= libdecaf:xof_tuplehash(Xof, [<<>>], 32),
-            State = libdecaf:hash_init_tuplehash(Hash, 32),
+            true = libdecaf:hash({Hash, 32}, []) =/= libdecaf:hash({Hash, 32}, [<<>>]),
+            true = libdecaf:xof({Xof, 32}, []) =/= libdecaf:xof({Xof, 32}, [<<>>]),
+            State = libdecaf:hash_init({Hash, 32}),
             A = libdecaf:hash_final(libdecaf:hash_update(libdecaf:hash_update(State, <<"a">>), <<"bc">>)),
             false = libdecaf:hash_final(State) =:= A
         end,
@@ -243,7 +239,7 @@ parallel_boundaries(_) ->
                     lists:foreach(
                         fun(Size) ->
                             Input = binary:copy(<<42>>, Size),
-                            Expected = libdecaf:hash_parallelhash(Type, Input, 32, B, <<"blocks">>),
+                            Expected = libdecaf:hash({Type, 32, B, <<"blocks">>}, Input),
                             check(parallelhash, Type, Input, [B, <<"blocks">>], Expected, false)
                         end,
                         lists:usort([0, 1, B - 1, B, B + 1, 2 * B, 2 * B + 1])
@@ -252,22 +248,22 @@ parallel_boundaries(_) ->
                 [1, 2, 7, 8, 12, 136, 168, 257, 65537]
             ),
             true =
-                libdecaf:hash_parallelhash(Type, <<"abcdefghijk">>, 32, 8) =/=
-                    libdecaf:hash_parallelhash(Type, <<"abcdefghijk">>, 32, 9)
+                libdecaf:hash({Type, 32, 8}, <<"abcdefghijk">>) =/=
+                    libdecaf:hash({Type, 32, 9}, <<"abcdefghijk">>)
         end,
         [parallelhash128, parallelhash256]
     ).
 
 length_binding(_) ->
     lists:foreach(
-        fun({Family, Type, Input, Parameters}) ->
-            Name = list_to_atom("hash_" ++ atom_to_list(Family)),
-            Short = apply(libdecaf, Name, [Type, Input, 16 | Parameters]),
-            Long = apply(libdecaf, Name, [Type, Input, 32 | Parameters]),
+        fun({_Family, Type, Input, Parameters}) ->
+            Name = hash,
+            Short = apply(libdecaf, Name, [list_to_tuple([Type, 16 | Parameters]), Input]),
+            Long = apply(libdecaf, Name, [list_to_tuple([Type, 32 | Parameters]), Input]),
             true = Short =/= binary:part(Long, 0, 16),
-            Xof = list_to_atom("xof_" ++ atom_to_list(Family)),
-            XofShort = apply(libdecaf, Xof, [selector(Type, true), Input, 16 | Parameters]),
-            XofLong = apply(libdecaf, Xof, [selector(Type, true), Input, 32 | Parameters]),
+            Xof = xof,
+            XofShort = apply(libdecaf, Xof, [list_to_tuple([selector(Type, true), 16 | Parameters]), Input]),
+            XofLong = apply(libdecaf, Xof, [list_to_tuple([selector(Type, true), 32 | Parameters]), Input]),
             XofShort = binary:part(XofLong, 0, 16),
             true = Short =/= XofShort
         end,
@@ -280,7 +276,7 @@ length_binding(_) ->
             {parallelhash, parallelhash256, <<>>, [8]}
         ]
     ),
-    <<"E6AFF27FEF95903EB939BC3745730D34">> = binary:encode_hex(libdecaf:hash_kmac(kmac128, <<>>, 16, <<>>)).
+    <<"E6AFF27FEF95903EB939BC3745730D34">> = binary:encode_hex(libdecaf:hash({kmac128, 16, <<>>}, <<>>)).
 
 hopmac_reference(_) ->
     %% RFC 9861 section 4: KT(Key, KT(Message, Customization, 32/64), Length).
@@ -291,8 +287,8 @@ hopmac_reference(_) ->
                     Key = binary:copy(<<42>>, Size),
                     Message = binary:copy(<<19>>, Size),
                     Custom = binary:copy(<<17>>, Size),
-                    Digest = libdecaf:xof_kt(KT, Message, InnerLength, Custom),
-                    Expected = libdecaf:xof_kt(KT, Key, 169, Digest),
+                    Digest = libdecaf:xof({KT, InnerLength, Custom}, Message),
+                    Expected = libdecaf:xof({KT, 169, Digest}, Key),
                     check(hopmac, Type, Message, [Key, Custom], Expected, false),
                     check(hopmac, Type, Message, [Key, Custom], Expected, true)
                 end,
@@ -312,18 +308,17 @@ lifecycle(_) ->
                             false -> Hash;
                             true -> Xof
                         end,
-                    Name = list_to_atom(
+                    Name =
                         case Mode of
-                            true -> "xof_";
-                            false -> "hash_"
-                        end ++ atom_to_list(Family)
-                    ),
+                            true -> xof;
+                            false -> hash
+                        end,
                     Input =
                         case Family of
                             tuplehash -> [<<"message">>];
                             _ -> <<"message">>
                         end,
-                    Expected = apply(libdecaf, Name, [Type, Input, 32 | Parameters]),
+                    Expected = apply(libdecaf, Name, [list_to_tuple([Type, 32 | Parameters]), Input]),
                     check(Family, Type, Input, Parameters, Expected, Mode)
                 end,
                 [false, true]
@@ -357,21 +352,21 @@ families() ->
 invalid_arguments(_) ->
     lists:foreach(
         fun(Module) ->
-            Hash = Module:hash_init_sha3(sha3_256),
-            Xof = Module:xof_init_sha3(shake128),
+            Hash = Module:hash_init(sha3_256),
+            Xof = Module:xof_init(shake128),
             lists:foreach(fun badarg/1, [
-                fun() -> Module:hash_init_cshake(cshake128, -1) end,
-                fun() -> Module:hash_init_kmac(kmacxof128, 32, <<>>) end,
-                fun() -> Module:xof_init_kmac(kmac128, <<>>) end,
-                fun() -> Module:hash_init_parallelhash(parallelhash128, 32, 0) end,
-                fun() -> Module:xof_init_parallelhash(parallelhashxof128, -1) end,
-                fun() -> Module:hash_init_turboshake(turboshake128, 32, <<31>>) end,
-                fun() -> Module:xof_init_turboshake(turboshake128, 0) end,
-                fun() -> Module:hash_init_kt(kt128, 32, invalid) end,
-                fun() -> Module:xof_init_hopmac(hopmac128, invalid) end,
-                fun() -> Module:hash_init_kmac(kmac128, 1 bsl 61, <<>>) end,
-                fun() -> Module:hash_init_sha3(shake128) end,
-                fun() -> Module:hash_init_sha3(sha3_224, 29) end,
+                fun() -> Module:hash_init({cshake128, -1}) end,
+                fun() -> Module:hash_init({kmacxof128, 32, <<>>}) end,
+                fun() -> Module:xof_init({kmac128, <<>>}) end,
+                fun() -> Module:hash_init({parallelhash128, 32, 0}) end,
+                fun() -> Module:xof_init({parallelhashxof128, -1}) end,
+                fun() -> Module:hash_init({turboshake128, 32, <<31>>}) end,
+                fun() -> Module:xof_init({turboshake128, 0}) end,
+                fun() -> Module:hash_init({kt128, 32, invalid}) end,
+                fun() -> Module:xof_init({hopmac128, invalid}) end,
+                fun() -> Module:hash_init({kmac128, 1 bsl 61, <<>>}) end,
+                fun() -> Module:hash_init(shake128) end,
+                fun() -> Module:hash_init({sha3_224, 29}) end,
                 fun() -> Module:hash_init({cshake128}) end,
                 fun() -> Module:xof_init({shake128, 32}) end,
                 fun() -> Module:hash_init({}) end,
@@ -382,8 +377,8 @@ invalid_arguments(_) ->
                 fun() -> Module:xof_squeeze(Hash, 32) end,
                 fun() -> Module:xof_squeeze(Xof, -1) end,
                 fun() -> Module:hash_update(Hash, [256]) end,
-                fun() -> Module:hash_tuplehash(tuplehash128, [<<>> | invalid], 32) end,
-                fun() -> Module:xof_tuplehash(tuplehashxof128, <<"flattened">>, 32) end,
+                fun() -> Module:hash({tuplehash128, 32}, [<<>> | invalid]) end,
+                fun() -> Module:xof({tuplehashxof128, 32}, <<"flattened">>) end,
                 fun() -> Module:xof_absorb(make_ref(), <<>>) end
             ])
         end,
@@ -394,66 +389,67 @@ trapping(_) ->
     Large = binary:copy(<<42>>, 200001),
     lists:foreach(
         fun({Family, Hash, Xof, Parameters}) ->
-            P = "libdecaf_nif_" ++ atom_to_list(Family),
-            Absorb = list_to_atom(P ++ "_absorb_continue"),
-            Squeeze = list_to_atom(P ++ "_squeeze_continue"),
-            Name = list_to_atom("hash_" ++ atom_to_list(Family)),
+            Name = hash,
             Data =
                 case Family of
                     tuplehash -> [Large, <<>>];
                     _ -> Large
                 end,
-            _ = traced(fun() -> apply(libdecaf, Name, [Hash, Data, 65537 | Parameters]) end, [Absorb, Squeeze]),
-            Init = list_to_atom("xof_init_" ++ atom_to_list(Family)),
-            State0 = apply(libdecaf, Init, [Xof | Parameters]),
-            State1 = traced(fun() -> libdecaf:xof_absorb(State0, Large) end, [Absorb]),
-            {_Next, Output} = traced(fun() -> libdecaf:xof_squeeze(State1, 65537) end, [Squeeze]),
+            _ = traced(fun() -> apply(libdecaf, Name, [list_to_tuple([Hash, 65537 | Parameters]), Data]) end, [
+                libdecaf_nif_hash_absorb_continue, libdecaf_nif_hash_final_continue
+            ]),
+            Init = xof_init,
+            State0 = apply(libdecaf, Init, [list_to_tuple([Xof | Parameters])]),
+            State1 = traced(fun() -> libdecaf:xof_absorb(State0, Large) end, [libdecaf_nif_xof_absorb_continue]),
+            {_Next, Output} = traced(fun() -> libdecaf:xof_squeeze(State1, 65537) end, [
+                libdecaf_nif_xof_squeeze_continue
+            ]),
             65537 = byte_size(Output)
         end,
         families()
     ),
     Empty = lists:duplicate(100001, <<>>),
-    _ = traced(fun() -> libdecaf:hash_tuplehash(tuplehash128, Empty, 32) end, [libdecaf_nif_tuplehash_absorb_continue]),
-    _ = traced(fun() -> libdecaf:hash_parallelhash(parallelhash128, Large, 32, 1) end, [
-        libdecaf_nif_parallelhash_absorb_continue
+    _ = traced(fun() -> libdecaf:hash({tuplehash128, 32}, Empty) end, [libdecaf_nif_hash_absorb_continue]),
+    _ = traced(fun() -> libdecaf:hash({parallelhash128, 32, 1}, Large) end, [
+        libdecaf_nif_hash_absorb_continue
     ]).
 
 cancellation(_) ->
     Large = binary:copy(<<42>>, 1000001),
     lists:foreach(
-        fun({Family, _Hash, Xof, Parameters}) ->
-            Init = list_to_atom("xof_init_" ++ atom_to_list(Family)),
-            State = apply(libdecaf, Init, [Xof | Parameters]),
-            P = "libdecaf_nif_" ++ atom_to_list(Family),
+        fun({_Family, _Hash, Xof, Parameters}) ->
+            Init = xof_init,
+            State = apply(libdecaf, Init, [list_to_tuple([Xof | Parameters])]),
+            P = "libdecaf_nif_xof",
             cancelled(fun() -> libdecaf:xof_absorb(State, Large) end, list_to_atom(P ++ "_absorb_continue")),
             cancelled(fun() -> libdecaf:xof_squeeze(State, 8000001) end, list_to_atom(P ++ "_squeeze_continue"))
         end,
         families()
     ),
     cancelled(
-        fun() -> libdecaf:xof_init_hopmac(hopmac128, Large, Large) end,
-        libdecaf_nif_hopmac_absorb_continue
+        fun() -> libdecaf:xof_init({hopmac128, Large, Large}) end,
+        libdecaf_nif_xof_absorb_continue
     ),
     cancelled(
-        fun() -> libdecaf:hash_init_kmac(kmac128, 32, Large, Large) end,
-        libdecaf_nif_kmac_absorb_continue
+        fun() -> libdecaf:hash_init({kmac128, 32, Large, Large}) end,
+        libdecaf_nif_hash_absorb_continue
     ),
-    KT = libdecaf:xof_init_kt(kt128, Large),
-    cancelled(fun() -> libdecaf:xof_squeeze(KT, 32) end, libdecaf_nif_kt_absorb_continue),
+    KT = libdecaf:xof_init({kt128, Large}),
+    cancelled(fun() -> libdecaf:xof_squeeze(KT, 32) end, libdecaf_nif_xof_absorb_continue),
     erlang:garbage_collect().
 
 upgrade(_) ->
     States = [
         begin
-            HashInit = list_to_atom("hash_init_" ++ atom_to_list(Family)),
-            XofInit = list_to_atom("xof_init_" ++ atom_to_list(Family)),
-            Hash = libdecaf:hash_update(apply(libdecaf, HashInit, [H, 32 | Parameters]), <<"abc">>),
-            Xof = libdecaf:xof_absorb(apply(libdecaf, XofInit, [X | Parameters]), <<"abc">>),
+            HashInit = hash_init,
+            XofInit = xof_init,
+            Hash = libdecaf:hash_update(apply(libdecaf, HashInit, [list_to_tuple([H, 32 | Parameters])]), <<"abc">>),
+            Xof = libdecaf:xof_absorb(apply(libdecaf, XofInit, [list_to_tuple([X | Parameters])]), <<"abc">>),
             {Advanced, First} = libdecaf:xof_squeeze(Xof, 16),
             {_, Last} = libdecaf:xof_squeeze(Advanced, 16),
             {Hash, libdecaf:hash_final(Hash), Xof, Advanced, First, Last}
         end
-     || {Family, H, X, Parameters} <- families()
+     || {_Family, H, X, Parameters} <- families()
     ],
     {Module, Binary, Filename} = code:get_object_code(libdecaf_nif),
     {module, Module} = code:load_binary(Module, Filename, Binary),

@@ -66,12 +66,12 @@ shake(_) ->
             Updated = {Algorithm, _} = Module:update(Module:update(Initial, <<"a">>), [<<"bc">>]),
             lists:foreach(
                 fun(Length) ->
-                    Expected = libdecaf:xof_sha3(Algorithm, <<"abc">>, Length),
+                    Expected = libdecaf:xof({Algorithm, Length}, <<"abc">>),
                     Expected = Module:hash(Algorithm, [<<"abc">>], Length),
                     Expected = Module:xof(Algorithm, <<"abc">>, Length),
                     Expected = Module:final(Updated, Length),
                     Expected = Module:final(Updated, Length),
-                    Empty = libdecaf:xof_sha3(Algorithm, <<>>, Length),
+                    Empty = libdecaf:xof({Algorithm, Length}, <<>>),
                     Empty = Module:final(Initial, Length)
                 end,
                 [0, 1, 32, 65537]
@@ -106,7 +106,7 @@ invalid_arguments(_) ->
     Module = libdecaf_sha3,
     rejected(fun() -> Module:xof(sha3_256, <<>>, 32) end, [sha3_256, <<>>, 32]),
     badarg(fun() -> Module:final({shake128, libdecaf_nif:hash_init(sha3_256)}, 32) end),
-    badarg(fun() -> Module:final({sha3_256, libdecaf_nif:xof_init_sha3(shake128)}, 32) end).
+    badarg(fun() -> Module:final({sha3_256, libdecaf_nif:xof_init(shake128)}, 32) end).
 
 deprecation_and_examples(_) ->
     lists:foreach(

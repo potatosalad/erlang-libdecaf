@@ -69,10 +69,25 @@ Lengths are in bytes. Resources are immutable; retain returned states to advance
 -doc false.
 -spec init() -> Result when Result :: ok | {error, {atom(), string()}}.
 init() ->
-    SoName = filename:join(libdecaf:priv_dir(), ?MODULE_STRING),
+    SoName = filename:join(priv_dir(), ?MODULE_STRING),
     erlang:load_nif(SoName, 0).
 
 -doc false.
 -spec nif_stub_error(Line) -> Result when Line :: pos_integer(), Result :: dynamic().
 nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded, module, ?MODULE, line, Line}).
+
+-doc false.
+-spec priv_dir() -> Directory when Directory :: file:filename_all().
+priv_dir() ->
+    case code:priv_dir(?MODULE) of
+        {error, bad_name} ->
+            case code:which(?MODULE) of
+                Filename when is_list(Filename) ->
+                    filename:join([filename:dirname(Filename), "../priv"]);
+                _ ->
+                    "../priv"
+            end;
+        Dir ->
+            Dir
+    end.

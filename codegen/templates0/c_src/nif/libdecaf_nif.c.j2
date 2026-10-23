@@ -6,6 +6,7 @@
 #include "curve448/ed448.h"
 #include "curve448/x448.h"
 #include "hash/hash.h"
+#include "xof/xof.h"
 {% for family in ctx.crypto_families %}
 #include "{{ family.header }}"
 {% endfor %}
@@ -81,7 +82,11 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
         return -1;
     if (libdecaf_nif_ed448_load(env) != 0)
         return -1;
-{% for family in ctx.crypto_families %}
+    if (libdecaf_nif_hash_load(env) != 0)
+        return -1;
+    if (libdecaf_nif_xof_load(env) != 0)
+        return -1;
+{% for family in ctx.crypto_families if family.name in ('kt', 'hopmac') %}
     if ({{ family.prefix }}_load(env) != 0)
         return -1;
 {% endfor %}
@@ -107,7 +112,11 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
         return -1;
     if (libdecaf_nif_ed448_load(env) != 0)
         return -1;
-{% for family in ctx.crypto_families %}
+    if (libdecaf_nif_hash_load(env) != 0)
+        return -1;
+    if (libdecaf_nif_xof_load(env) != 0)
+        return -1;
+{% for family in ctx.crypto_families if family.name in ('kt', 'hopmac') %}
     if ({{ family.prefix }}_load(env) != 0)
         return -1;
 {% endfor %}

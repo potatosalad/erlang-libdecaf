@@ -18,11 +18,11 @@ class Family:
 
     @property
     def directory(self):
-        return {"sha2": "hash", "kmac": "kmac", "tuplehash": "tuplehash", "parallelhash": "parallelhash"}.get(self.name, "xof")
+        return self.name
 
     @property
     def basename(self):
-        return "hash_sha2" if self.name == "sha2" else "xof_" + self.name if self.directory == "xof" else self.name
+        return self.name
 
     @property
     def header(self):
@@ -33,12 +33,12 @@ class Family:
 
 
 TYPES = {
-    "OutputLength": "non_neg_integer()",
-    "FunctionName": "iodata()",
-    "CustomizationString": "iodata()",
-    "Key": "iodata()",
-    "BlockSize": "pos_integer()",
-    "DomainSeparation": "1..127",
+    "OutputLength": "output_length()",
+    "FunctionName": "function_name()",
+    "CustomizationString": "customization_string()",
+    "Key": "key()",
+    "BlockSize": "block_size()",
+    "DomainSeparation": "domain_separation()",
 }
 
 
@@ -107,14 +107,18 @@ def api_functions_for_family(family):
         ("hash", family.hash_forms, family.hash_algorithms),
         ("xof", family.xof_forms, family.xof_algorithms),
     ):
+        if not algorithms:
+            continue
         for form in forms:
             accepted = algorithms
             if mode == "hash" and not form and family.name in ("sha3", "keccak"):
                 accepted = tuple(n for n in algorithms if n.startswith("sha3_") or n.startswith("keccak_"))
-            algtype = " | ".join(accepted) or "none()"
+            if not accepted:
+                continue
+            algtype = " | ".join(accepted)
             initargs = (("Type", algtype),) + tuple((p, TYPES[p]) for p in form)
             onceform = form if mode == "hash" else ("OutputLength",) + form
-            onceargs = (("Type", algtype), ("Input", "[iodata()]" if family.name == "tuplehash" else "iodata()")) + tuple(
+            onceargs = (("Type", algtype), ("Input", "tuple_input()" if family.name == "tuplehash" else "input()")) + tuple(
                 (p, TYPES[p]) for p in onceform
             )
             for name, args, returns, operation in (
@@ -137,7 +141,7 @@ def api_functions_for_family(family):
     return tuple(result)
 
 
-def api_functions(schema):
+def family_functions(schema):
     result = [f for family in families(schema) for f in api_functions_for_family(family)]
     for mode in ("hash", "xof"):
         for name, arguments, returns, operation in (
@@ -158,7 +162,7 @@ def api_functions(schema):
         (
             Function(
                 "hash_update",
-                (Argument("HashState", "hash_state()"), Argument("Input", "iodata()")),
+                (Argument("HashState", "hash_state()"), Argument("Input", "input()")),
                 "hash_state()",
                 "Absorb input and return a new hash state.",
                 "Hash API",
@@ -178,7 +182,7 @@ def api_functions(schema):
             ),
             Function(
                 "xof_absorb",
-                (Argument("XOFState", "xof_state()"), Argument("Input", "iodata()")),
+                (Argument("XOFState", "xof_state()"), Argument("Input", "input()")),
                 "xof_state()",
                 "Absorb input and return a new absorbing state.",
                 "XOF API",
@@ -188,7 +192,7 @@ def api_functions(schema):
             ),
             Function(
                 "xof_squeeze",
-                (Argument("XOFState", "xof_state()"), Argument("Length", "non_neg_integer()")),
+                (Argument("XOFState", "xof_state()"), Argument("Length", "output_length()")),
                 "{xof_state(), binary()}",
                 "Return the advancing state and the next Length output bytes.",
                 "XOF API",
@@ -203,6 +207,14 @@ def api_functions(schema):
 
 def api_types(schema):
     result = [
+        ("block_size", "pos_integer()", "ParallelHash block size in bytes. It is part of the construction and changes the digest."),
+        ("customization_string", "iodata()", "Application-specific domain separation string; the default is empty."),
+        ("domain_separation", "1..127", "TurboSHAKE domain byte, defaulting to 16#1F."),
+        ("function_name", "iodata()", "cSHAKE function-name string; the default is empty."),
+        ("input", "iodata()", "Message bytes accepted as iodata, or one complete TupleHash element during absorption."),
+        ("key", "iodata()", "Secret KMAC or HopMAC key material accepted as iodata."),
+        ("output_length", "non_neg_integer()", "Requested number of output bytes, including zero."),
+        ("tuple_input", "[iodata()]", "A proper list of separately framed TupleHash elements."),
         ("hash_state", "erlang:nif_resource()", "An immutable native hash state, with its output length chosen at initialization."),
         ("xof_state", "erlang:nif_resource()", "An immutable native absorbing or squeezing state."),
     ]
@@ -229,6 +241,14 @@ def api_types(schema):
                 ),
             )
         )
+    output_forms = []
+    for family in families(schema):
+        for fun in api_functions_for_family(family):
+            if fun.family == "xof" and fun.operation == "once":
+                output_forms.append("{" + ", ".join([" | ".join(fun.algorithms)] + [arg.type for arg in fun.arguments[2:]]) + "}")
+    result.append(
+        ("xof_output_parameters", " | ".join(output_forms), "Algorithm, output byte length, and optional XOF parameters.")
+    )
     return result
 
 
@@ -271,29 +291,35 @@ def profiles(schema, family):
     return tuple(result)
 
 
-TITLES = {
-    "sha2": "SHA-2",
-    "sha3": "SHA-3 / SHAKE",
-    "keccak": "legacy Keccak",
-    "cshake": "cSHAKE",
-    "kmac": "KMAC",
-    "hopmac": "HopMAC",
-    "kt": "KangarooTwelve",
-    "parallelhash": "ParallelHash",
-    "tuplehash": "TupleHash",
-    "turboshake": "TurboSHAKE",
-}
-
-
-def public_doc(schema, fun):
+def family_doc(schema, fun):
     mode = fun.family
     if not fun.algorithms:
         return {
             "hash_init": """Initialize a hash using an algorithm atom or a parameter tuple.
 
-Tuple fields have the same order as the corresponding `hash_init_*` function.
+Tuple fields put the algorithm first, then output length and construction-specific options.
 For example, `{kmac128, 32, Key, <<"orders/v1">>}` selects a 32-byte KMAC tag.
 The output length belongs to the state; finish with `hash_final/1`.
+
+Parameter forms (`L` is output bytes, `S` is customization, and `B` is block bytes):
+
+| Algorithms | Parameters |
+| --- | --- |
+| SHA-2, SHA-3, fixed Keccak | `Algorithm` or `{Algorithm, L}` |
+| SHAKE, Keccak XOF | `{Algorithm, L}` |
+| cSHAKE | `{Algorithm, L}` or `{Algorithm, L, FunctionName, S}` |
+| KMAC, HopMAC | `{Algorithm, L, Key}` or `{Algorithm, L, Key, S}` |
+| KT | `Algorithm`, `{Algorithm, L}`, or `{Algorithm, L, S}` |
+| TurboSHAKE | `Algorithm`, `{Algorithm, L}`, or `{Algorithm, L, Domain}` |
+| TupleHash | `{Algorithm, L}` or `{Algorithm, L, S}` |
+| ParallelHash | `{Algorithm, L, B}` or `{Algorithm, L, B, S}` |
+
+SHA-2, SHA-3, and fixed Keccak permit prefixes up to the full digest size.
+KT and TurboSHAKE default to 32 bytes at strength 128 and 64 at strength 256.
+TurboSHAKE's domain is an integer in `1..127`, defaulting to `16#1F`.
+ParallelHash's positive block size affects the digest; update boundaries do not.
+Blocks are processed serially in constant memory. Keys and customization accept
+iodata; omitted customization and function names are empty.
 
 ```erlang
 State0 = libdecaf:hash_init({sha3_256, 16}),
@@ -314,23 +340,40 @@ a longer result. SHA-2, SHA-3, and legacy Keccak return digest prefixes when sho
 
 ```erlang
 Key = binary:copy(<<42>>, 32),
-State0 = libdecaf:hash_init_kmac(kmac128, 16, Key),
+State0 = libdecaf:hash_init({kmac128, 16, Key}),
 State1 = libdecaf:hash_update(State0, <<"invoice-42">>),
 Tag = libdecaf:hash_final(State1),
 16 = byte_size(Tag),
-Tag = libdecaf:hash_kmac(kmac128, <<"invoice-42">>, 16, Key).
+Tag = libdecaf:hash({kmac128, 16, Key}, <<"invoice-42">>).
 ```""",
             "xof_init": """Initialize an XOF using an algorithm atom or a parameter tuple.
 
-Tuple fields have the same order as the corresponding `xof_init_*` function.
+Tuple fields put the algorithm first, followed by its construction-specific options.
 Choose customization, keys, block sizes, or domain separation here; output length
 is chosen later with `xof_squeeze/2`.
+
+| Algorithms | Parameters |
+| --- | --- |
+| SHAKE, Keccak XOF | `Algorithm` |
+| cSHAKE | `Algorithm` or `{Algorithm, FunctionName, Customization}` |
+| KMACXOF, HopMAC | `{Algorithm, Key}` or `{Algorithm, Key, Customization}` |
+| KT, TupleHashXOF | `Algorithm` or `{Algorithm, Customization}` |
+| TurboSHAKE | `Algorithm` or `{Algorithm, Domain}` |
+| ParallelHashXOF | `{Algorithm, BlockSize}` or `{Algorithm, BlockSize, Customization}` |
+
+Use `kmacxof128`, `kmacxof256`, `tuplehashxof128`, `tuplehashxof256`,
+`parallelhashxof128`, and `parallelhashxof256` selectors for these XOF variants. They produce different output from their
+length-bound hash variants. Other XOF families are SHAKE, cSHAKE, Keccak XOF,
+KT, TurboSHAKE, and HopMAC, each at strength 128 or 256.
+Function names, keys, and customization accept iodata; empty cSHAKE strings yield
+SHAKE output. TurboSHAKE uses an integer domain in `1..127`, default `16#1F`.
+Keep KMACXOF and HopMAC states private like their keys.
 
 ```erlang
 State0 = libdecaf:xof_init({cshake128, <<>>, <<"orders/v1">>}),
 State1 = libdecaf:xof_absorb(State0, <<"invoice-42">>),
 {_State2, Output} = libdecaf:xof_squeeze(State1, 32),
-Output = libdecaf:xof_cshake(cshake128, <<"invoice-42">>, 32, <<>>, <<"orders/v1">>).
+Output = libdecaf:xof({cshake128, 32, <<>>, <<"orders/v1">>}, <<"invoice-42">>).
 ```""",
             "xof_absorb": """Add input to an absorbing XOF and return a new state.
 
@@ -345,81 +388,151 @@ again repeats those bytes, because states are immutable. A zero-byte squeeze sti
 enters the output phase. Customization is already stored by the initializer.
 
 ```erlang
-State0 = libdecaf:xof_init_sha3(shake128),
+State0 = libdecaf:xof_init(shake128),
 State1 = libdecaf:xof_absorb(State0, [<<"a">>, <<"bc">>]),
 {State2, First} = libdecaf:xof_squeeze(State1, 16),
 {_State3, Second} = libdecaf:xof_squeeze(State2, 16),
 Output = <<First/binary, Second/binary>>,
-Output = libdecaf:xof_sha3(shake128, <<"abc">>, 32).
+Output = libdecaf:xof({shake128, 32}, <<"abc">>).
 ```""",
         }[fun.name]
-    family = next(f for f in families(schema) if fun.name.endswith(f.name))
-    name = family.name
-    title = TITLES[name]
-    parameter_doc = {
-        "sha2": "SHA-512 defaults to 64 bytes. An explicit length may select a prefix from zero through 64 bytes.",
-        "sha3": "SHA-3 defaults to its digest size and permits shorter prefixes. SHAKE requires an explicit hash output length.",
-        "keccak": "These are the original Keccak functions, with different padding from SHA-3. Fixed digests permit prefixes; Keccak XOF selectors require an explicit hash length.",
-        "cshake": "`FunctionName` and `CustomizationString` accept iodata and default to empty. With both empty, cSHAKE equals SHAKE. Use customization to separate application domains; function names are intended for named constructions.",
-        "kmac": "`Key` and `CustomizationString` accept iodata; customization defaults to empty. KMAC binds the requested tag length into the result. KMACXOF uses distinct framing and produces an extensible stream. Keep keyed states private like the key. NIST-approved uses require at least 16 key bytes for KMAC128 or 32 for KMAC256.",
-        "hopmac": "RFC 9861 HopMAC hashes the message and customization with KT, then uses that digest as customization for a second KT call over the key. The inner digest is 32 bytes for HopMAC128 or 64 for HopMAC256. Keep keyed states private. Shorter outputs are prefixes of the same HopMAC stream.",
-        "kt": "Customization accepts iodata and defaults to empty. It is stored during initialization and appended after the message per RFC 9861. Hash defaults are 32 bytes for KT128 and 64 for KT256.",
-        "parallelhash": "`BlockSize` is a positive byte count and affects the result: it must match the protocol or other implementation. Input is processed in constant memory regardless of block size. Update boundaries do not define blocks. Customization defaults to empty. ParallelHash binds the output length; ParallelHashXOF produces a distinct extensible stream. The implementation processes blocks serially.",
-        "tuplehash": 'One-shot `Input` is a proper list of separate iodata elements. Each update or absorb adds one complete element. `[<<"a">>, <<"bc">>]` differs from `[<<"ab">>, <<"c">>]`; `[]` differs from `[<<>>]`. Customization defaults to empty. TupleHash binds output length; TupleHashXOF produces a distinct extensible stream.',
-        "turboshake": "`DomainSeparation` is an integer from 1 through 127, defaulting to `16#1F`. It is a domain byte, rather than a customization string. Hash defaults are 32 bytes for TurboSHAKE128 and 64 for TurboSHAKE256.",
-    }[name]
-    values = dict(
-        Type=fun.algorithms[0],
-        Input='[<<"alice">>, <<"invoice-42">>]' if name == "tuplehash" else '<<"invoice-42">>',
-        OutputLength="16",
-        Key="binary:copy(<<42>>, 32)",
-        FunctionName="<<>>",
-        CustomizationString='<<"orders/v1">>',
-        BlockSize="8",
-        DomainSeparation="16#1F",
-    )
-    params = [values[a.name] for a in fun.arguments]
-    call = f"libdecaf:{fun.name}(" + ", ".join(params) + ")"
-    if fun.operation == "once":
-        length = (
-            16
-            if any(a.name == "OutputLength" for a in fun.arguments)
-            else next(a["default"] for a in profiles(schema, family) if a["name"] == fun.algorithms[0])
-        )
-        example = f"Output = {call},\n{length} = byte_size(Output)."
-        lead = f"Compute {title} in one call and return output bytes."
-    else:
-        code = [f"State0 = {call}"]
-        operation = "hash_update" if mode == "hash" else "xof_absorb"
-        if name == "tuplehash":
-            code += [
-                f'State1 = libdecaf:{operation}(State0, <<"alice">>)',
-                f'State2 = libdecaf:{operation}(State1, <<"invoice-42">>)',
-            ]
-            last = "State2"
-        else:
-            code += [f'State1 = libdecaf:{operation}(State0, [<<"invoice-">>, <<"42">>])']
-            last = "State1"
-        code += [
-            (
-                f"Output = libdecaf:hash_final({last})"
-                if mode == "hash"
-                else f"{{_NextState, Output}} = libdecaf:xof_squeeze({last}, 16)"
-            )
-        ]
-        once = fun.name.replace(mode + "_init_", mode + "_")
-        arguments = params[:1] + [values["Input"]] + (params[1:] if mode == "hash" else ["16"] + params[1:])
-        code += [f"Output = libdecaf:{once}(" + ", ".join(arguments) + ")"]
-        example = ",\n".join(code) + "."
-        lead = f"Initialize {title} for incremental {'hashing' if mode == 'hash' else 'absorption and squeezing'}."
-    import textwrap
 
-    parameter_doc = textwrap.fill(parameter_doc, width=105)
-    return (
-        lead
-        + "\n\n"
-        + parameter_doc
-        + "\n\nLengths are in bytes; states are immutable and must be replaced with each returned state.\n\n```erlang\n"
-        + example
-        + "\n```"
+
+@dataclass(frozen=True)
+class NativeAlgorithm:
+    family: Family
+    profile: dict
+
+    @property
+    def name(self):
+        return self.profile["name"]
+
+    @property
+    def symbol(self):
+        return "libdecaf_nif_" + self.name
+
+    def functions(self, mode=None, operation=None):
+        result = []
+        for fun in api_functions_for_family(self.family):
+            if self.name not in fun.algorithms:
+                continue
+            if mode is not None and fun.family != mode:
+                continue
+            if operation is not None and fun.operation != operation:
+                continue
+            name = self.name + ("_" + fun.family + "_init" if fun.operation == "init" else "")
+            result.append(
+                Function(
+                    name,
+                    fun.arguments[1:],
+                    fun.returns,
+                    fun.doc.replace(self.family.name, self.name),
+                    fun.group,
+                    fun.family,
+                    fun.operation,
+                    (self.name,),
+                    fun.result_name,
+                )
+            )
+        return tuple(result)
+
+    @property
+    def exports(self):
+        result = {}
+        for fun in self.functions():
+            result.setdefault((fun.name, fun.arity), fun)
+        return tuple(sorted(result.values(), key=lambda f: (f.name, f.arity)))
+
+
+def native_algorithms(schema):
+    return tuple(sorted((NativeAlgorithm(f, p) for f in families(schema) for p in profiles(schema, f)), key=lambda a: a.name))
+
+
+def generic_functions(schema):
+    result = [f for f in family_functions(schema) if not f.algorithms]
+    result += [
+        Function(
+            "hash",
+            (Argument("Parameters", "hash_parameters()"), Argument("Input", "input() | tuple_input()")),
+            "binary()",
+            "Compute a hash from initialization parameters and input.",
+            "Hash API",
+            "hash",
+            "once",
+            result_name="Output",
+        ),
+        Function(
+            "xof",
+            (Argument("Parameters", "xof_output_parameters()"), Argument("Input", "input() | tuple_input()")),
+            "binary()",
+            "Compute XOF bytes from an algorithm/output-length tuple and input.",
+            "XOF API",
+            "xof",
+            "once",
+            result_name="Output",
+        ),
+        Function(
+            "xof",
+            (
+                Argument("Parameters", "xof_parameters()"),
+                Argument("Input", "input() | tuple_input()"),
+                Argument("OutputLength", "output_length()"),
+            ),
+            "binary()",
+            "Compute OutputLength XOF bytes using initialization parameters.",
+            "XOF API",
+            "xof",
+            "once",
+            result_name="Output",
+        ),
+    ]
+    return tuple(result)
+
+
+def api_functions(schema):
+    return tuple(
+        sorted(
+            [f for a in native_algorithms(schema) for f in a.exports] + list(generic_functions(schema)),
+            key=lambda f: (f.name, f.arity),
+        )
     )
+
+
+def public_functions(schema):
+    return tuple(sorted(generic_functions(schema), key=lambda f: (f.name, f.arity)))
+
+
+def public_doc(schema, fun):
+    if fun.name == "hash":
+        return """Hash input using an algorithm atom or initialization parameter tuple.
+
+Tuple fields match `hash_init/1`. For TupleHash, input is a list of separate elements.
+
+```erlang
+Output = libdecaf:hash({parallelhash128, 32, 8192, <<"orders/v1">>}, <<"invoice-42">>),
+State = libdecaf:hash_update(libdecaf:hash_init({parallelhash128, 32, 8192, <<"orders/v1">>}), <<"invoice-42">>),
+Output = libdecaf:hash_final(State).
+```"""
+    if fun.name == "xof":
+        if fun.arity == 2:
+            return """Return XOF bytes using `{Algorithm, OutputLength, ...Options}` and input.
+
+The tuple places the output byte count immediately after the algorithm. Remaining
+fields have the same order as the algorithm's XOF initializer. TupleHashXOF input
+is a list of separate elements. The result is a binary, not a state.
+
+```erlang
+Output = libdecaf:xof({parallelhashxof128, 32, 8192, <<"orders/v1">>}, <<"invoice-42">>),
+State = libdecaf:xof_absorb(libdecaf:xof_init({parallelhashxof128, 8192, <<"orders/v1">>}), <<"invoice-42">>),
+{_Next, Output} = libdecaf:xof_squeeze(State, 32).
+```"""
+        return """Return `OutputLength` bytes using XOF initialization parameters and input.
+
+The parameter atom or tuple is identical to `xof_init/1`; output length is supplied
+separately. For TupleHashXOF, input is a list of separate elements.
+
+```erlang
+Output = libdecaf:xof({cshake128, <<>>, <<"orders/v1">>}, <<"invoice-42">>, 32),
+Output = libdecaf:xof({cshake128, 32, <<>>, <<"orders/v1">>}, <<"invoice-42">>).
+```"""
+    return family_doc(schema, fun)
