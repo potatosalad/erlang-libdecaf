@@ -1,4 +1,4 @@
-#include <decaf/point_448.h>
+#include "x448.h"
 
 /*
  * Erlang NIF functions
@@ -6,7 +6,7 @@
 
 /* libdecaf_nif:x448_derive_public_key/1 */
 
-static ERL_NIF_TERM
+ERL_NIF_TERM
 libdecaf_nif_x448_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary scalar;
@@ -25,7 +25,7 @@ libdecaf_nif_x448_derive_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TE
 
 /* libdecaf_nif:x448/2 */
 
-static ERL_NIF_TERM
+ERL_NIF_TERM
 libdecaf_nif_x448_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary base;

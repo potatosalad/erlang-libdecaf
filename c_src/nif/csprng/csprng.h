@@ -1,7 +1,7 @@
 #ifndef LIBDECAF_NIF_CSPRNG_H
 #define LIBDECAF_NIF_CSPRNG_H
 
-#include "libdecaf_nif.h"
+#include "../libdecaf_nif.h"
 
 #include <decaf/spongerng.h>
 

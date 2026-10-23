@@ -8,12 +8,13 @@ Exercise component resources directly through the native interface.
 -export([
     all/0,
     csprng/1,
+    key_exchange/1,
     keypairs/1,
     upgrade/1
 ]).
 
 all() ->
-    [keypairs, csprng, upgrade].
+    [keypairs, key_exchange, csprng, upgrade].
 
 keypairs(_) ->
     lists:foreach(
@@ -32,6 +33,21 @@ keypairs(_) ->
             true = call(Curve, "_verify_prehash", [Prehashed, Public, <<"message">>, <<>>])
         end,
         [{ed25519, 32, no_context}, {ed448, 57, <<>>}]
+    ).
+
+key_exchange(_) ->
+    lists:foreach(
+        fun({Curve, Bytes}) ->
+            Alice = binary:copy(<<7>>, Bytes),
+            Bob = binary:copy(<<19>>, Bytes),
+            AlicePublic = call(Curve, "_derive_public_key", [Alice]),
+            BobPublic = call(Curve, "_derive_public_key", [Bob]),
+            Shared = call(Curve, "", [BobPublic, Alice]),
+            Shared = call(Curve, "", [AlicePublic, Bob]),
+            Bytes = byte_size(Shared),
+            error = call(Curve, "", [binary:copy(<<0>>, Bytes), Alice])
+        end,
+        [{x25519, 32}, {x448, 56}]
     ).
 
 csprng(_) ->

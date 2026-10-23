@@ -31,7 +31,7 @@ Change the templates or configuration and run `just codegen`; generated C is
 committed so ordinary builds do not run the generator. Generated files carry a
 content signature applied after formatting, and repeated generation is stable.
 
-The first stage generates `c_src/nif/hash.{c,h}`, the XOF family implementations
+The first stage generates `c_src/nif/hash/hash.{c,h}`, the XOF family implementations
 under `c_src/nif/xof/`, and the native registration table in
 `c_src/nif/libdecaf_nif.c`. XOFs expose only grouped entry points; there is
 no generic XOF dispatch layer.
@@ -71,7 +71,7 @@ Incremental hashing uses `xof_kt_init/1`, `xof_kt_update/2`, and
 
 The generated fixed-output C contains typed upstream adapters and an algorithm
 table. Its shared `hash`, `hash_init`, `hash_update`, and `hash_final` entry points
-are defined in `hash.c`, and all fixed-output algorithms use one opaque
+are defined in `hash/hash.c`, and all fixed-output algorithms use one opaque
 `hash_state()` type. Algorithm-specific hash wrappers are not generated.
 
 Each XOF group generates one-shot, init, update, and final NIFs. XOF groups are
