@@ -22,6 +22,11 @@ and PRNG states private. KMAC resources contain keyed sponge contexts and must
 also be kept private. KMAC tag lengths are measured in bytes and are included
 in the computation; requesting a shorter tag is different from truncation.
 
+XOF `absorb` operations return new absorbing states. `squeeze` returns
+`{NextState, Output}` and advances the output cursor in `NextState`.
+Further absorption into a squeezing state raises an argument error, including
+after a zero-byte squeeze. `update` and `final` remain snapshot convenience APIs.
+
 Group operations accept canonical encodings, including identity points and zero
 scalars. Validation functions return `false` for invalid terms. Arithmetic with
 invalid encodings raises `badarg`; scalar inversion returns `error` for zero.

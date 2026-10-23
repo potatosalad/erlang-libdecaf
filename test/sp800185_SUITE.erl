@@ -14,7 +14,8 @@ NIST SP 800-185 primitives and Revision 1 streaming contracts.
     kmac_nist_vectors/1,
     kmac_reference/1,
     kmac_trapping/1,
-    kmac_upgrade/1
+    kmac_upgrade/1,
+    xof_streaming/1
 ]).
 
 all() ->
@@ -26,6 +27,7 @@ all() ->
         kmac_invalid,
         kmac_trapping,
         kmac_upgrade,
+        xof_streaming,
         documentation
     ].
 
@@ -193,22 +195,93 @@ documentation(_) ->
     {ok, {docs_v1, _, erlang, <<"text/markdown">>, _, _, Entries}} = code:get_doc(libdecaf),
     lists:foreach(
         fun
-            ({{function, Name, _}, _, _, #{<<"en">> := Doc}, _}) when
-                Name == kmac; Name == kmac_init; Name == kmac_final
-            ->
-                {match, Examples} = re:run(Doc, <<"```erlang\\n(.*?)```">>, [global, dotall, {capture, [1], binary}]),
-                lists:foreach(
-                    fun([Example]) ->
-                        {ok, Tokens, _} = erl_scan:string(unicode:characters_to_list(Example)),
-                        {ok, Expressions} = erl_parse:parse_exprs(Tokens),
-                        {value, _, _} = erl_eval:exprs(Expressions, erl_eval:new_bindings())
-                    end,
-                    Examples
-                );
+            ({{function, _, _}, _, _, #{<<"en">> := Doc}, _}) ->
+                case re:run(Doc, <<"```erlang\\n(.*?)```">>, [global, dotall, {capture, [1], binary}]) of
+                    {match, Examples} ->
+                        lists:foreach(
+                            fun([Example]) ->
+                                {ok, Tokens, _} = erl_scan:string(unicode:characters_to_list(Example)),
+                                {ok, Expressions} = erl_parse:parse_exprs(Tokens),
+                                {value, _, _} = erl_eval:exprs(Expressions, erl_eval:new_bindings())
+                            end,
+                            Examples
+                        );
+                    nomatch ->
+                        ok
+                end;
             (_) ->
                 ok
         end,
         Entries
+    ).
+
+xof_streaming(_) ->
+    Groups = [
+        {xof_cshake, cshake128},
+        {xof_cshake, cshake256},
+        {xof_keccak, keccak_xof_128},
+        {xof_keccak, keccak_xof_256},
+        {xof_kt, kt128},
+        {xof_kt, kt256},
+        {xof_sha3, shake128},
+        {xof_sha3, shake256},
+        {xof_turboshake, turboshake128},
+        {xof_turboshake, turboshake256}
+    ],
+    Lengths = [0, 1, 31, 32, 135, 136, 137, 167, 168, 169, 20001, 65537],
+    lists:foreach(
+        fun(Module) ->
+            lists:foreach(
+                fun({Group, Algorithm}) ->
+                    Call = fun(Suffix, Arguments) ->
+                        apply(Module, list_to_atom(atom_to_list(Group) ++ Suffix), Arguments)
+                    end,
+                    Initial = Call("_init", [Algorithm]),
+                    First = Call("_absorb", [Initial, <<"a">>]),
+                    State = Call("_update", [First, [<<"b">>, <<"c">>]]),
+                    Expected = Call("", [Algorithm, <<"abc">>, lists:sum(Lengths)]),
+                    {_, Parts} = lists:foldl(
+                        fun(Length, {Current, Acc}) ->
+                            {Next, Output} = Call("_squeeze", [Current, Length]),
+                            Length = byte_size(Output),
+                            {_, Output} = Call("_squeeze", [Current, Length]),
+                            badarg(fun() -> Call("_absorb", [Next, <<>>]) end),
+                            badarg(fun() -> Call("_update", [Next, <<"more">>]) end),
+                            {Next, [Output | Acc]}
+                        end,
+                        {State, []},
+                        Lengths
+                    ),
+                    Expected = iolist_to_binary(lists:reverse(Parts)),
+                    Expected = Call("_final", [State, lists:sum(Lengths)]),
+                    Empty = Call("", [Algorithm, <<>>, 32]),
+                    {_, Empty} = Call("_squeeze", [Initial, 32]),
+                    badarg(fun() -> Call("_squeeze", [State, -1]) end),
+                    badarg(fun() -> Call("_squeeze", [make_ref(), 1]) end),
+                    badarg(fun() -> Call("_absorb", [libdecaf_nif:hash_init(sha3_256), <<>>]) end)
+                end,
+                Groups
+            ),
+            Initial = Module:xof_kt_absorb(Module:xof_kt_init(kt128), <<"abc">>),
+            Custom = binary:copy(<<42>>, 65537),
+            {FirstState, FirstOutput} = Module:xof_kt_squeeze(Initial, 32, Custom),
+            {_, SecondOutput} = Module:xof_kt_squeeze(FirstState, 32),
+            Whole = Module:xof_kt(kt128, <<"abc">>, 64, Custom),
+            Whole = <<FirstOutput/binary, SecondOutput/binary>>,
+            badarg(fun() -> Module:xof_kt_squeeze(FirstState, 32, <<>>) end),
+            badarg(fun() -> Module:xof_kt_final(FirstState, 32, <<>>) end)
+        end,
+        [libdecaf, libdecaf_nif]
+    ),
+    State = libdecaf:xof_cshake_absorb(libdecaf:xof_cshake_init(cshake128), <<"abc">>),
+    {_, Output} = traced(
+        fun() -> libdecaf:xof_cshake_squeeze(State, 1000001) end,
+        [libdecaf_nif_xof_cshake_squeeze_continue]
+    ),
+    Output = libdecaf:xof_cshake(cshake128, <<"abc">>, 1000001),
+    cancelled(
+        fun() -> libdecaf:xof_cshake_squeeze(State, 8000001) end,
+        libdecaf_nif_xof_cshake_squeeze_continue
     ).
 
 left_encode(Integer) ->

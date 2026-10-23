@@ -377,6 +377,21 @@ The primitive also permits shorter keys as defined by the standard.
 
 ### KECCAK
 
+#### XOF streams
+
+Every XOF family provides `absorb/2` and `squeeze/2` operations. Continue with
+the returned state to read consecutive output chunks. A squeezing state rejects
+further absorption, even after a zero-byte squeeze. The original state remains
+reusable. Existing `update` and `final` functions remain available.
+
+```erlang
+State = libdecaf:xof_sha3_absorb(libdecaf:xof_sha3_init(shake128), <<"abc">>),
+{Next, First} = libdecaf:xof_sha3_squeeze(State, 16),
+{_, Second} = libdecaf:xof_sha3_squeeze(Next, 16),
+Whole = libdecaf:xof_sha3(shake128, <<"abc">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
 ##### SPONGERNG
 
 #### `libdecaf_spongerng:init_from_buffer/2`

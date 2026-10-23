@@ -1,4 +1,5 @@
-{% macro lifecycle(p, update, output, destroy, private_state=false, wipe_output=false) %}
+{% macro lifecycle(p, update, output, destroy, private_state=false, wipe_output=false,
+                   streaming=false, absorbing='true', emit_update=true, load_name=none) %}
 /* Each family owns its state and continuation resources. No state is shared
  * with a caller while it is being absorbed or squeezed. */
 {{ 'static ' if private_state else '' }}ErlNifResourceType *{{ p }}_resource_type = NULL;
@@ -6,6 +7,9 @@ static ErlNifResourceType *{{ p }}_absorb_resource_type = NULL;
 static ErlNifResourceType *{{ p }}_squeeze_resource_type = NULL;
 
 typedef ERL_NIF_TERM (*{{ p }}_done_t)(ErlNifEnv *, const {{ p }}_ctx_t *, size_t, size_t);
+{% if streaming %}
+typedef ERL_NIF_TERM (*{{ p }}_emit_t)(ErlNifEnv *, const {{ p }}_ctx_t *, ErlNifBinary *);
+{% endif %}
 
 typedef struct {
     {{ p }}_ctx_t state;
@@ -21,6 +25,9 @@ typedef struct {
     ErlNifBinary output;
     size_t offset;
     bool owns_output;
+{% if streaming %}
+    {{ p }}_emit_t emit;
+{% endif %}
 } {{ p }}_squeeze_trap_t;
 
 static ERL_NIF_TERM {{ p }}_absorb_continue(ErlNifEnv *, int, const ERL_NIF_TERM []);
@@ -58,8 +65,8 @@ static void
     }
 }
 
-int
-{{ p }}_load(ErlNifEnv *env)
+{{ 'static ' if load_name else '' }}int
+{{ load_name or p + '_load' }}(ErlNifEnv *env)
 {
     ErlNifResourceFlags flags = ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER;
     {{ p }}_resource_type = enif_open_resource_type(env, "libdecaf_nif", "{{ p }}_state",
@@ -175,8 +182,35 @@ static ERL_NIF_TERM
 
 /* Squeeze from a private copy; the published absorbing state remains reusable.
  * Ownership of the output binary moves to the continuation or the Erlang term. */
+{% if streaming %}
 static ERL_NIF_TERM
-{{ p }}_squeeze(ErlNifEnv *env, const {{ p }}_ctx_t *old_state, size_t output_len, size_t remaining)
+{{ p }}_emit_binary(ErlNifEnv *env, const {{ p }}_ctx_t *state, ErlNifBinary *binary)
+{
+    (void)state;
+    return enif_make_binary(env, binary);
+}
+
+static ERL_NIF_TERM
+{{ p }}_emit_state(ErlNifEnv *env, const {{ p }}_ctx_t *state, ErlNifBinary *binary)
+{
+    {{ p }}_ctx_t *resource = enif_alloc_resource({{ p }}_resource_type, sizeof(*resource));
+    if (resource == NULL) {
+{% if wipe_output %}
+        decaf_bzero(binary->data, binary->size);
+{% endif %}
+        enif_release_binary(binary);
+        return EXCP_ERROR(env, "Can't allocate {{ p }} squeezing state");
+    }
+    *resource = *state;
+    ERL_NIF_TERM term = enif_make_resource(env, resource);
+    enif_release_resource(resource);
+    return enif_make_tuple2(env, term, enif_make_binary(env, binary));
+}
+{% endif %}
+
+static ERL_NIF_TERM
+{{ p }}_{{ 'squeeze_to' if streaming else 'squeeze' }}(
+    ErlNifEnv *env, const {{ p }}_ctx_t *old_state, size_t output_len, size_t remaining{% if streaming %}, {{ p }}_emit_t emit{% endif %})
 {
     ErlNifBinary binary;
     if (!enif_alloc_binary(output_len, &binary)) {
@@ -187,9 +221,16 @@ static ERL_NIF_TERM
     {{ output }}(&state, binary.data, take);
     remaining -= take;
     if (take == output_len) {
+{% if streaming %}
+        ERL_NIF_TERM result = emit(env, &state, &binary);
+{% endif %}
         {{ destroy }}(&state);
         {{ p }}_consume(env, remaining);
+{% if streaming %}
+        return result;
+{% else %}
         return enif_make_binary(env, &binary);
+{% endif %}
     }
     {{ p }}_squeeze_trap_t *trap = enif_alloc_resource({{ p }}_squeeze_resource_type, sizeof(*trap));
     if (trap == NULL) {
@@ -205,6 +246,9 @@ static ERL_NIF_TERM
     trap->output = binary;
     trap->offset = take;
     trap->owns_output = true;
+{% if streaming %}
+    trap->emit = emit;
+{% endif %}
     ERL_NIF_TERM args[] = {enif_make_resource(env, trap)};
     enif_release_resource(trap);
     BUMP_ALL_REDS(env);
@@ -233,13 +277,46 @@ static ERL_NIF_TERM
         return enif_schedule_nif(env, "{{ p }}_squeeze_continue", ERL_NIF_NORMAL_JOB_BOUND,
                                  {{ p }}_squeeze_continue, argc, argv);
     }
+{% if streaming %}
+    ERL_NIF_TERM result = trap->emit(env, &trap->state, &trap->output);
+{% else %}
+    ERL_NIF_TERM result = enif_make_binary(env, &trap->output);
+{% endif %}
+    trap->owns_output = false;
     {{ destroy }}(&trap->state);
     {{ p }}_consume(env, remaining);
-    ERL_NIF_TERM result = enif_make_binary(env, &trap->output);
-    trap->owns_output = false;
     return result;
 }
 
+{% if streaming %}
+static ERL_NIF_TERM
+{{ p }}_squeeze(ErlNifEnv *env, const {{ p }}_ctx_t *state, size_t length, size_t remaining)
+{
+    return {{ p }}_squeeze_to(env, state, length, remaining, {{ p }}_emit_binary);
+}
+
+static ERL_NIF_TERM
+{{ p }}_squeeze_state(ErlNifEnv *env, const {{ p }}_ctx_t *state, size_t length, size_t remaining)
+{
+    return {{ p }}_squeeze_to(env, state, length, remaining, {{ p }}_emit_state);
+}
+
+ERL_NIF_TERM
+{{ p }}_squeeze_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    {{ p }}_ctx_t *state;
+    if (argc != 2 || !enif_get_resource(env, argv[0], {{ p }}_resource_type, (void **)&state)) {
+        return EXCP_BADARG(env, "State must be a {{ p }} resource");
+    }
+    unsigned long length;
+    if (!enif_get_ulong(env, argv[1], &length)) {
+        return EXCP_BADARG(env, "Length must be a non-negative byte count");
+    }
+    return {{ p }}_squeeze_state(env, state, length, REDUCTIONS_UNTIL_YCF_YIELD());
+}
+{% endif %}
+
+{% if emit_update %}
 ERL_NIF_TERM
 {{ p }}_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -247,6 +324,18 @@ ERL_NIF_TERM
     if (argc != 2 || !enif_get_resource(env, argv[0], {{ p }}_resource_type, (void **)&state)) {
         return EXCP_BADARG(env, "State must be a {{ p }} resource");
     }
+    if (!({{ absorbing }})) {
+        return EXCP_BADARG(env, "Cannot absorb input after squeezing has begun");
+    }
     return {{ p }}_absorb(env, state, argv[1], {{ p }}_make_state, 0);
 }
+{% if streaming %}
+
+ERL_NIF_TERM
+{{ p }}_absorb_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return {{ p }}_update_2(env, argc, argv);
+}
+{% endif %}
+{% endif %}
 {% endmacro %}

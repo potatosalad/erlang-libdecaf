@@ -1,5 +1,5 @@
 ~J{ set hash_algorithms = ctx.schema.nif.hash | sort }.
-~J{ from 'src/xof_examples.erl.inc' import xof_example }.
+~J{ from 'src/xof_examples.erl.inc' import xof_example, xof_squeeze_example }.
 %%% % @format
 -module(libdecaf).
 -moduledoc """
@@ -375,6 +375,10 @@ hash_update(State, Data) ->
 ~J{ if function.operation in ['once', 'init'] or (function.name == 'xof_kt_final' and function.arity == 3) }.
 
 ~J< xof_example(function) | trim >.
+~J{ endif }.
+~J{ if function.operation == 'squeeze' }.
+
+~J< xof_squeeze_example(function) | trim >.
 ~J{ endif }.
 """.
 -doc #{group => "~J< function.group >."}.

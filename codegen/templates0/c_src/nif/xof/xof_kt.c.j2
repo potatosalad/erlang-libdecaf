@@ -139,7 +139,8 @@ static bool
     return false;
 }
 
-{{ lifecycle(p, profile.update, profile.output, profile.destroy) }}
+{{ lifecycle(p, profile.update, profile.output, profile.destroy, streaming=true,
+             absorbing="!state->finalized" if group == 'kt' else "state->params->flags == 'A'") }}
 {{ entry_points(p, 'xof_' + group, profile.destroy) }}
 
 /* KT customization is absorbed after the message, then length-encoded by output. */
@@ -168,12 +169,15 @@ ERL_NIF_TERM
     return result;
 }
 
-ERL_NIF_TERM
-{{ p }}_final_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM
+{{ p }}_customized_output(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[], {{ p }}_done_t done)
 {
     {{ p }}_ctx_t *old_state;
     if (argc != 3 || !enif_get_resource(env, argv[0], {{ p }}_resource_type, (void **)&old_state)) {
         return EXCP_BADARG(env, "State must be a xof_kt resource");
+    }
+    if (old_state->finalized) {
+        return EXCP_BADARG(env, "Customization must be supplied before squeezing begins");
     }
     unsigned long output_len;
     if (!enif_get_ulong(env, argv[1], &output_len)) {
@@ -185,8 +189,20 @@ ERL_NIF_TERM
     }
     {{ p }}_ctx_t state = *old_state;
     state.customization_len = custom.size;
-    ERL_NIF_TERM result = {{ p }}_absorb(env, &state, argv[2], {{ p }}_squeeze, output_len);
+    ERL_NIF_TERM result = {{ p }}_absorb(env, &state, argv[2], done, output_len);
     {{ p }}_destroy(&state);
     return result;
+}
+
+ERL_NIF_TERM
+{{ p }}_final_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return {{ p }}_customized_output(env, argc, argv, {{ p }}_squeeze);
+}
+
+ERL_NIF_TERM
+{{ p }}_squeeze_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    return {{ p }}_customized_output(env, argc, argv, {{ p }}_squeeze_state);
 }
 /* clang-format on */ //-

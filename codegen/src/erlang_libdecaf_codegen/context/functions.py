@@ -81,7 +81,7 @@ def xof_functions(schema: NIFSchema) -> tuple[Function, ...]:
                 "xof",
                 operation,
                 group.algorithms,
-                {"init": "State", "update": "NewState"}.get(operation, "Output"),
+                {"init": "State", "update": "NewState", "absorb": "NewState", "squeeze": "Result"}.get(operation, "Output"),
             )
         )
 
@@ -97,6 +97,24 @@ def xof_functions(schema: NIFSchema) -> tuple[Function, ...]:
             [("State", state), ("Input", "iodata()")],
             state,
             "Absorb iodata and return a new state in this XOF group. The input state remains reusable.",
+        )
+        add(
+            group,
+            "absorb",
+            [("State", state), ("Input", "iodata()")],
+            state,
+            "Absorb iodata and return a new absorbing state, as in `update/2`.\n"
+            "A state returned by squeeze has entered the output phase and rejects further input.",
+        )
+        add(
+            group,
+            "squeeze",
+            [("State", state), ("Length", "non_neg_integer()")],
+            f"{{{state}, binary()}}",
+            "Return `{NextState, Output}` containing the next `Length` bytes of the XOF stream.\n"
+            "Continue with `NextState` to obtain subsequent bytes. Even a zero-byte squeeze\n"
+            "starts the output phase, after which absorb/update calls raise an argument error.\n"
+            "The input state remains reusable; squeezing it again repeats the same bytes.",
         )
         add(
             group,
@@ -141,6 +159,14 @@ def xof_functions(schema: NIFSchema) -> tuple[Function, ...]:
                 [("State", state), ("Length", "non_neg_integer()")] + extra,
                 "binary()",
                 "Finalize KangarooTwelve with a customization string. The input state remains reusable.",
+            )
+            add(
+                group,
+                "squeeze",
+                [("State", state), ("Length", "non_neg_integer()"), ("Customization", "iodata()")],
+                f"{{{state}, binary()}}",
+                "Begin squeezing KangarooTwelve with customization, returning `{NextState, Output}`.\n"
+                "Supply customization only before squeezing begins, then continue with `squeeze/2`.",
             )
     return tuple(sorted(result, key=lambda function: (function.name, function.arity)))
 

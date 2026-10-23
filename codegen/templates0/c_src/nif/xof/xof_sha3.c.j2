@@ -21,6 +21,7 @@ static bool
     return false;
 }
 
-{{ lifecycle(p, profile.update, profile.output, profile.destroy) }}
+{{ lifecycle(p, profile.update, profile.output, profile.destroy, streaming=true,
+             absorbing="!state->finalized" if group == 'kt' else "state->params->flags == 'A'") }}
 {{ entry_points(p, 'xof_' + group, profile.destroy) }}
 /* clang-format on */ //-

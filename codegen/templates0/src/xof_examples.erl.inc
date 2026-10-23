@@ -1,3 +1,32 @@
+~J{ macro xof_squeeze_example(function) }.
+~J{ set group = function.name.removesuffix('_squeeze') }.
+Continue with each returned state to read successive output chunks:
+
+```erlang
+~J{ if group == 'xof_kmac' }.
+Key = list_to_binary(lists:seq(16#40, 16#5F)),
+Initial = libdecaf:~J< group >._init(~J< function.algorithms[0] >., Key),
+~J{ elif group == 'xof_parallelhash' }.
+Initial = libdecaf:~J< group >._init(~J< function.algorithms[0] >., 8),
+~J{ else }.
+Initial = libdecaf:~J< group >._init(~J< function.algorithms[0] >.),
+~J{ endif }.
+State = libdecaf:~J< group >._absorb(Initial, <<"abc">>),
+{Next, First} = libdecaf:~J< group >._squeeze(State, 16~J< ', <<"example">>' if function.arity == 3 else '' >.),
+{_, Second} = libdecaf:~J< group >._squeeze(Next, 16),
+~J{ if group == 'xof_kmac' }.
+Whole = libdecaf:~J< group >.(~J< function.algorithms[0] >., Key, <<"abc">>, 32),
+~J{ elif group == 'xof_parallelhash' }.
+Whole = libdecaf:~J< group >.(~J< function.algorithms[0] >., <<"abc">>, 8, 32),
+~J{ elif group == 'xof_tuplehash' }.
+Whole = libdecaf:~J< group >.(~J< function.algorithms[0] >., [<<"abc">>], 32),
+~J{ else }.
+Whole = libdecaf:~J< group >.(~J< function.algorithms[0] >., <<"abc">>, 32~J< ', <<"example">>' if function.arity == 3 else '' >.),
+~J{ endif }.
+Whole = <<First/binary, Second/binary>>.
+```
+~J{ endmacro }.
+
 ~J{ macro xof_example(function) }.
 ~J{ set key = (function.name, function.arity) }.
 ~J{ if key == ('xof_cshake', 3) }.
