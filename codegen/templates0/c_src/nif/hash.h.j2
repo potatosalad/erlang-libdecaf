@@ -48,6 +48,8 @@ struct libdecaf_nif_hash_table_s {
 
 extern libdecaf_nif_hash_table_t *libdecaf_nif_hash_table;
 
+int libdecaf_nif_hash_load(ErlNifEnv *env);
+
 extern ERL_NIF_TERM libdecaf_nif_hash_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_hash_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_hash_init_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);

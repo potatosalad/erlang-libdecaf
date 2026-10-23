@@ -13,37 +13,16 @@
 
 /* Global Variables */
 
-ErlNifResourceType *libdecaf_nif_trap_resource_type = NULL;
 ErlNifResourceType *libdecaf_nif_csprng_resource_type = NULL;
 ErlNifResourceType *libdecaf_nif_ed25519_keypair_resource_type = NULL;
 ErlNifResourceType *libdecaf_nif_ed448_keypair_resource_type = NULL;
-ErlNifResourceType *libdecaf_nif_hash_resource_type = NULL;
 
 /* Resource Type Functions (Declarations) */
 
-static void libdecaf_nif_trap_dtor(ErlNifEnv *caller_env, void *obj);
 static void libdecaf_nif_csprng_dtor(ErlNifEnv *caller_env, void *obj);
 static void libdecaf_nif_ed25519_keypair_dtor(ErlNifEnv *caller_env, void *obj);
 static void libdecaf_nif_ed448_keypair_dtor(ErlNifEnv *caller_env, void *obj);
-static void libdecaf_nif_hash_dtor(ErlNifEnv *caller_env, void *obj);
 
-void
-libdecaf_nif_trap_dtor(ErlNifEnv *caller_env, void *obj)
-{
-    libdecaf_nif_trap_t *trap = (void *)obj;
-    if (trap != NULL) {
-        XNIF_TRACE_F("libdecaf_nif_trap_dtor:%s:%d\n", __FILE__, __LINE__);
-        if (trap->dtor != NULL) {
-            (void)trap->dtor(caller_env, obj);
-            trap->dtor = NULL;
-        }
-        if (trap->work_env != NULL) {
-            (void)enif_free_env(trap->work_env);
-            trap->work_env = NULL;
-        }
-    }
-    return;
-}
 
 void
 libdecaf_nif_csprng_dtor(ErlNifEnv *caller_env, void *obj)
@@ -78,20 +57,6 @@ libdecaf_nif_ed448_keypair_dtor(ErlNifEnv *caller_env, void *obj)
     return;
 }
 
-void
-libdecaf_nif_hash_dtor(ErlNifEnv *caller_env, void *obj)
-{
-    libdecaf_nif_hash_ctx_t *ctx = (void *)obj;
-    libdecaf_nif_hash_t *hash = NULL;
-    if (ctx != NULL) {
-        XNIF_TRACE_F("libdecaf_nif_hash_dtor:%s:%d\n", __FILE__, __LINE__);
-        hash = libdecaf_nif_hash_from_type(ctx->type);
-        if (hash != NULL) {
-            (void)hash->destroy((void *)ctx);
-        }
-    }
-    return;
-}
 
 /* Static Functions (Declarations) */
 
@@ -195,19 +160,14 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     (void)priv_data;
     (void)load_info;
     /* Load Resource Types */
-#define LOAD_RESOURCE_TYPE(Id)                                                                                                     \
-    libdecaf_nif_##Id##_resource_type = enif_open_resource_type(env, "libdecaf_nif", #Id, libdecaf_nif_##Id##_dtor,                \
-                                                                ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER, NULL);                    \
-    if (libdecaf_nif_##Id##_resource_type == NULL) {                                                                               \
-        retval = -1;                                                                                                               \
-        return -1;                                                                                                                 \
-    }
-    LOAD_RESOURCE_TYPE(trap);
-    LOAD_RESOURCE_TYPE(csprng);
-    LOAD_RESOURCE_TYPE(ed25519_keypair);
-    LOAD_RESOURCE_TYPE(ed448_keypair);
-    LOAD_RESOURCE_TYPE(hash);
-#undef LOAD_RESOURCE_TYPE
+{% for resource in ['csprng', 'ed25519_keypair', 'ed448_keypair'] %}
+    libdecaf_nif_{{ resource }}_resource_type = enif_open_resource_type(
+        env, "libdecaf_nif", "{{ resource }}", libdecaf_nif_{{ resource }}_dtor, ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER, NULL);
+    if (libdecaf_nif_{{ resource }}_resource_type == NULL)
+        return -1;
+{% endfor %}
+    if (libdecaf_nif_hash_load(env) != 0)
+        return -1;
 {% for group in ctx.xof_groups %}
     if (libdecaf_nif_{{ group.name }}_load(env) != 0)
         return -1;
@@ -226,19 +186,14 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
     (void)old_priv_data;
     (void)load_info;
     /* Upgrade Resource Types */
-#define UPGRADE_RESOURCE_TYPE(Id)                                                                                                  \
-    libdecaf_nif_##Id##_resource_type =                                                                                            \
-        enif_open_resource_type(env, "libdecaf_nif", #Id, libdecaf_nif_##Id##_dtor, ERL_NIF_RT_TAKEOVER, NULL);                    \
-    if (libdecaf_nif_##Id##_resource_type == NULL) {                                                                               \
-        retval = -1;                                                                                                               \
-        return -1;                                                                                                                 \
-    }
-    UPGRADE_RESOURCE_TYPE(trap);
-    UPGRADE_RESOURCE_TYPE(csprng);
-    UPGRADE_RESOURCE_TYPE(ed25519_keypair);
-    UPGRADE_RESOURCE_TYPE(ed448_keypair);
-    UPGRADE_RESOURCE_TYPE(hash);
-#undef UPGRADE_RESOURCE_TYPE
+{% for resource in ['csprng', 'ed25519_keypair', 'ed448_keypair'] %}
+    libdecaf_nif_{{ resource }}_resource_type = enif_open_resource_type(
+        env, "libdecaf_nif", "{{ resource }}", libdecaf_nif_{{ resource }}_dtor, ERL_NIF_RT_TAKEOVER, NULL);
+    if (libdecaf_nif_{{ resource }}_resource_type == NULL)
+        return -1;
+{% endfor %}
+    if (libdecaf_nif_hash_load(env) != 0)
+        return -1;
 {% for group in ctx.xof_groups %}
     if (libdecaf_nif_{{ group.name }}_load(env) != 0)
         return -1;

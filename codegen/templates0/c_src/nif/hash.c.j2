@@ -4,57 +4,94 @@
 
 #include "hash.h"
 
-/* Trap Definitions */
+/* Hash state and continuation resources are owned by this implementation. */
+
+static ErlNifResourceType *libdecaf_nif_hash_resource_type = NULL;
+static ErlNifResourceType *libdecaf_nif_hash_trap_resource_type = NULL;
+static ErlNifResourceType *libdecaf_nif_hash_update_trap_resource_type = NULL;
+
+static void
+libdecaf_nif_hash_dtor(ErlNifEnv *env, void *obj)
+{
+    (void)env;
+    libdecaf_nif_hash_ctx_t *ctx = obj;
+    libdecaf_nif_hash_t *hash = libdecaf_nif_hash_from_type(ctx->type);
+    if (hash != NULL) {
+        hash->destroy(ctx);
+    }
+}
+
+/* One-shot hashing retains its private context, input, and output while yielding. */
 
 typedef struct libdecaf_nif_hash_trap_s libdecaf_nif_hash_trap_t;
-static void libdecaf_nif_hash_trap_dtor(ErlNifEnv *caller_env, void *obj);
 
 struct libdecaf_nif_hash_trap_s {
-    libdecaf_nif_trap_t super;
+    ErlNifEnv *work_env;
     libdecaf_nif_hash_t *hash;
     libdecaf_nif_hash_ctx_t *ctx;
     ErlNifBinary input_bin;
     size_t input_off;
     ErlNifBinary output_bin;
-    size_t output_off;
     size_t output_len;
+    bool owns_output;
 };
 
-void
+static void
 libdecaf_nif_hash_trap_dtor(ErlNifEnv *caller_env, void *obj)
 {
+    (void)caller_env;
     libdecaf_nif_hash_trap_t *trap = (void *)obj;
-    if (trap != NULL && trap->ctx != NULL) {
-        XNIF_TRACE_F("libdecaf_nif_hash_trap_dtor:%s:%d\n", __FILE__, __LINE__);
+    if (trap->ctx != NULL) {
         (void)trap->hash->destroy((void *)trap->ctx);
         (void)enif_free((void *)trap->ctx);
         trap->ctx = NULL;
-        (void)enif_release_binary(&trap->output_bin);
+    }
+    if (trap->owns_output) {
+        enif_release_binary(&trap->output_bin);
+    }
+    if (trap->work_env != NULL) {
+        enif_free_env(trap->work_env);
     }
     return;
 }
 
 typedef struct libdecaf_nif_hash_update_trap_s libdecaf_nif_hash_update_trap_t;
-static void libdecaf_nif_hash_update_trap_dtor(ErlNifEnv *caller_env, void *obj);
 
 struct libdecaf_nif_hash_update_trap_s {
-    libdecaf_nif_trap_t super;
+    ErlNifEnv *work_env;
     libdecaf_nif_hash_t *hash;
     libdecaf_nif_hash_ctx_t *new_ctx;
     ErlNifBinary input_bin;
     size_t input_off;
 };
 
-void
+static void
 libdecaf_nif_hash_update_trap_dtor(ErlNifEnv *caller_env, void *obj)
 {
+    (void)caller_env;
     libdecaf_nif_hash_update_trap_t *trap = (void *)obj;
-    if (trap != NULL && trap->new_ctx != NULL) {
-        XNIF_TRACE_F("libdecaf_nif_hash_update_trap_dtor:%s:%d\n", __FILE__, __LINE__);
+    if (trap->new_ctx != NULL) {
         (void)enif_release_resource((void *)trap->new_ctx);
         trap->new_ctx = NULL;
     }
+    if (trap->work_env != NULL) {
+        enif_free_env(trap->work_env);
+    }
     return;
+}
+
+int
+libdecaf_nif_hash_load(ErlNifEnv *env)
+{
+    ErlNifResourceFlags flags = ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER;
+    libdecaf_nif_hash_resource_type = enif_open_resource_type(
+        env, "libdecaf_nif", "hash", libdecaf_nif_hash_dtor, flags, NULL);
+    libdecaf_nif_hash_trap_resource_type = enif_open_resource_type(
+        env, "libdecaf_nif", "libdecaf_nif_hash_trap", libdecaf_nif_hash_trap_dtor, flags, NULL);
+    libdecaf_nif_hash_update_trap_resource_type = enif_open_resource_type(
+        env, "libdecaf_nif", "libdecaf_nif_hash_update_trap", libdecaf_nif_hash_update_trap_dtor, flags, NULL);
+    return libdecaf_nif_hash_resource_type != NULL && libdecaf_nif_hash_trap_resource_type != NULL &&
+           libdecaf_nif_hash_update_trap_resource_type != NULL ? 0 : -1;
 }
 
 /* Legacy Keccak sponge parameters. */
@@ -193,7 +230,7 @@ libdecaf_nif_hash_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     if (is_yielded) {
         BUMP_ALL_REDS(env);
-        libdecaf_nif_hash_trap_t *trap = (void *)enif_alloc_resource(libdecaf_nif_trap_resource_type, sizeof(*trap));
+        libdecaf_nif_hash_trap_t *trap = (void *)enif_alloc_resource(libdecaf_nif_hash_trap_resource_type, sizeof(*trap));
         if (trap == NULL) {
             (void)hash->destroy((void *)ctx);
             (void)enif_free((void *)ctx);
@@ -201,16 +238,14 @@ libdecaf_nif_hash_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
             (void)enif_free_env(work_env);
             return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_trap_t");
         }
-        trap->super.type = LIBDECAF_NIF_TRAP_TYPE_HASH;
-        trap->super.dtor = libdecaf_nif_hash_trap_dtor;
-        trap->super.work_env = work_env;
+        trap->work_env = work_env;
         trap->hash = hash;
         trap->ctx = ctx;
         trap->input_bin = input_bin;
         trap->input_off = slice_len;
         trap->output_bin = output_bin;
-        trap->output_off = 0;
         trap->output_len = output_len;
+        trap->owns_output = true;
         ERL_NIF_TERM newargv[1];
         newargv[0] = enif_make_resource(env, (void *)trap);
         (void)enif_release_resource((void *)trap);
@@ -237,8 +272,7 @@ libdecaf_nif_hash_3_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
     if (argc != 1) {
         return EXCP_NOTSUP(env, "argc must be 1");
     }
-    if (!enif_get_resource(env, argv[0], libdecaf_nif_trap_resource_type, (void **)&trap) ||
-        trap->super.type != LIBDECAF_NIF_TRAP_TYPE_HASH || trap->ctx == NULL || trap->hash->type != trap->ctx->type) {
+    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_trap_resource_type, (void **)&trap) || trap->ctx == NULL || trap->hash->type != trap->ctx->type) {
         return EXCP_BADARG(env, "Bad argument: 'Trap'");
     }
     is_yielded = (nr_of_reductions < (trap->input_bin.size - trap->input_off));
@@ -256,9 +290,11 @@ libdecaf_nif_hash_3_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
         (void)trap->hash->destroy((void *)trap->ctx);
         (void)enif_free((void *)trap->ctx);
         trap->ctx = NULL;
-        (void)enif_free_env(trap->super.work_env);
-        trap->super.work_env = NULL;
-        return enif_make_binary(env, &trap->output_bin);
+        (void)enif_free_env(trap->work_env);
+        trap->work_env = NULL;
+        ERL_NIF_TERM output = enif_make_binary(env, &trap->output_bin);
+        trap->owns_output = false;
+        return output;
     }
 }
 
@@ -351,15 +387,13 @@ libdecaf_nif_hash_update_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     if (is_yielded) {
         BUMP_ALL_REDS(env);
-        libdecaf_nif_hash_update_trap_t *trap = (void *)enif_alloc_resource(libdecaf_nif_trap_resource_type, sizeof(*trap));
+        libdecaf_nif_hash_update_trap_t *trap = (void *)enif_alloc_resource(libdecaf_nif_hash_update_trap_resource_type, sizeof(*trap));
         if (trap == NULL) {
             (void)enif_release_resource((void *)new_ctx);
             (void)enif_free_env(work_env);
             return EXCP_ERROR(env, "Can't allocate libdecaf_nif_hash_update_trap_t");
         }
-        trap->super.type = LIBDECAF_NIF_TRAP_TYPE_HASH_UPDATE;
-        trap->super.dtor = libdecaf_nif_hash_update_trap_dtor;
-        trap->super.work_env = work_env;
+        trap->work_env = work_env;
         trap->hash = hash;
         trap->new_ctx = new_ctx;
         trap->input_bin = input_bin;
@@ -390,8 +424,7 @@ libdecaf_nif_hash_update_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     if (argc != 1) {
         return EXCP_NOTSUP(env, "argc must be 1");
     }
-    if (!enif_get_resource(env, argv[0], libdecaf_nif_trap_resource_type, (void **)&trap) ||
-        trap->super.type != LIBDECAF_NIF_TRAP_TYPE_HASH_UPDATE || trap->new_ctx == NULL ||
+    if (!enif_get_resource(env, argv[0], libdecaf_nif_hash_update_trap_resource_type, (void **)&trap) || trap->new_ctx == NULL ||
         trap->hash->type != trap->new_ctx->type) {
         return EXCP_BADARG(env, "Bad argument: 'Trap'");
     }
@@ -409,8 +442,8 @@ libdecaf_nif_hash_update_2_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM
         new_ctx_term = enif_make_resource(env, (void *)trap->new_ctx);
         (void)enif_release_resource((void *)trap->new_ctx);
         trap->new_ctx = NULL;
-        (void)enif_free_env(trap->super.work_env);
-        trap->super.work_env = NULL;
+        (void)enif_free_env(trap->work_env);
+        trap->work_env = NULL;
         return new_ctx_term;
     }
 }

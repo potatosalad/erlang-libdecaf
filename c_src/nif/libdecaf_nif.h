@@ -18,29 +18,11 @@ extern "C" {
 
 #include "libdecaf_nif_atoms.h"
 
-/* Resource Types and Traps */
+/* Resource Types */
 
-typedef struct libdecaf_nif_trap_s libdecaf_nif_trap_t;
-typedef enum libdecaf_nif_trap_type_t libdecaf_nif_trap_type_t;
-
-enum libdecaf_nif_trap_type_t {
-    LIBDECAF_NIF_TRAP_TYPE_CSPRNG_NEXT,
-    LIBDECAF_NIF_TRAP_TYPE_CSPRNG_STIR,
-    LIBDECAF_NIF_TRAP_TYPE_HASH,
-    LIBDECAF_NIF_TRAP_TYPE_HASH_UPDATE,
-};
-
-struct libdecaf_nif_trap_s {
-    libdecaf_nif_trap_type_t type;
-    void (*dtor)(ErlNifEnv *caller_env, void *obj);
-    ErlNifEnv *work_env;
-};
-
-extern ErlNifResourceType *libdecaf_nif_trap_resource_type;
 extern ErlNifResourceType *libdecaf_nif_csprng_resource_type;
 extern ErlNifResourceType *libdecaf_nif_ed25519_keypair_resource_type;
 extern ErlNifResourceType *libdecaf_nif_ed448_keypair_resource_type;
-extern ErlNifResourceType *libdecaf_nif_hash_resource_type;
 
 /* NIF Utility Macros and Functions */
 

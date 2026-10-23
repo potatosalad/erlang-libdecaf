@@ -10,6 +10,8 @@ Generic fixed-output hashes, grouped XOF APIs, and state isolation.
 -export([
     all/0,
     cancellation/1,
+    fixed_hash_cancellation/1,
+    fixed_hash_trapping/1,
     fixed_hashes/1,
     group_isolation/1,
     parameters/1,
@@ -19,7 +21,17 @@ Generic fixed-output hashes, grouped XOF APIs, and state isolation.
 ]).
 
 all() ->
-    [fixed_hashes, xofs, parameters, group_isolation, public_api, trapping, cancellation].
+    [
+        fixed_hashes,
+        fixed_hash_trapping,
+        fixed_hash_cancellation,
+        xofs,
+        parameters,
+        group_isolation,
+        public_api,
+        trapping,
+        cancellation
+    ].
 
 fixed_hashes(_) ->
     lists:foreach(
@@ -51,6 +63,65 @@ fixed_hashes(_) ->
                 end,
                 [<<>>, <<"abc">>, binary:copy(<<42>>, 65537)]
             )
+        end,
+        fixed_hash_algorithms()
+    ).
+
+fixed_hash_trapping(_) ->
+    Message = binary:copy(<<42>>, 1000001),
+    lists:foreach(
+        fun(Algorithm) ->
+            Initial = libdecaf_nif:hash_init(Algorithm),
+            Expected = libdecaf_nif:hash(Algorithm, Message),
+            Expected = traced(
+                fun() -> libdecaf_nif:hash(Algorithm, [Message]) end,
+                [libdecaf_nif_hash_3_continue]
+            ),
+            <<>> = traced(
+                fun() -> libdecaf_nif:hash(Algorithm, Message, 0) end,
+                [libdecaf_nif_hash_3_continue]
+            ),
+            Updated = traced(
+                fun() -> libdecaf_nif:hash_update(Initial, [Message]) end,
+                [libdecaf_nif_hash_update_2_continue]
+            ),
+            Expected = libdecaf_nif:hash_final(Updated),
+            Expected = libdecaf_nif:hash_final(Updated),
+            lists:foreach(
+                fun(Length) ->
+                    Input = binary:part(Message, 0, Length),
+                    Whole = libdecaf_nif:hash(Algorithm, Input),
+                    <<First:10000/binary, Rest/binary>> = Input,
+                    Split = libdecaf_nif:hash_update(Initial, First),
+                    Joined = libdecaf_nif:hash_update(Split, Rest),
+                    Whole = libdecaf_nif:hash_final(Joined)
+                end,
+                [19999, 20000, 20001, 40000, 40001]
+            ),
+            Empty = libdecaf_nif:hash(Algorithm, <<>>),
+            Empty = libdecaf_nif:hash_final(Initial)
+        end,
+        fixed_hash_algorithms()
+    ).
+
+fixed_hash_cancellation(_) ->
+    Message = binary:copy(<<42>>, 8000001),
+    lists:foreach(
+        fun(Algorithm) ->
+            Initial = libdecaf_nif:hash_init(Algorithm),
+            cancelled(
+                fun() -> libdecaf_nif:hash(Algorithm, Message) end,
+                libdecaf_nif_hash_3_continue
+            ),
+            cancelled(
+                fun() -> libdecaf_nif:hash_update(Initial, Message) end,
+                libdecaf_nif_hash_update_2_continue
+            ),
+            Empty = libdecaf_nif:hash(Algorithm, <<>>),
+            Empty = libdecaf_nif:hash_final(Initial),
+            Updated = libdecaf_nif:hash_update(Initial, <<"abc">>),
+            Expected = libdecaf_nif:hash(Algorithm, <<"abc">>),
+            Expected = libdecaf_nif:hash_final(Updated)
         end,
         fixed_hash_algorithms()
     ).
