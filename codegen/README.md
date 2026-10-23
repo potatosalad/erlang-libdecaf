@@ -14,6 +14,10 @@ just codegen    # Render, format, and sign generated sources
 just format     # Format C, Erlang, templates, and Python sources
 ```
 
+`just docker-codegen` runs generation in a Linux image built by `just docker-build`.
+The image caches the locked Python dependencies separately from the host's `.venv`.
+Docker helpers also cover formatting, locking, signing, and an interactive shell.
+
 With uv installed, the pinned Poetry/export toolchain can run the lock recipe
 without changing the global Poetry installation:
 

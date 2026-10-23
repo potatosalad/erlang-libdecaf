@@ -1,10 +1,10 @@
-export POETRY_VIRTUALENVS_IN_PROJECT := "true"
+export POETRY_VIRTUALENVS_IN_PROJECT := env('POETRY_VIRTUALENVS_IN_PROJECT', 'true')
 
-[working-directory: justfile_directory() / 'codegen']
+[working-directory: 'codegen']
 poetry-install:
     poetry install --no-interaction
 
-[working-directory: justfile_directory() / 'codegen']
+[working-directory: 'codegen']
 poetry-lock:
     poetry lock --regenerate --no-interaction
     poetry install --no-interaction

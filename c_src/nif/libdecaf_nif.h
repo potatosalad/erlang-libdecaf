@@ -8,22 +8,25 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <erl_nif.h>
-
-#include "xnif_trace.h"
+#include "erl_nif_trampoline.h"
+#include "libdecaf_nif_atoms.h"
+#include "core/xnif_trace.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "libdecaf_nif_atoms.h"
+/* NIF Utility Macros */
 
-/* NIF Utility Macros and Functions */
+#ifndef THE_NON_VALUE
+#define THE_NON_VALUE ((ERL_NIF_TERM)0)
+#endif
 
 #ifndef ERL_NIF_NORMAL_JOB_BOUND
 #define ERL_NIF_NORMAL_JOB_BOUND (0)
 #endif
 
+/* Reduction counting helper macros */
 #define REDUCTIONS_UNTIL_YCF_YIELD() (20000)
 #define BUMP_ALL_REDS(env)                                                                                                         \
     do {                                                                                                                           \
@@ -36,17 +39,10 @@ extern "C" {
     } while (0)
 
 /* All nif functions return a valid value or throws an exception */
-#define EXCP(Env, Id, Str)                                                                                                         \
-    enif_raise_exception((Env), enif_make_tuple3((Env), (Id),                                                                      \
-                                                 enif_make_tuple2((Env), enif_make_string((Env), __FILE__, (ERL_NIF_LATIN1)),      \
-                                                                  enif_make_int((Env), __LINE__)),                                 \
-                                                 enif_make_string((Env), (Str), (ERL_NIF_LATIN1))))
+#define EXCP(Env, ClassTerm, ReasonString) xnif_raise_exception((Env), __FILE__, __LINE__, (ClassTerm), (ReasonString))
 
-#define EXCP_F(Env, Id, Fmt, ...)                                                                                                  \
-    enif_raise_exception((Env), enif_make_tuple3((Env), (Id),                                                                      \
-                                                 enif_make_tuple2((Env), enif_make_string((Env), __FILE__, (ERL_NIF_LATIN1)),      \
-                                                                  enif_make_int((Env), __LINE__)),                                 \
-                                                 xnif_make_string_printf((Env), (Fmt), __VA_ARGS__)))
+#define EXCP_F(Env, ClassTerm, ReasonFormat, ...)                                                                                  \
+    xnif_raise_exception_format((Env), __FILE__, __LINE__, (ClassTerm), (ReasonFormat), __VA_ARGS__)
 
 #define EXCP_NOTSUP(Env, Str) EXCP((Env), ATOM(notsup), (Str))
 #define EXCP_BADARG(Env, Str) EXCP((Env), ATOM(badarg), (Str))

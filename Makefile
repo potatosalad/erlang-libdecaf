@@ -145,14 +145,20 @@ format: $(ERLFMT)
 	$(verbose) $(MAKE) -C $(CURDIR)/c_src format
 	$(verbose) $(MAKE) erlfmt
 
-.PHONY: lint lint-eqwalizer lint-format
+.PHONY: lint lint-dialyzer lint-eqwalizer lint-format lint-xref
 
-lint:: lint-format lint-eqwalizer
+lint:: lint-format lint-eqwalizer lint-xref lint-dialyzer
+
+lint-dialyzer:
+	$(verbose) rebar3 dialyzer
 
 lint-eqwalizer: eqwalize-all
 
 lint-format: erlfmt-check
 	$(verbose) $(MAKE) -C $(CURDIR)/c_src lint-format
+
+lint-xref:
+	$(verbose) rebar3 xref
 
 .PHONY: docker-build docker-load docker-setup docker-save docker-shell docker-test
 
