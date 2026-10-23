@@ -92,12 +92,12 @@ later for native Markdown documentation attributes.
 %%%-----------------------------------------------------------------------------
 
 -doc false.
--spec init() -> ok | {error, {atom(), string()}}.
+-spec init() -> Result when Result :: ok | {error, {atom(), string()}}.
 init() ->
     SoName = filename:join(libdecaf:priv_dir(), ?MODULE_STRING),
     erlang:load_nif(SoName, 0).
 
 -doc false.
--spec nif_stub_error(Line :: pos_integer()) -> dynamic().
+-spec nif_stub_error(Line) -> Result when Line :: pos_integer(), Result :: dynamic().
 nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded, module, ?MODULE, line, Line}).

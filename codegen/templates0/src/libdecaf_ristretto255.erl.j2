@@ -1,0 +1,3 @@
+~J{ from 'src/prime_order_group.erl.inc' import implementation with context }.
+~J{ set group = ctx.prime_order_groups | selectattr('name', 'equalto', 'ristretto255') | first }.
+~J< implementation(group) >.

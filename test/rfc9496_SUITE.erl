@@ -1,14 +1,35 @@
 %%% % @format
 -module(rfc9496_SUITE).
 -include_lib("common_test/include/ct.hrl").
--export([all/0, groups/0, init_per_suite/1, end_per_suite/1, init_per_group/2, end_per_group/2]).
--export([multiples/1, invalid_encodings/1, uniform_bytes/1, scalars/1, group_laws/1, precomputed/1, invalid_arguments/1]).
+-export([
+    all/0,
+    documentation/1,
+    end_per_group/2,
+    end_per_suite/1,
+    group_laws/1,
+    groups/0,
+    init_per_group/2,
+    init_per_suite/1,
+    invalid_arguments/1,
+    invalid_encodings/1,
+    multiples/1,
+    precomputed/1,
+    scalars/1,
+    uniform_bytes/1
+]).
 
 all() -> [{group, ristretto255}, {group, decaf448}].
 groups() ->
     [
         {G, [parallel], [
-            multiples, invalid_encodings, uniform_bytes, scalars, group_laws, precomputed, invalid_arguments
+            multiples,
+            invalid_encodings,
+            uniform_bytes,
+            scalars,
+            group_laws,
+            precomputed,
+            invalid_arguments,
+            documentation
         ]}
      || G <- [ristretto255, decaf448]
     ].
@@ -20,13 +41,19 @@ init_per_suite(Config) ->
 end_per_suite(_Config) -> ok.
 init_per_group(Group, Config) ->
     {Module, Bytes, Order} = group(Group),
-    [{module, Module}, {bytes, Bytes}, {order, Order} | proplists:get_value(Group, ?config(vectors, Config))] ++ Config.
+    [
+        {module, Module},
+        {bytes, Bytes},
+        {order, Order}
+        | proplists:get_value(Group, ?config(vectors, Config))
+    ] ++ Config.
 end_per_group(_, _) -> ok.
 
 group(ristretto255) ->
     {libdecaf_ristretto255, 32, (1 bsl 252) + 27742317777372353535851937790883648493};
 group(decaf448) ->
-    {libdecaf_decaf448, 56, (1 bsl 446) - 13818066809895115352007386748515426880336692474882178609894547503885}.
+    {libdecaf_decaf448, 56,
+        (1 bsl 446) - 13818066809895115352007386748515426880336692474882178609894547503885}.
 
 %% RFC 9496 A.1 and B.1: all 16 encodings, addition, and multiplication.
 multiples(Config) ->
@@ -202,6 +229,33 @@ invalid_arguments(Config) ->
         fun() -> M:scalar_invert(Noncanonical) end,
         fun() -> M:scalar_reduce(not_a_binary) end
     ]),
+    ok.
+
+%% Keep the examples that users copy from the generated API documentation executable.
+documentation(Config) ->
+    Module = ?config(module, Config),
+    {ok, {docs_v1, _, erlang, <<"text/markdown">>, ModuleDoc, _, Entries}} = code:get_doc(Module),
+    FunctionDocs = [Doc || {{function, _, _}, _, _, Doc, _} <- Entries],
+    Examples = lists:append([
+        case
+            re:run(maps:get(<<"en">>, Doc), <<"```erlang\\n(.*?)```">>, [
+                global, dotall, {capture, [1], binary}
+            ])
+        of
+            {match, Matches} -> [Example || [Example] <- Matches];
+            nomatch -> []
+        end
+     || Doc <- [ModuleDoc | FunctionDocs]
+    ]),
+    [_ | _] = Examples,
+    lists:foreach(
+        fun(Example) ->
+            {ok, Tokens, _} = erl_scan:string(unicode:characters_to_list(Example)),
+            {ok, Expressions} = erl_parse:parse_exprs(Tokens),
+            {value, _, _} = erl_eval:exprs(Expressions, erl_eval:new_bindings())
+        end,
+        Examples
+    ),
     ok.
 
 integer(I, Bytes) -> <<I:(Bytes * 8)/little>>.

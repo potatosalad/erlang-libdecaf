@@ -54,6 +54,14 @@ templates, registrations, and Erlang bindings. `prime_order_group.c.inc` and
 `decaf448.{c,h}` files. Each implementation owns its aligned precomputation
 tables and resource lifecycle. There are no group-instantiation C macros.
 
+`src/prime_order_group.erl.inc` generates `libdecaf_ristretto255.erl` and
+`libdecaf_decaf448.erl` from the same group metadata and native function contracts.
+These modules call `libdecaf_nif` directly, document canonical encodings and
+validation, and expose an opaque precomputation resource type. Their only
+Erlang-side convenience operation is `scalar_random/0`, which reduces wide
+random input from `crypto`. RFC 9496 tests exercise both public modules and
+execute the examples embedded in their module and function documentation.
+
 `nif.hash` and `nif.xof` are mappings from algorithm names to metadata. Each
 entry gives its upstream context struct and operation symbols. XOF entries also
 specify their API `group`. Fixed-output hashes
@@ -143,6 +151,8 @@ The regular Python test run leaves these integration checks disabled.
 `src/erlang_libdecaf_codegen/context/functions.py` for native exports, specs, and
 documentation. Module initialization is written directly in the template's final
 internal section. Definitions, types, and exports are sorted by name and arity.
+Function specs name every argument and the result, with their types collected
+in a `when` clause. The same spec renderer serves the native and public bindings.
 The codegen recipe formats C and Erlang output before applying content signatures.
 Native Markdown documentation requires OTP 27 or later; CI exercises the latest
 OTP 28 and OTP 29 releases.

@@ -22,6 +22,7 @@ class Function:
     family: str | None = None
     operation: str | None = None
     algorithms: tuple[str, ...] = ()
+    result_name: str = "Result"
 
     @property
     def arity(self) -> int:
@@ -33,8 +34,10 @@ class Function:
 
     @property
     def spec(self) -> str:
-        arguments = ", ".join(f"{argument.name} :: {argument.type}" for argument in self.arguments)
-        return f"{self.name}({arguments}) -> {self.returns}"
+        arguments = ", ".join(argument.name for argument in self.arguments)
+        constraints = [f"{argument.name} :: {argument.type}" for argument in self.arguments]
+        constraints.append(f"{self.result_name} :: {self.returns}")
+        return f"{self.name}({arguments}) -> {self.result_name} when\n    " + ", ".join(constraints)
 
     @property
     def c_name(self) -> str:
@@ -78,6 +81,7 @@ def xof_functions(schema: NIFSchema) -> tuple[Function, ...]:
                 "xof",
                 operation,
                 group.algorithms,
+                {"init": "State", "update": "NewState"}.get(operation, "Output"),
             )
         )
 
@@ -144,85 +148,205 @@ def xof_functions(schema: NIFSchema) -> tuple[Function, ...]:
 def functions(schema: NIFSchema) -> tuple[Function, ...]:
     result: list[Function] = []
 
-    def add(name: str, arguments: list[tuple[str, str]], returns: str, doc: str, group: str) -> None:
-        result.append(Function(name, tuple(Argument(*argument) for argument in arguments), returns, doc, group))
+    def add(name: str, arguments: list[tuple[str, str]], returns: str, doc: str, group: str, result_name: str = "Result") -> None:
+        result.append(
+            Function(name, tuple(Argument(*argument) for argument in arguments), returns, doc, group, result_name=result_name)
+        )
 
     for group in PRIME_ORDER_GROUPS:
         name, byte_count, title = group.name, group.encoding_bytes, group.title
         point, scalar, table = f"{name}_point()", f"{name}_scalar()", f"{name}_precomputed()"
         operations = [
-            ("identity", [], point, f"Return the {title} identity element in its canonical {byte_count}-byte encoding."),
-            ("base", [], point, f"Return the canonical {title} generator encoding."),
+            (
+                "identity",
+                [],
+                point,
+                f"Return the {title} identity element, encoded as {byte_count} zero bytes.\n\n"
+                "Adding this point leaves the other point unchanged. Multiplication by zero\n"
+                "and multiplication of the identity by any scalar both return the identity.",
+            ),
+            (
+                "base",
+                [],
+                point,
+                f"Return the canonical {title} generator from RFC 9496.\n\n"
+                "Use this point for interoperable generator multiplication.\n"
+                "The base-scalar multiplication operation uses its built-in precomputed table.",
+            ),
             (
                 "point_is_valid",
                 [("Point", "term()")],
                 "boolean()",
-                "Check whether a term is a canonical point encoding, including the identity.",
+                f"Return whether `Point` is a valid canonical {byte_count}-byte {title} encoding.\n\n"
+                "The identity is valid. Wrong-sized binaries, noncanonical encodings, and\n"
+                "non-binary terms return `false` instead of raising `badarg`.",
             ),
-            ("point_eq", [("Left", point), ("Right", point)], "boolean()", "Compare two canonical group elements."),
-            ("point_add", [("Left", point), ("Right", point)], point, "Add two group elements."),
-            ("point_sub", [("Left", point), ("Right", point)], point, "Subtract the right group element from the left."),
-            ("point_negate", [("Point", point)], point, "Return the additive inverse of a group element."),
-            ("point_double", [("Point", point)], point, "Double a group element."),
-            ("point_scalarmul", [("Point", point), ("Scalar", scalar)], point, "Multiply a group element by a canonical scalar."),
-            ("base_scalarmul", [("Scalar", scalar)], point, "Multiply the group generator by a canonical scalar."),
+            (
+                "point_eq",
+                [("Left", point), ("Right", point)],
+                "boolean()",
+                "Return whether two encoded points represent the same group element.\n\n"
+                "Both operands are decoded and validated. Invalid encodings raise `badarg`;\n"
+                "`false` means that two valid points differ.",
+            ),
+            (
+                "point_add",
+                [("Left", point), ("Right", point)],
+                point,
+                "Return the canonical encoding of `Left + Right`.\n\n"
+                "Both operands must be valid point encodings; otherwise raises `badarg`.\n"
+                "Adding a point to its negation returns the identity.",
+            ),
+            (
+                "point_sub",
+                [("Left", point), ("Right", point)],
+                point,
+                "Return the canonical encoding of `Left - Right`.\n\n"
+                "Both operands must be valid point encodings; otherwise raises `badarg`.\n"
+                "Subtracting a point from itself returns the identity.",
+            ),
+            (
+                "point_negate",
+                [("Point", point)],
+                point,
+                "Return the additive inverse of `Point` in canonical encoding.\n\n"
+                "The input point and its negation add to the identity.\n"
+                "An invalid point encoding raises `badarg`.",
+            ),
+            (
+                "point_double",
+                [("Point", point)],
+                point,
+                "Return `Point + Point` in canonical encoding.\n\n"
+                "This is equivalent to multiplication by the scalar two.\n"
+                "An invalid point encoding raises `badarg`.",
+            ),
+            (
+                "point_scalarmul",
+                [("Point", point), ("Scalar", scalar)],
+                point,
+                "Return `Scalar * Point` in canonical encoding.\n\n"
+                "The point must be valid and the scalar must already be canonical.\n"
+                "Invalid operands raise `badarg`; zero and the identity are accepted.",
+            ),
+            (
+                "base_scalarmul",
+                [("Scalar", scalar)],
+                point,
+                f"Multiply the canonical {title} generator by `Scalar`.\n\n"
+                "Uses the native library's built-in precomputed generator table.\n"
+                "The scalar must already be canonical; otherwise raises `badarg`.",
+            ),
             (
                 "point_double_scalarmul",
                 [("Point1", point), ("Scalar1", scalar), ("Point2", point), ("Scalar2", scalar)],
                 point,
-                "Compute `Scalar1 * Point1 + Scalar2 * Point2`.",
+                "Return `Scalar1 * Point1 + Scalar2 * Point2` in canonical encoding.\n\n"
+                "Computes the same result as two scalar multiplications followed by addition.\n"
+                "Both points must be valid and both scalars canonical; otherwise raises `badarg`.",
             ),
             (
                 "point_from_hash",
                 [("UniformBytes", "binary()")],
                 point,
-                f"Map {2 * byte_count} uniformly distributed bytes to a group element using RFC 9496 element derivation.\nExpand or hash messages to the required uniform input before calling this function.",
+                f"Derive a {title} element from exactly {2 * byte_count} bytes using RFC 9496.\n\n"
+                "The two halves are mapped separately and their points are added. Uniform\n"
+                "input gives an approximately uniform group element. This operation does\n"
+                "not hash a message: use a protocol-defined, domain-separated hash or XOF\n"
+                "to prepare the input. Wrong-sized binaries and non-binaries raise `badarg`.",
             ),
             (
                 "point_from_hash_nonuniform",
                 [("Bytes", "binary()")],
                 point,
-                f"Apply the upstream single map to {byte_count} bytes.\nIts output distribution differs from the uniform RFC 9496 derivation.",
+                f"Apply the upstream single map to exactly {byte_count} bytes.\n\n"
+                "This is one half of the two-map RFC 9496 derivation. Its output has a\n"
+                "different distribution, so use it only when a protocol requires the single\n"
+                "map. Wrong-sized binaries and non-binaries raise `badarg`.",
             ),
             (
                 "precompute",
                 [("Point", point)],
                 table,
-                "Create an immutable multiplication table for a group element.\nThe returned resource can be shared between processes.",
+                "Build an immutable native multiplication table for `Point`.\n\n"
+                "Reuse the table when multiplying the same point by many scalars.\n"
+                "The resource can be shared between processes and is released automatically\n"
+                f"when no references remain. It is specific to {title}; invalid points raise `badarg`.",
             ),
             (
                 "precomputed_scalarmul",
                 [("Precomputed", table), ("Scalar", scalar)],
                 point,
-                "Multiply the precomputed group element by a canonical scalar.",
+                "Multiply the point stored in `Precomputed` by `Scalar`.\n\n"
+                "The result matches ordinary point-scalar multiplication; the table is unchanged.\n"
+                f"A resource from another group, a non-table term, or a noncanonical {title}\n"
+                "scalar raises `badarg`.",
             ),
             (
                 "scalar_is_canonical",
                 [("Scalar", "term()")],
                 "boolean()",
-                "Check whether a term is a canonical scalar encoding, including zero.",
+                f"Return whether `Scalar` is a canonical {byte_count}-byte little-endian scalar.\n\n"
+                "Its integer value must be smaller than the group order; zero is accepted.\n"
+                "Wrong-sized binaries, out-of-range values, and non-binaries return `false`.",
             ),
             (
                 "scalar_reduce",
                 [("Bytes", "binary()")],
                 scalar,
-                "Reduce an arbitrary-length little-endian integer modulo the group order.",
+                "Reduce an arbitrary-length unsigned little-endian integer modulo the group order.\n\n"
+                f"Returns a canonical {byte_count}-byte scalar. Leading zero bytes at the\n"
+                "most-significant end are allowed, and the empty binary reduces to zero.\n"
+                "This operation does not hash or clamp its input. Non-binaries raise `badarg`.",
             ),
-            ("scalar_add", [("Left", scalar), ("Right", scalar)], scalar, "Add two canonical scalars modulo the group order."),
+            (
+                "scalar_add",
+                [("Left", scalar), ("Right", scalar)],
+                scalar,
+                "Return `(Left + Right) mod l`, where `l` is the group order.\n\n"
+                "Both operands must already be canonical scalars; otherwise raises `badarg`.\n"
+                "The result is canonically encoded.",
+            ),
             (
                 "scalar_sub",
                 [("Left", scalar), ("Right", scalar)],
                 scalar,
-                "Subtract the right scalar from the left modulo the group order.",
+                "Return `(Left - Right) mod l`, where `l` is the group order.\n\n"
+                "Both operands must already be canonical scalars; otherwise raises `badarg`.\n"
+                "A negative difference wraps modulo `l` and the result is canonically encoded.",
             ),
-            ("scalar_mul", [("Left", scalar), ("Right", scalar)], scalar, "Multiply two canonical scalars modulo the group order."),
-            ("scalar_negate", [("Scalar", scalar)], scalar, "Negate a canonical scalar modulo the group order."),
-            ("scalar_halve", [("Scalar", scalar)], scalar, "Divide a canonical scalar by two modulo the group order."),
+            (
+                "scalar_mul",
+                [("Left", scalar), ("Right", scalar)],
+                scalar,
+                "Return `(Left * Right) mod l`, where `l` is the group order.\n\n"
+                "Both operands must already be canonical scalars; otherwise raises `badarg`.\n"
+                "The result is canonically encoded.",
+            ),
+            (
+                "scalar_negate",
+                [("Scalar", scalar)],
+                scalar,
+                "Return `-Scalar mod l`, where `l` is the group order.\n\n"
+                "The result adds to the input to give zero; zero is its own negation.\n"
+                "A noncanonical scalar raises `badarg`.",
+            ),
+            (
+                "scalar_halve",
+                [("Scalar", scalar)],
+                scalar,
+                "Divide `Scalar` by two modulo the group order.\n\n"
+                "This is multiplication by the modular inverse of two, rather than integer\n"
+                "division. Adding the result to itself recovers the input, including for odd\n"
+                "scalars. A noncanonical scalar raises `badarg`.",
+            ),
             (
                 "scalar_invert",
                 [("Scalar", scalar)],
                 f"{scalar} | error",
-                "Invert a scalar modulo the group order, returning `error` for zero.",
+                "Return the multiplicative inverse of `Scalar` modulo the group order.\n\n"
+                "Multiplying a nonzero scalar by its inverse gives the canonical scalar one.\n"
+                "Zero has no inverse and returns `error`. Noncanonical scalars raise `badarg`.",
             ),
         ]
         for operation, arguments, returns, doc in operations:
@@ -326,13 +450,13 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
     hash_operations = [
         (
             "hash",
-            [("Type", "hash_algorithm()"), ("Input", "iodata()")],
+            [("Type", "hash_algorithm()"), ("Data", "iodata()")],
             "binary()",
             "Hash iodata using the configured default digest length.",
         ),
         (
             "hash",
-            [("Type", "hash_algorithm()"), ("Input", "iodata()"), ("Length", "non_neg_integer()")],
+            [("Type", "hash_algorithm()"), ("Data", "iodata()"), ("Length", "non_neg_integer()")],
             "binary()",
             "Hash iodata and return Length bytes. The length must not exceed the configured maximum for the algorithm.",
         ),
@@ -344,7 +468,7 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         ),
         (
             "hash_update",
-            [("State", "hash_state()"), ("Input", "iodata()")],
+            [("State", "hash_state()"), ("Data", "iodata()")],
             "hash_state()",
             "Absorb iodata and return a new native hash state. The original state remains reusable.",
         ),
@@ -362,7 +486,8 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         ),
     ]
     for name, arguments, returns, doc in hash_operations:
-        add(name, arguments, returns, doc, "Hash API")
+        result_name = {"hash_init": "State", "hash_update": "NewState"}.get(name, "Digest")
+        add(name, arguments, returns, doc, "Hash API", result_name=result_name)
     result.extend(xof_functions(schema))
 
     rng = [

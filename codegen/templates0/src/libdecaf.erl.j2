@@ -695,7 +695,7 @@ hash_update(State, Data) ->
 %%%-----------------------------------------------------------------------------
 
 -doc false.
--spec priv_dir() -> file:filename_all().
+-spec priv_dir() -> Directory when Directory :: file:filename_all().
 priv_dir() ->
     case code:priv_dir(?MODULE) of
         {error, bad_name} ->
