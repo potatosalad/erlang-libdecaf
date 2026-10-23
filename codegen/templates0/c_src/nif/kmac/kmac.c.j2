@@ -1,0 +1,195 @@
+/* clang-format off */ //-
+{% from 'c_src/nif/xof/lifecycle.c.inc' import lifecycle %}
+{% set p = 'libdecaf_nif_kmac' %}
+{% set profile = ctx.schema.nif.kmac.values() | first %}
+#include <keccak_internal.h>
+#include "kmac.h"
+#include <stdbool.h>
+#include <decaf/shake.h>
+
+typedef {{ profile.context }} {{ p }}_ctx_t;
+
+/* SP 800-185 integer encodings use big-endian bytes and a one-byte length. */
+static size_t
+{{ p }}_left_encode(size_t value, uint8_t *encoded)
+{
+    size_t bytes = 1;
+    for (size_t remaining = value; (remaining >>= 8) != 0; bytes++) {
+    }
+    encoded[0] = (uint8_t)bytes;
+    for (size_t i = 0; i < bytes; i++) {
+        encoded[bytes - i] = (uint8_t)(value >> (8 * i));
+    }
+    return bytes + 1;
+}
+
+static size_t
+{{ p }}_right_encode(size_t value, uint8_t *encoded)
+{
+    size_t bytes = {{ p }}_left_encode(value, encoded) - 1;
+    memmove(encoded, encoded + 1, bytes);
+    encoded[bytes] = (uint8_t)bytes;
+    return bytes + 1;
+}
+
+static bool
+{{ p }}_binary(ErlNifEnv *env, const uint8_t *input, size_t length, ERL_NIF_TERM *term)
+{
+    uint8_t *data = enif_make_new_binary(env, length, term);
+    if (length != 0) {
+        if (data == NULL)
+            return false;
+        if (input != NULL)
+            memcpy(data, input, length);
+        else
+            decaf_bzero(data, length);
+    }
+    return true;
+}
+
+static bool
+{{ p }}_select(ErlNifEnv *env, ERL_NIF_TERM algorithm, {{ p }}_ctx_t *state)
+{
+{% for name, algorithm in ctx.schema.nif.kmac | dictsort %}
+    if (enif_is_identical(algorithm, ATOM({{ name }}))) {
+        {{ algorithm.init }}(state);
+        state->params->rate = {{ algorithm.rate }};
+        state->params->pad = 0x04;
+        return true;
+    }
+{% endfor %}
+    return false;
+}
+
+/* Build bytepad(encode_string("KMAC") || encode_string(S), rate) followed
+ * by bytepad(encode_string(K), rate). The KMAC-owned absorb continuation
+ * handles long keys and customization strings with the message's budget.
+ * Return 1 on success, 0 for invalid input, -1 for allocation failure. */
+static int
+{{ p }}_prefix(ErlNifEnv *env, size_t rate, ERL_NIF_TERM key_term,
+              ERL_NIF_TERM custom_term, ERL_NIF_TERM *prefix)
+{
+    ErlNifBinary key, custom;
+    if (!enif_inspect_iolist_as_binary(env, key_term, &key) ||
+        !enif_inspect_iolist_as_binary(env, custom_term, &custom) ||
+        key.size > SIZE_MAX / 8 || custom.size > SIZE_MAX / 8) {
+        return 0;
+    }
+    uint8_t domain[3 * (sizeof(size_t) + 1) + 4], encoded_key[2 * (sizeof(size_t) + 1)];
+    size_t domain_len = {{ p }}_left_encode(rate, domain);
+    domain_len += {{ p }}_left_encode(4 * 8, domain + domain_len);
+    memcpy(domain + domain_len, "KMAC", 4);
+    domain_len += 4;
+    domain_len += {{ p }}_left_encode(custom.size * 8, domain + domain_len);
+    size_t key_len = {{ p }}_left_encode(rate, encoded_key);
+    key_len += {{ p }}_left_encode(key.size * 8, encoded_key + key_len);
+    size_t domain_padding = (rate - (domain_len + custom.size % rate) % rate) % rate;
+    size_t key_padding = (rate - (key_len + key.size % rate) % rate) % rate;
+    ERL_NIF_TERM parts[6];
+    if (!{{ p }}_binary(env, domain, domain_len, &parts[0]) ||
+        !{{ p }}_binary(env, NULL, domain_padding, &parts[2]) ||
+        !{{ p }}_binary(env, encoded_key, key_len, &parts[3]) ||
+        !{{ p }}_binary(env, NULL, key_padding, &parts[5])) {
+        return -1;
+    }
+    parts[1] = custom_term;
+    parts[4] = key_term;
+    *prefix = enif_make_list_from_array(env, parts, 6);
+    return 1;
+}
+
+{{ lifecycle(p, profile.update, profile.output, profile.destroy, private_state=true, wipe_output=true) }}
+
+/* Append right_encode(L) once, before any output is emitted. L is in bits;
+ * the Erlang API uses bytes. Published absorbing states remain unchanged. */
+static ERL_NIF_TERM
+{{ p }}_finish(ErlNifEnv *env, const {{ p }}_ctx_t *old_state, size_t output_len, size_t remaining)
+{
+    {{ p }}_ctx_t state = *old_state;
+    uint8_t encoded[sizeof(size_t) + 1];
+    size_t length = {{ p }}_right_encode(output_len * 8, encoded);
+    {{ profile.update }}(&state, encoded, length);
+    remaining = remaining > length ? remaining - length : 0;
+    ERL_NIF_TERM result = {{ p }}_squeeze(env, &state, output_len, remaining);
+    {{ profile.destroy }}(&state);
+    return result;
+}
+
+ERL_NIF_TERM
+{{ p }}_init_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    {{ p }}_ctx_t state;
+    if (argc != 3 || !{{ p }}_select(env, argv[0], &state)) {
+        return EXCP_BADARG(env, "Algorithm must be kmac128 or kmac256");
+    }
+    ERL_NIF_TERM prefix;
+    int status = {{ p }}_prefix(env, state.params->rate, argv[1], argv[2], &prefix);
+    if (status != 1) {
+        {{ profile.destroy }}(&state);
+        return status == 0 ? EXCP_BADARG(env, "Key and Customization must be iodata with encodable bit lengths") :
+                             EXCP_ERROR(env, "Can't allocate KMAC prefix");
+    }
+    ERL_NIF_TERM result = {{ p }}_absorb(env, &state, prefix, {{ p }}_make_state, 0);
+    {{ profile.destroy }}(&state);
+    return result;
+}
+
+ERL_NIF_TERM
+{{ p }}_init_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    if (argc != 2)
+        return enif_make_badarg(env);
+    ERL_NIF_TERM args[] = {argv[0], argv[1], enif_make_list(env, 0)};
+    return {{ p }}_init_3(env, 3, args);
+}
+
+ERL_NIF_TERM
+{{ p }}_5(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned long output_len;
+    if (argc != 5 || !enif_get_ulong(env, argv[3], &output_len) || output_len > SIZE_MAX / 8) {
+        return EXCP_BADARG(env, "Length must be a non-negative byte count with an encodable bit length");
+    }
+    if (!enif_is_binary(env, argv[2]) && !enif_is_list(env, argv[2])) {
+        return EXCP_BADARG(env, "Data must be iodata");
+    }
+    {{ p }}_ctx_t state;
+    if (!{{ p }}_select(env, argv[0], &state)) {
+        return EXCP_BADARG(env, "Algorithm must be kmac128 or kmac256");
+    }
+    ERL_NIF_TERM prefix;
+    int status = {{ p }}_prefix(env, state.params->rate, argv[1], argv[4], &prefix);
+    if (status != 1) {
+        {{ profile.destroy }}(&state);
+        return status == 0 ? EXCP_BADARG(env, "Key and Customization must be iodata with encodable bit lengths") :
+                             EXCP_ERROR(env, "Can't allocate KMAC prefix");
+    }
+    ERL_NIF_TERM input = enif_make_list2(env, prefix, argv[2]);
+    ERL_NIF_TERM result = {{ p }}_absorb(env, &state, input, {{ p }}_finish, output_len);
+    {{ profile.destroy }}(&state);
+    return result;
+}
+
+ERL_NIF_TERM
+{{ p }}_4(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    if (argc != 4)
+        return enif_make_badarg(env);
+    ERL_NIF_TERM args[] = {argv[0], argv[1], argv[2], argv[3], enif_make_list(env, 0)};
+    return {{ p }}_5(env, 5, args);
+}
+
+ERL_NIF_TERM
+{{ p }}_final_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    {{ p }}_ctx_t *state;
+    if (argc != 2 || !enif_get_resource(env, argv[0], {{ p }}_resource_type, (void **)&state)) {
+        return EXCP_BADARG(env, "State must be a KMAC resource");
+    }
+    unsigned long output_len;
+    if (!enif_get_ulong(env, argv[1], &output_len) || output_len > SIZE_MAX / 8) {
+        return EXCP_BADARG(env, "Length must be a non-negative byte count with an encodable bit length");
+    }
+    return {{ p }}_finish(env, state, output_len, REDUCTIONS_UNTIL_YCF_YIELD());
+}
+/* clang-format on */ //-

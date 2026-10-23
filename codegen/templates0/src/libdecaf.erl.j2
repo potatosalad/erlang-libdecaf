@@ -7,7 +7,7 @@ Cryptographic primitives backed by libdecaf.
 
 Provides Ed25519/Ed448 signatures, X25519/X448 key agreement,
 Ristretto255/Decaf448 groups, SHA-2/SHA-3 and Keccak hashes, SHAKE, cSHAKE,
-Keccak XOFs, TurboSHAKE, KangarooTwelve, and the sponge PRNG.
+Keccak XOFs, TurboSHAKE, KangarooTwelve, KMAC, and the sponge PRNG.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2016-02-06", modified => "2026-10-22"}.
@@ -22,6 +22,12 @@ Keccak XOFs, TurboSHAKE, KangarooTwelve, and the sponge PRNG.
     hash_init/1,
     hash_update/2
 ]).
+%% KMAC API
+-export([
+~J{ for function in ctx.kmac_functions }.
+    ~J< function.name >./~J< function.arity >.~J< ',' if not loop.last else '' >.
+~J{ endfor }.
+]).
 %% XOF API
 -export([
 ~J{ for function in ctx.xof_functions }.
@@ -31,6 +37,8 @@ Keccak XOFs, TurboSHAKE, KangarooTwelve, and the sponge PRNG.
 -export_type([
     hash_algorithm/0,
     hash_state/0,
+    kmac_algorithm/0,
+    kmac_state/0,
 ~J{ for name, definition, doc in ctx.types if name.startswith('xof_') }.
     ~J< name >./0~J< ',' if not loop.last else '' >.
 ~J{ endfor }.
@@ -234,6 +242,13 @@ Updates return new resources; finalization leaves the input resource reusable.
 """.
 -opaque hash_state() :: libdecaf_nif:hash_state().
 
+~J{ for name, definition, doc in ctx.types if name.startswith('kmac_') }.
+-doc """
+~J< doc >.
+""".
+-~J< 'opaque' if name == 'kmac_state' else 'type' >. ~J< name >.() :: libdecaf_nif:~J< name >.().
+
+~J{ endfor }.
 ~J{ for name, definition, doc in ctx.types if name.startswith('xof_') }.
 -doc """
 ~J< doc >.
@@ -334,6 +349,22 @@ The original state remains reusable; continue hashing with the returned state.
 hash_update(State, Data) ->
     libdecaf_nif:hash_update(State, Data).
 
+%%%=============================================================================
+%%% KMAC API functions
+%%%=============================================================================
+
+~J{ from 'src/kmac_examples.erl.inc' import kmac_example }.
+~J{ for function in ctx.kmac_functions }.
+-doc """
+~J< function.doc >.
+~J< kmac_example(function.name, function.arity) >.
+""".
+-doc #{group => "KMAC API"}.
+-spec ~J< function.spec >..
+~J< function.name >.(~J< function.arguments | map(attribute='name') | join(', ') >.) ->
+    libdecaf_nif:~J< function.name >.(~J< function.arguments | map(attribute='name') | join(', ') >.).
+
+~J{ endfor }.
 %%%=============================================================================
 %%% XOF API functions
 %%%=============================================================================

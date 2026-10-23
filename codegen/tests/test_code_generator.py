@@ -92,7 +92,7 @@ def test_regeneration_is_stable_and_removes_stale_atoms(tmp_path):
     assert atom_names(nif) == ["configured", "new_atom"]
 
 
-@pytest.mark.parametrize("field", ["atoms", "hash", "xof"])
+@pytest.mark.parametrize("field", ["atoms", "hash", "kmac", "xof"])
 @pytest.mark.parametrize("names", [["not-an-identifier"], ["same", "same"]])
 def test_invalid_name_configuration_is_rejected(field, names):
     with pytest.raises(ValidationError):
@@ -108,6 +108,7 @@ def test_algorithm_names_seed_atoms_without_literal_references(tmp_path):
             {
                 "nif": {
                     "hash": {"sha2_512": profiles["hash"]["sha2_512"]},
+                    "kmac": {"kmac128": profiles["kmac"]["kmac128"]},
                     "xof": {"shake256": profiles["xof"]["shake256"]},
                 }
             }
@@ -115,7 +116,7 @@ def test_algorithm_names_seed_atoms_without_literal_references(tmp_path):
     )
     codegen = CodeGenerator(codegen.config_file, codegen.output_path, codegen.templates0_path, codegen.templates1_path)
     codegen.render()
-    assert atom_names(nif) == ["sha2_512", "shake256"]
+    assert atom_names(nif) == ["kmac128", "sha2_512", "shake256"]
 
 
 def test_unadapted_reference_configuration_is_rejected():

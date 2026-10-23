@@ -89,6 +89,21 @@ nif:
       update: decaf_sha3_512_update
       final: decaf_sha3_512_final
       destroy: decaf_sha3_512_destroy
+  kmac:
+    kmac128:
+      context: decaf_keccak_sponge_s
+      rate: 168
+      init: decaf_shake128_gen_init
+      update: decaf_sha3_update
+      output: decaf_sha3_output
+      destroy: decaf_sha3_destroy
+    kmac256:
+      context: decaf_keccak_sponge_s
+      rate: 136
+      init: decaf_shake256_gen_init
+      update: decaf_sha3_update
+      output: decaf_sha3_output
+      destroy: decaf_sha3_destroy
   xof:
     cshake128:
       group: cshake

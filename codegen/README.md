@@ -70,6 +70,14 @@ They call the current NIF APIs directly while preserving tagged
 argument errors. Module and function documentation points callers to
 `libdecaf:hash*` and `libdecaf:xof_sha3*`, which use unwrapped native states.
 
+`nif.kmac` configures KMAC128 and KMAC256. `kmac/kmac.{c,h}` owns its
+keyed state and absorb/squeeze continuation resources, using the shared sponge
+lifecycle template to emit ordinary component-specific C functions. The KMAC
+template constructs both SP 800-185 bytepad prefixes and appends the requested
+bit length before squeezing; the Erlang API measures lengths in bytes. This
+is length-bound KMAC, so shorter tags must be computed at the requested length.
+Its public and native bindings share generated specs, docs, and exports.
+
 `nif.hash` and `nif.xof` are mappings from algorithm names to metadata. Each
 entry gives its upstream context struct and operation symbols. XOF entries also
 specify their API `group`. Fixed-output hashes

@@ -9,6 +9,7 @@
   * Fix native dependency ordering and rebuilds, and update macOS linking flags.
   * Fix empty-message null-pointer contract violations in the vendored EdDSA and SHA-512 wrappers.
 * Library Support
+  * SP 800-185 KMAC128 and KMAC256 with customization, immutable incremental states, dedicated NIF resources, and all KMAC vectors from draft-ietf-ipsecme-sha3-02 and NIST's six samples.
   * RFC 9861 KangarooTwelve KT128 and KT256 with one-shot and incremental customization support.
   * RFC 9861 TurboSHAKE128 and TurboSHAKE256 with configurable domain separation bytes.
   * cSHAKE128 and cSHAKE256 with SP 800-185 function-name and customization strings.

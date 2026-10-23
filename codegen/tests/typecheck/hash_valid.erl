@@ -5,6 +5,8 @@
     cshake/0,
     fixed/0,
     kt/0,
+    kmac/0,
+    public_kmac/0,
     public_cshake/0,
     public_keccak/0,
     public_kt/0,
@@ -31,6 +33,18 @@ kt() ->
     Initial = libdecaf_nif:xof_kt_init(kt128),
     State = libdecaf_nif:xof_kt_update(Initial, <<"abc">>),
     libdecaf_nif:xof_kt_final(State, 32, <<"example">>).
+
+-spec kmac() -> Tag when Tag :: binary().
+kmac() ->
+    Initial = libdecaf_nif:kmac_init(kmac128, <<"key">>),
+    State = libdecaf_nif:kmac_update(Initial, <<"abc">>),
+    libdecaf_nif:kmac_final(State, 32).
+
+-spec public_kmac() -> Tag when Tag :: binary().
+public_kmac() ->
+    Initial = libdecaf:kmac_init(kmac256, <<"key">>, <<"example">>),
+    State = libdecaf:kmac_update(Initial, <<"abc">>),
+    libdecaf:kmac_final(State, 32).
 
 -spec shake() -> binary().
 shake() ->

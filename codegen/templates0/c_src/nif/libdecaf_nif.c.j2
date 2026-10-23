@@ -6,6 +6,7 @@
 #include "curve448/ed448.h"
 #include "curve448/x448.h"
 #include "hash/hash.h"
+#include "kmac/kmac.h"
 {% for group in ctx.xof_groups %}
 #include "xof/{{ group.name }}.h"
 {% endfor %}
@@ -59,8 +60,12 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"hash_final", 2, libdecaf_nif_hash_final_2, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_init", 1, libdecaf_nif_hash_init_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"hash_update", 2, libdecaf_nif_hash_update_2, ERL_NIF_NORMAL_JOB_BOUND},
+    /* KMAC API. */
+{% for function in ctx.kmac_functions %}
+    {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_NORMAL_JOB_BOUND},
+{% endfor %}
     /* Grouped XOF APIs. */
-{% for function in ctx.nif.functions if function.family is not none %}
+{% for function in ctx.xof_functions %}
     {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_NORMAL_JOB_BOUND},
 {% endfor %}
     /* decaf/spongerng.h */
@@ -90,6 +95,8 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
         return -1;
     if (libdecaf_nif_hash_load(env) != 0)
         return -1;
+    if (libdecaf_nif_kmac_load(env) != 0)
+        return -1;
 {% for group in ctx.xof_groups %}
     if (libdecaf_nif_{{ group.name }}_load(env) != 0)
         return -1;
@@ -117,6 +124,8 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
     if (libdecaf_nif_ed448_load(env) != 0)
         return -1;
     if (libdecaf_nif_hash_load(env) != 0)
+        return -1;
+    if (libdecaf_nif_kmac_load(env) != 0)
         return -1;
 {% for group in ctx.xof_groups %}
     if (libdecaf_nif_{{ group.name }}_load(env) != 0)

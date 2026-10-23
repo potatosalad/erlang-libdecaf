@@ -65,6 +65,54 @@
       "title": "Hash",
       "type": "object"
     },
+    "KMAC": {
+      "additionalProperties": false,
+      "properties": {
+        "context": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Context",
+          "type": "string"
+        },
+        "init": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Init",
+          "type": "string"
+        },
+        "update": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Update",
+          "type": "string"
+        },
+        "destroy": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Destroy",
+          "type": "string"
+        },
+        "rate": {
+          "enum": [
+            136,
+            168
+          ],
+          "title": "Rate",
+          "type": "integer"
+        },
+        "output": {
+          "pattern": "^[a-z][a-zA-Z0-9_]*$",
+          "title": "Output",
+          "type": "string"
+        }
+      },
+      "required": [
+        "context",
+        "init",
+        "update",
+        "destroy",
+        "rate",
+        "output"
+      ],
+      "title": "KMAC",
+      "type": "object"
+    },
     "NIF": {
       "additionalProperties": false,
       "properties": {
@@ -83,6 +131,15 @@
             }
           },
           "title": "Hash",
+          "type": "object"
+        },
+        "kmac": {
+          "patternProperties": {
+            "^[a-z][a-zA-Z0-9_]*$": {
+              "$ref": "#/$defs/KMAC"
+            }
+          },
+          "title": "Kmac",
           "type": "object"
         },
         "xof": {

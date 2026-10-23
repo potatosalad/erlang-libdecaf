@@ -46,9 +46,15 @@ class XOF(Algorithm):
         return self
 
 
+class KMAC(Algorithm):
+    rate: Literal[136, 168]
+    output: CIdentifier
+
+
 class NIF(Model):
     atoms: list[CIdentifier] = Field(default_factory=list)
     hash: dict[CIdentifier, Hash] = Field(default_factory=dict)
+    kmac: dict[CIdentifier, KMAC] = Field(default_factory=dict)
     xof: dict[CIdentifier, XOF] = Field(default_factory=dict)
 
     @model_validator(mode="after")

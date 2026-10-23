@@ -1,7 +1,7 @@
-{% macro lifecycle(p, update, output, destroy) %}
+{% macro lifecycle(p, update, output, destroy, private_state=false, wipe_output=false) %}
 /* Each family owns its state and continuation resources. No state is shared
  * with a caller while it is being absorbed or squeezed. */
-ErlNifResourceType *{{ p }}_resource_type = NULL;
+{{ 'static ' if private_state else '' }}ErlNifResourceType *{{ p }}_resource_type = NULL;
 static ErlNifResourceType *{{ p }}_absorb_resource_type = NULL;
 static ErlNifResourceType *{{ p }}_squeeze_resource_type = NULL;
 
@@ -51,6 +51,9 @@ static void
     {{ p }}_squeeze_trap_t *trap = obj;
     {{ destroy }}(&trap->state);
     if (trap->owns_output) {
+{% if wipe_output %}
+        decaf_bzero(trap->output.data, trap->output.size);
+{% endif %}
         enif_release_binary(&trap->output);
     }
 }
@@ -191,6 +194,9 @@ static ERL_NIF_TERM
     {{ p }}_squeeze_trap_t *trap = enif_alloc_resource({{ p }}_squeeze_resource_type, sizeof(*trap));
     if (trap == NULL) {
         {{ destroy }}(&state);
+{% if wipe_output %}
+        decaf_bzero(binary.data, binary.size);
+{% endif %}
         enif_release_binary(&binary);
         return EXCP_ERROR(env, "Can't allocate {{ p }} squeeze continuation");
     }

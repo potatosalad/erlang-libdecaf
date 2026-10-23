@@ -358,6 +358,23 @@ Hash or expand messages to the required length before calling this function.
 Point and scalar operations also have prefixed entry points on `libdecaf`, such
 as `libdecaf:ristretto255_point_add/2`.
 
+### KMAC
+
+`libdecaf:kmac/4,5` implements SP 800-185 KMAC128 and KMAC256. Keys,
+messages, and optional customization accept iodata. Output lengths are in bytes
+and are bound into the tag: compute at the required length instead of truncating.
+
+```erlang
+Key = list_to_binary(lists:seq(16#40, 16#5F)),
+Tag = libdecaf:kmac(kmac128, Key, <<0, 1, 2, 3>>, 32),
+<<"E5780B0D3EA6F7D3A429C5706AA43A00FADBD7D49628839E3187243F456EE14E">> = binary:encode_hex(Tag).
+```
+
+For incremental input, use `kmac_init/2,3`, `kmac_update/2`, and `kmac_final/2`.
+States are immutable and contain keyed contexts; keep them private like the key.
+NIST-approved uses require at least 16 key bytes for KMAC128 or 32 for KMAC256.
+The primitive also permits shorter keys as defined by the standard.
+
 ### KECCAK
 
 ##### SPONGERNG

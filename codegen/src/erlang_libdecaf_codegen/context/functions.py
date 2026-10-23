@@ -145,6 +145,84 @@ def xof_functions(schema: NIFSchema) -> tuple[Function, ...]:
     return tuple(sorted(result, key=lambda function: (function.name, function.arity)))
 
 
+def kmac_functions(schema: NIFSchema) -> tuple[Function, ...]:
+    if not schema.kmac:
+        return ()
+    result = []
+
+    def add(name, arguments, returns, doc, result_name):
+        result.append(
+            Function(
+                name,
+                tuple(Argument(*argument) for argument in arguments),
+                returns,
+                doc,
+                "KMAC API",
+                family="kmac",
+                algorithms=tuple(sorted(schema.kmac)),
+                result_name=result_name,
+            )
+        )
+
+    basic = [("Type", "kmac_algorithm()"), ("Key", "iodata()"), ("Data", "iodata()"), ("Length", "non_neg_integer()")]
+    custom = [("Customization", "iodata()")]
+    init = [("Type", "kmac_algorithm()"), ("Key", "iodata()")]
+    add(
+        "kmac",
+        basic,
+        "binary()",
+        "Compute a KMAC128 or KMAC256 tag with empty customization.\n\n"
+        "`Length` is the requested number of bytes, including zero. KMAC encodes this\n"
+        "length into the computation: requesting fewer bytes changes the tag rather\n"
+        "than truncating a longer result. Keys and messages accept iodata.\n"
+        "The primitive accepts any key length; NIST-approved uses require at least\n"
+        "16 key bytes for KMAC128 or 32 for KMAC256 (SP 800-185r1 IPD, Section 9.4.1).",
+        "Tag",
+    )
+    add(
+        "kmac",
+        basic + custom,
+        "binary()",
+        "Compute a KMAC tag using SP 800-185 customization iodata.\n\n"
+        "`Customization` provides domain separation; use an empty string for the\n"
+        "IPsec/IKEv2 constructions in draft-ietf-ipsecme-sha3-02. `Length` is in\n"
+        "bytes and is bound into the computation, so tags must not be truncated.",
+        "Tag",
+    )
+    for arguments in (init, init + custom):
+        add(
+            "kmac_init",
+            arguments,
+            "kmac_state()",
+            "Create an immutable keyed KMAC state for incremental messages.\n\n"
+            + ("Customization defaults to the empty string. " if arguments == init else "Customization accepts iodata. ")
+            + "The native state retains the algorithm\n"
+            "and keyed sponge context. Keep it private like the key; updates return\n"
+            "new states and finalization leaves the input state reusable.",
+            "State",
+        )
+    add(
+        "kmac_update",
+        [("State", "kmac_state()"), ("Data", "iodata()")],
+        "kmac_state()",
+        "Absorb message iodata and return a new keyed KMAC state.\n\n"
+        "The original state remains reusable. States from hash or XOF APIs are\n"
+        "incompatible and raise an argument error.",
+        "NewState",
+    )
+    add(
+        "kmac_final",
+        [("State", "kmac_state()"), ("Length", "non_neg_integer()")],
+        "binary()",
+        "Return a KMAC tag of exactly `Length` bytes without changing the state.\n\n"
+        "Each call binds the requested length into the tag. To obtain a shorter\n"
+        "tag, finalize again at that length; truncating a longer tag is incorrect.\n"
+        "The state remains usable for additional updates or finalizations.",
+        "Tag",
+    )
+    return tuple(sorted(result, key=lambda function: (function.name, function.arity)))
+
+
 def functions(schema: NIFSchema) -> tuple[Function, ...]:
     result: list[Function] = []
 
@@ -489,6 +567,7 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         result_name = {"hash_init": "State", "hash_update": "NewState"}.get(name, "Digest")
         add(name, arguments, returns, doc, "Hash API", result_name=result_name)
     result.extend(xof_functions(schema))
+    result.extend(kmac_functions(schema))
 
     rng = [
         (
@@ -546,6 +625,13 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
         ),
         ("spongerng_state", "erlang:nif_resource()", "A sponge PRNG resource. Continue with each operation's returned state."),
     ]
+    if schema.kmac:
+        result.extend(
+            [
+                ("kmac_algorithm", " | ".join(sorted(schema.kmac)), "SP 800-185 KMAC variants accepted by the KMAC API."),
+                ("kmac_state", "erlang:nif_resource()", "An immutable keyed KMAC resource. Keep this state private like its key."),
+            ]
+        )
     for group in xof_groups(schema):
         result.append((group.algorithm_type, " | ".join(group.algorithms), f"Algorithms accepted by `{group.name}/3`."))
         result.append(

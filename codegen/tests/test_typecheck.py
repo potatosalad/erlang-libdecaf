@@ -76,7 +76,7 @@ def test_dialyzer_rejects_wrong_groups_and_parameters(project):
     assert valid.returncode == 0, valid.stdout
     invalid = run(*base, "src/hash_invalid.erl", cwd=directory)
     assert invalid.returncode == 2, invalid.stdout
-    for function in ("hash_update", "xof_sha3_update", "xof_turboshake_init", "xof_kt_init"):
+    for function in ("hash_update", "kmac_init", "kmac_update", "xof_sha3_update", "xof_turboshake_init", "xof_kt_init"):
         assert function in invalid.stdout, invalid.stdout
     assert "libdecaf:xof_sha3_update" in invalid.stdout, invalid.stdout
     assert "breaks the contract" in invalid.stdout, invalid.stdout

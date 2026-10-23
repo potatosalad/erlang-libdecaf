@@ -19,7 +19,7 @@ class Context:
 
     def reset_atoms(self) -> None:
         self.nif = NIF(functions=functions(self.schema.nif))
-        for name in self.schema.nif.atoms + list(self.schema.nif.hash) + list(self.schema.nif.xof):
+        for name in self.schema.nif.atoms + list(self.schema.nif.hash) + list(self.schema.nif.kmac) + list(self.schema.nif.xof):
             self.nif.make_atom(name)
 
     @property
@@ -28,7 +28,11 @@ class Context:
 
     @property
     def opaque_type_names(self) -> set[str]:
-        return {"hash_state"} | {group.state_type for group in xof_groups(self.schema.nif)}
+        return {"hash_state", "kmac_state"} | {group.state_type for group in xof_groups(self.schema.nif)}
+
+    @property
+    def kmac_functions(self) -> tuple[Function, ...]:
+        return tuple(function for function in self.nif.functions if function.family == "kmac")
 
     @property
     def xof_functions(self) -> tuple[Function, ...]:

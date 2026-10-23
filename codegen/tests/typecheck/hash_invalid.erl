@@ -5,6 +5,8 @@
     algorithm/0,
     domain/0,
     fixed_state/0,
+    kmac_algorithm/0,
+    kmac_state/0,
     public_algorithm/0,
     public_domain/0,
     public_xof_state/0,
@@ -28,6 +30,15 @@ fixed_state() ->
 xof_state() ->
     State = libdecaf_nif:xof_kt_init(kt128),
     libdecaf_nif:xof_sha3_update(State, <<"abc">>).
+
+-spec kmac_algorithm() -> State when State :: libdecaf_nif:kmac_state().
+kmac_algorithm() ->
+    libdecaf_nif:kmac_init(shake128, <<"key">>).
+
+-spec kmac_state() -> State when State :: libdecaf:kmac_state().
+kmac_state() ->
+    State = libdecaf:xof_cshake_init(cshake128),
+    libdecaf:kmac_update(State, <<"abc">>).
 
 -spec public_algorithm() -> libdecaf:xof_kt_state().
 public_algorithm() ->

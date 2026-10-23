@@ -5,7 +5,7 @@ Low-level native bindings for libdecaf cryptographic operations.
 
 This module exposes Ed25519/Ed448 signatures, X25519/X448 key agreement,
 Ristretto255/Decaf448 groups, SHA-2/SHA-3, legacy Keccak, SHAKE, cSHAKE,
-Keccak XOFs, TurboSHAKE, KangarooTwelve, and the sponge PRNG.
+Keccak XOFs, TurboSHAKE, KangarooTwelve, KMAC, and the sponge PRNG.
 For convenience APIs, see `libdecaf_curve25519`, `libdecaf_curve448`,
 `libdecaf_eddsa`, `libdecaf_ristretto255`, `libdecaf_decaf448`,
 `libdecaf_sha2`, `libdecaf_sha3`, and `libdecaf_spongerng`.
@@ -18,7 +18,9 @@ variants. Ed448 always takes a context binary of at most 255 bytes.
 Hash, XOF, keypair, and precomputation resources are immutable and can be
 shared between processes. Operations return new hash/XOF/PRNG states; retain
 those returned states to advance an input or output stream. Keep secret keys
-and PRNG states private.
+and PRNG states private. KMAC resources contain keyed sponge contexts and must
+also be kept private. KMAC tag lengths are measured in bytes and are included
+in the computation; requesting a shorter tag is different from truncation.
 
 Group operations accept canonical encodings, including identity points and zero
 scalars. Validation functions return `false` for invalid terms. Arithmetic with

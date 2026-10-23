@@ -1,0 +1,22 @@
+/* clang-format off */ //-
+#ifndef LIBDECAF_NIF_KMAC_H
+#define LIBDECAF_NIF_KMAC_H
+
+#include "../libdecaf_nif.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int libdecaf_nif_kmac_load(ErlNifEnv *env);
+
+{% for function in ctx.kmac_functions %}
+ERL_NIF_TERM {{ function.c_name }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+{% endfor %}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+/* clang-format on */ //-
