@@ -62,6 +62,14 @@ Erlang-side convenience operation is `scalar_random/0`, which reduces wide
 random input from `crypto`. RFC 9496 tests exercise both public modules and
 execute the examples embedded in their module and function documentation.
 
+`src/legacy_hash.erl.inc` generates the deprecated `libdecaf_sha2`,
+`libdecaf_sha3`, and `libdecaf_keccak_sha3` compatibility modules. Their
+algorithm lists and default lengths come from the hash/XOF configuration.
+They call the current NIF APIs directly while preserving tagged
+`{Algorithm, NativeState}` tuples, truncation, SHAKE aliases, and wrapper
+argument errors. Module and function documentation points callers to
+`libdecaf:hash*` and `libdecaf:xof_sha3*`, which use unwrapped native states.
+
 `nif.hash` and `nif.xof` are mappings from algorithm names to metadata. Each
 entry gives its upstream context struct and operation symbols. XOF entries also
 specify their API `group`. Fixed-output hashes

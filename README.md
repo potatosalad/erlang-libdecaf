@@ -421,6 +421,10 @@ Sponge1 = libdecaf_spongerng:stir(Sponge0, <<"test">>),
 
 ### KECCAK-SHA-3
 
+This compatibility module is deprecated. Use `libdecaf:hash/2,3`,
+`libdecaf:hash_init/1`, `libdecaf:hash_update/2`, and `libdecaf:hash_final/1,2`
+with the same `keccak_*` algorithm names. The replacement APIs use unwrapped states.
+
 #### `libdecaf_keccak_sha3:hash/2`
 
 This function can be used for the following hash algorithms:
@@ -561,6 +565,10 @@ Out = libdecaf_keccak_sha3:final(Sponge1).
 
 ### SHA-2
 
+This compatibility module is deprecated. Use `libdecaf:hash/2,3`,
+`libdecaf:hash_init/1`, `libdecaf:hash_update/2`, and `libdecaf:hash_final/1,2`
+with `sha2_512`. The replacement APIs use unwrapped states.
+
 #### `libdecaf_sha2:hash/2`
 
 This function can be used for the following algorithms:
@@ -618,6 +626,11 @@ Out = libdecaf_sha2:final(Context1).
 ```
 
 ### SHA-3
+
+This compatibility module is deprecated. Use the `libdecaf:hash*` functions
+for `sha3_*` algorithms. For SHAKE, use `libdecaf:xof_sha3/3`,
+`libdecaf:xof_sha3_init/1`, `libdecaf:xof_sha3_update/2`, and
+`libdecaf:xof_sha3_final/2`. The replacement APIs use unwrapped states.
 
 #### `libdecaf_sha3:hash/2`
 

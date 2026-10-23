@@ -25,6 +25,7 @@
     * `libdecaf_ristretto255` and `libdecaf_decaf448` point and scalar APIs.
     * Uniform byte mapping and precomputed multiplication.
 * Enhancements
+  * Generate the deprecated `libdecaf_sha2`, `libdecaf_sha3`, and `libdecaf_keccak_sha3` compatibility modules, retaining wrapped states and directing callers to the hash and XOF APIs in `libdecaf`.
   * Add Docker and native ASan, LSan, and UBSan checks for ed448goldilocks and the NIF, including resource cleanup stress.
   * Replace generic XOF entry points with grouped APIs in `libdecaf` and `libdecaf_nif`.
   * Split XOF families into independent native implementations with dedicated states and trapping lifecycles.

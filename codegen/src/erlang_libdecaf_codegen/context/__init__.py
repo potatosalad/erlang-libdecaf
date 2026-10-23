@@ -38,6 +38,9 @@ class Context:
     def xof_groups(self) -> tuple[XOFGroup, ...]:
         return xof_groups(self.schema.nif)
 
+    def hash_algorithms(self, prefix: str) -> tuple[str, ...]:
+        return tuple(name for name in sorted(self.schema.nif.hash) if name.startswith(prefix))
+
     @property
     def prime_order_groups(self) -> tuple[PrimeOrderGroup, ...]:
         return PRIME_ORDER_GROUPS

@@ -1,0 +1,3 @@
+~J{ from 'src/legacy_hash.erl.inc' import implementation with context }.
+~J{ set shake = ctx.xof_groups | selectattr('name', 'equalto', 'xof_sha3') | first }.
+~J< implementation('libdecaf_sha3', 'SHA-3 and SHAKE', ctx.hash_algorithms('sha3_'), '2016-02-29', shake.algorithms) >.
