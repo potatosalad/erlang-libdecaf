@@ -1,5 +1,22 @@
 #include "ed448.h"
 
+static ErlNifResourceType *libdecaf_nif_ed448_keypair_resource_type = NULL;
+
+static void
+libdecaf_nif_ed448_keypair_dtor(ErlNifEnv *env, void *obj)
+{
+    (void)env;
+    decaf_ed448_keypair_destroy(((libdecaf_nif_ed448_keypair_t *)obj)->inner);
+}
+
+int
+libdecaf_nif_ed448_load(ErlNifEnv *env)
+{
+    libdecaf_nif_ed448_keypair_resource_type = enif_open_resource_type(
+        env, "libdecaf_nif", "ed448_keypair", libdecaf_nif_ed448_keypair_dtor, ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER, NULL);
+    return libdecaf_nif_ed448_keypair_resource_type != NULL ? 0 : -1;
+}
+
 /* Function Definitions */
 
 /* libdecaf_nif:ed448_derive_keypair/1 */

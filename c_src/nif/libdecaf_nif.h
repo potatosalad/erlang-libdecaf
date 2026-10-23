@@ -18,12 +18,6 @@ extern "C" {
 
 #include "libdecaf_nif_atoms.h"
 
-/* Resource Types */
-
-extern ErlNifResourceType *libdecaf_nif_csprng_resource_type;
-extern ErlNifResourceType *libdecaf_nif_ed25519_keypair_resource_type;
-extern ErlNifResourceType *libdecaf_nif_ed448_keypair_resource_type;
-
 /* NIF Utility Macros and Functions */
 
 #ifndef ERL_NIF_NORMAL_JOB_BOUND

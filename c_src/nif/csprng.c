@@ -1,5 +1,22 @@
 #include "csprng.h"
 
+static ErlNifResourceType *libdecaf_nif_csprng_resource_type = NULL;
+
+static void
+libdecaf_nif_csprng_dtor(ErlNifEnv *env, void *obj)
+{
+    (void)env;
+    decaf_spongerng_destroy((void *)obj);
+}
+
+int
+libdecaf_nif_csprng_load(ErlNifEnv *env)
+{
+    libdecaf_nif_csprng_resource_type = enif_open_resource_type(env, "libdecaf_nif", "csprng", libdecaf_nif_csprng_dtor,
+                                                                ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER, NULL);
+    return libdecaf_nif_csprng_resource_type != NULL ? 0 : -1;
+}
+
 /* Function Definitions */
 
 /* libdecaf_nif:spongerng_csprng_init_from_buffer/2 */

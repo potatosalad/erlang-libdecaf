@@ -15,6 +15,8 @@ struct libdecaf_nif_ed25519_keypair_s {
     decaf_eddsa_25519_keypair_t inner;
 };
 
+int libdecaf_nif_ed25519_load(ErlNifEnv *env);
+
 extern ERL_NIF_TERM libdecaf_nif_ed25519_derive_keypair_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_ed25519_keypair_extract_private_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_ed25519_keypair_extract_public_key_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
