@@ -61,6 +61,8 @@ iteration(Index) ->
     badarg(fun() -> libdecaf_nif:xof_absorb(State, [256]) end),
     badarg(fun() -> libdecaf_nif:xof_squeeze(Hash, 32) end),
     badarg(fun() -> libdecaf_nif:hash_update(State, <<>>) end),
+    Keyed = libdecaf_nif:hash_init_kmac(kmac128, 32, <<"key">>, <<"custom">>),
+    _ = libdecaf_nif:hash_final(libdecaf_nif:hash_update(Keyed, Input)),
     {Curve, Bytes} =
         case Index rem 2 of
             0 -> {ristretto255, 32};
@@ -91,18 +93,15 @@ keys(Curve, Bytes, Context) ->
     badarg(fun() -> call(Curve, "_derive_keypair", [<<>>]) end).
 
 xofs() ->
-    [
-        {cshake, cshake128, [<<>>, <<"custom">>]},
-        {cshake, cshake256, []},
-        {keccak, keccakxof_128, []},
-        {keccak, keccakxof_256, []},
-        {kt, kt128, [<<"custom">>]},
-        {kt, kt256, []},
-        {sha3, shake128, []},
-        {sha3, shake256, []},
-        {turboshake, turboshake128, [127]},
-        {turboshake, turboshake256, []}
-    ].
+    [{cshake, cshake128, [<<>>, <<"custom">>]}, {cshake, cshake256, []},
+     {hopmac, hopmac128, [<<"key">>, <<"custom">>]}, {hopmac, hopmac256, [<<"key">>]},
+     {keccak, keccakxof_128, []}, {keccak, keccakxof_256, []},
+     {kmac, kmacxof128, [<<"key">>]}, {kmac, kmacxof256, [<<"key">>, <<"custom">>]},
+     {kt, kt128, [<<"custom">>]}, {kt, kt256, []},
+     {parallelhash, parallelhashxof128, [1]}, {parallelhash, parallelhashxof256, [8, <<"custom">>]},
+     {sha3, shake128, []}, {sha3, shake256, []},
+     {tuplehash, tuplehashxof128, []}, {tuplehash, tuplehashxof256, [<<"custom">>]},
+     {turboshake, turboshake128, [127]}, {turboshake, turboshake256, []}].
 
 call(Component, Suffix, Arguments) ->
     apply(libdecaf_nif, list_to_atom(atom_to_list(Component) ++ Suffix), Arguments).
