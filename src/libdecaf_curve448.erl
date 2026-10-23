@@ -61,6 +61,7 @@ and conversion between Ed448 and X448 key material.
 
 %% Streaming prehash EdDSA
 -export([
+    ed448ph_keypair_sign_init/1, ed448ph_keypair_sign_init/2,
     ed448ph_sign_init/1, ed448ph_sign_init/2,
     ed448ph_sign_update/2,
     ed448ph_sign_final/1,
@@ -92,13 +93,13 @@ keypair_derive(Secret) when
     is_binary(Secret) andalso
         byte_size(Secret) =:= ?EdDSA_SECRET_BYTES
 ->
-    libdecaf:ed448_derive_keypair(Secret).
+    libdecaf_nif:ed448_derive_keypair(Secret).
 
 keypair_extract_private_key(Keypair) when is_reference(Keypair) ->
-    libdecaf:ed448_keypair_extract_private_key(Keypair).
+    libdecaf_nif:ed448_keypair_extract_private_key(Keypair).
 
 keypair_extract_public_key(Keypair) when is_reference(Keypair) ->
-    libdecaf:ed448_keypair_extract_public_key(Keypair).
+    libdecaf_nif:ed448_keypair_extract_public_key(Keypair).
 
 % EdDSA
 
@@ -116,7 +117,7 @@ eddsa_secret_to_pk(Secret) when
     is_binary(Secret) andalso
         byte_size(Secret) =:= ?EdDSA_SECRET_BYTES
 ->
-    libdecaf:ed448_derive_public_key(Secret).
+    libdecaf_nif:ed448_derive_public_key(Secret).
 
 eddsa_sk_to_pk(<<_:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary>>) ->
     PK.
@@ -130,13 +131,13 @@ eddsa_keypair_to_x448_keypair({
     eddsa_sk_to_x448_keypair(SK).
 
 eddsa_pk_to_x448_pk(<<PK:?EdDSA_PK_BYTES/binary>>) ->
-    libdecaf:ed448_convert_public_key_to_x448(PK).
+    libdecaf_nif:ed448_convert_public_key_to_x448(PK).
 
 eddsa_secret_to_x448_keypair(<<Secret:?EdDSA_SECRET_BYTES/binary>>) ->
     x448_keypair(eddsa_secret_to_x448_secret(Secret)).
 
 eddsa_secret_to_x448_secret(<<Secret:?EdDSA_SECRET_BYTES/binary>>) ->
-    libdecaf:ed448_convert_private_key_to_x448(Secret).
+    libdecaf_nif:ed448_convert_private_key_to_x448(Secret).
 
 eddsa_sk_to_x448_keypair(SK = <<Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary>>) ->
     KP0 = {eddsa_pk_to_x448_pk(PK), eddsa_secret_to_x448_secret(Secret)},
@@ -162,7 +163,7 @@ ed448_keypair_sign(M, Keypair, C) when
         is_binary(C) andalso
         byte_size(C) =< 255
 ->
-    libdecaf:ed448_keypair_sign(Keypair, M, 0, C).
+    libdecaf_nif:ed448_keypair_sign(Keypair, M, 0, C).
 
 ed448_sign(M, <<SK:?EdDSA_SK_BYTES/binary>>) when is_binary(M) ->
     ed448_sign(M, SK, <<>>).
@@ -172,7 +173,7 @@ ed448_sign(M, <<Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary>>, 
         is_binary(C) andalso
         byte_size(C) =< 255
 ->
-    libdecaf:ed448_sign(Secret, PK, M, 0, C).
+    libdecaf_nif:ed448_sign(Secret, PK, M, 0, C).
 
 ed448_verify(<<Sig:?EdDSA_SIGN_BYTES/binary>>, M, <<PK:?EdDSA_PK_BYTES/binary>>) when is_binary(M) ->
     ed448_verify(Sig, M, PK, <<>>).
@@ -182,7 +183,7 @@ ed448_verify(<<Sig:?EdDSA_SIGN_BYTES/binary>>, M, <<PK:?EdDSA_PK_BYTES/binary>>,
         is_binary(C) andalso
         byte_size(C) =< 255
 ->
-    libdecaf:ed448_verify(Sig, PK, M, 0, C).
+    libdecaf_nif:ed448_verify(Sig, PK, M, 0, C).
 
 % Ed448ph
 
@@ -198,7 +199,7 @@ ed448ph_keypair_sign(M, Keypair, C) when
         is_binary(C) andalso
         byte_size(C) =< 255
 ->
-    libdecaf:ed448_keypair_sign_prehash(Keypair, M, C).
+    libdecaf_nif:ed448_keypair_sign_prehash(Keypair, M, C).
 
 ed448ph_sign(M, <<SK:?EdDSA_SK_BYTES/binary>>) when is_binary(M) ->
     ed448ph_sign(M, SK, <<>>).
@@ -208,7 +209,7 @@ ed448ph_sign(M, <<Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary>>
         is_binary(C) andalso
         byte_size(C) =< 255
 ->
-    libdecaf:ed448_sign_prehash(Secret, PK, M, C).
+    libdecaf_nif:ed448_sign_prehash(Secret, PK, M, C).
 
 ed448ph_verify(<<Sig:?EdDSA_SIGN_BYTES/binary>>, M, <<PK:?EdDSA_PK_BYTES/binary>>) when is_binary(M) ->
     ed448ph_verify(Sig, M, PK, <<>>).
@@ -218,7 +219,7 @@ ed448ph_verify(<<Sig:?EdDSA_SIGN_BYTES/binary>>, M, <<PK:?EdDSA_PK_BYTES/binary>
         is_binary(C) andalso
         byte_size(C) =< 255
 ->
-    libdecaf:ed448_verify_prehash(Sig, PK, M, C).
+    libdecaf_nif:ed448_verify_prehash(Sig, PK, M, C).
 
 % X448
 
@@ -228,7 +229,7 @@ curve448(Scalar) when
     is_binary(Scalar) andalso
         byte_size(Scalar) =:= ?X448_PRIVATE_BYTES
 ->
-    <<U:?X448_PUBLIC_BYTES/unsigned-little-integer-unit:8>> = libdecaf:x448_derive_public_key(Scalar),
+    <<U:?X448_PUBLIC_BYTES/unsigned-little-integer-unit:8>> = libdecaf_nif:x448_derive_public_key(Scalar),
     U.
 
 curve448(Scalar, Base) when is_integer(Scalar) ->
@@ -241,14 +242,14 @@ curve448(Scalar, Base) when
         is_binary(Base) andalso
         byte_size(Base) =:= ?X448_PUBLIC_BYTES
 ->
-    <<U:?X448_PUBLIC_BYTES/unsigned-little-integer-unit:8>> = libdecaf:x448(Base, Scalar),
+    <<U:?X448_PUBLIC_BYTES/unsigned-little-integer-unit:8>> = libdecaf_nif:x448(Base, Scalar),
     U.
 
 x448(K) when
     is_binary(K) andalso
         byte_size(K) =:= ?X448_PRIVATE_BYTES
 ->
-    libdecaf:x448_derive_public_key(K).
+    libdecaf_nif:x448_derive_public_key(K).
 
 x448(K, U) when
     is_binary(K) andalso
@@ -256,7 +257,7 @@ x448(K, U) when
         is_binary(U) andalso
         byte_size(U) =:= ?X448_PUBLIC_BYTES
 ->
-    libdecaf:x448(U, K).
+    libdecaf_nif:x448(U, K).
 
 x448_keypair() ->
     x448_keypair(crypto:strong_rand_bytes(?X448_PRIVATE_BYTES)).
@@ -267,31 +268,36 @@ x448_keypair(Secret) when
 ->
     {x448(Secret), Secret}.
 
-%%%-------------------------------------------------------------------
-%%% Internal functions
-%%%-------------------------------------------------------------------
+%%%===================================================================
+%%% Streaming prehash signatures
+%%%===================================================================
 
-%% Streaming prehash EdDSA. Keypair is a resource from keypair_derive/1.
-ed448ph_sign_init(Keypair) ->
-    {ed448ph_sign, libdecaf_eddsa:sign_init(ed448ph, Keypair)}.
+ed448ph_keypair_sign_init(Keypair) ->
+    libdecaf_nif:ed448ph_keypair_sign_init(Keypair).
 
-ed448ph_sign_init(Keypair, Context) ->
-    {ed448ph_sign, libdecaf_eddsa:sign_init(ed448ph, Keypair, Context)}.
+ed448ph_keypair_sign_init(Keypair, Context) ->
+    libdecaf_nif:ed448ph_keypair_sign_init(Keypair, Context).
 
-ed448ph_sign_update({ed448ph_sign, State}, Input) ->
-    {ed448ph_sign, libdecaf_eddsa:sign_update(State, Input)}.
+ed448ph_sign_init(SigningKey) ->
+    libdecaf_nif:ed448ph_sign_init(SigningKey).
 
-ed448ph_sign_final({ed448ph_sign, State}) ->
-    libdecaf_eddsa:sign_final(State).
+ed448ph_sign_init(SigningKey, Context) ->
+    libdecaf_nif:ed448ph_sign_init(SigningKey, Context).
+
+ed448ph_sign_update(State, Input) ->
+    libdecaf_nif:ed448ph_sign_update(State, Input).
+
+ed448ph_sign_final(State) ->
+    libdecaf_nif:ed448ph_sign_final(State).
 
 ed448ph_verify_init(Signature, PublicKey) ->
-    {ed448ph_verify, libdecaf_eddsa:verify_init(ed448ph, Signature, PublicKey)}.
+    libdecaf_nif:ed448ph_verify_init(Signature, PublicKey).
 
 ed448ph_verify_init(Signature, PublicKey, Context) ->
-    {ed448ph_verify, libdecaf_eddsa:verify_init(ed448ph, Signature, PublicKey, Context)}.
+    libdecaf_nif:ed448ph_verify_init(Signature, PublicKey, Context).
 
-ed448ph_verify_update({ed448ph_verify, State}, Input) ->
-    {ed448ph_verify, libdecaf_eddsa:verify_update(State, Input)}.
+ed448ph_verify_update(State, Input) ->
+    libdecaf_nif:ed448ph_verify_update(State, Input).
 
-ed448ph_verify_final({ed448ph_verify, State}) ->
-    libdecaf_eddsa:verify_final(State).
+ed448ph_verify_final(State) ->
+    libdecaf_nif:ed448ph_verify_final(State).

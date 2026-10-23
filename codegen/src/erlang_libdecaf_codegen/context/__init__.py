@@ -37,7 +37,14 @@ class Context:
 
     @property
     def opaque_type_names(self) -> set[str]:
-        return {"hash_state", "xof_state"}
+        return {
+            "hash_state",
+            "xof_state",
+            "ed25519ph_sign_state",
+            "ed25519ph_verify_state",
+            "ed448ph_sign_state",
+            "ed448ph_verify_state",
+        }
 
     @property
     def crypto_families(self):

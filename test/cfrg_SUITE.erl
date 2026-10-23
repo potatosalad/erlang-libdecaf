@@ -1130,8 +1130,8 @@ x25519_noncanonical(_Config) ->
     P = (1 bsl 255) - 19,
     lists:foreach(
         fun(U) ->
-            Canonical = libdecaf:x25519(<<U:256/little>>, Scalar),
-            Canonical = libdecaf:x25519(<<(P + U):256/little>>, Scalar)
+            Canonical = libdecaf_nif:x25519(<<U:256/little>>, Scalar),
+            Canonical = libdecaf_nif:x25519(<<(P + U):256/little>>, Scalar)
         end,
         [2, 9, 18]
     ),
@@ -1142,7 +1142,7 @@ x25519_low_order(_Config) ->
     P = (1 bsl 255) - 19,
     lists:foreach(
         fun(U) ->
-            error = libdecaf:x25519(<<U:256/little>>, Scalar)
+            error = libdecaf_nif:x25519(<<U:256/little>>, Scalar)
         end,
         [0, 1, P - 1, P, P + 1, 1 bsl 255, (1 bsl 255) + 1]
     ),
@@ -1175,12 +1175,16 @@ mismatched_keypairs(_Config) ->
 stream_vector(Algorithm, Keypair, PublicKey, Message, Context, Signature) ->
     Split = byte_size(Message) div 2,
     <<A:Split/binary, B/binary>> = Message,
-    S0 = libdecaf_eddsa:sign_init(Algorithm, Keypair, Context),
-    S1 = libdecaf_eddsa:sign_update(S0, [<<>>, A]),
-    S2 = libdecaf_eddsa:sign_update(S1, B),
-    Signature = libdecaf_eddsa:sign_final(S2),
-    V0 = libdecaf_eddsa:verify_init(Algorithm, Signature, PublicKey, Context),
-    V1 = libdecaf_eddsa:verify_update(V0, A),
-    V2 = libdecaf_eddsa:verify_update(V1, [B, <<>>]),
-    true = libdecaf_eddsa:verify_final(V2),
+    S0 = stream_nif(Algorithm, keypair_sign_init, [Keypair, Context]),
+    S1 = stream_nif(Algorithm, sign_update, [S0, [<<>>, A]]),
+    S2 = stream_nif(Algorithm, sign_update, [S1, B]),
+    Signature = stream_nif(Algorithm, sign_final, [S2]),
+    V0 = stream_nif(Algorithm, verify_init, [Signature, PublicKey, Context]),
+    V1 = stream_nif(Algorithm, verify_update, [V0, A]),
+    V2 = stream_nif(Algorithm, verify_update, [V1, [B, <<>>]]),
+    true = stream_nif(Algorithm, verify_final, [V2]),
     ok.
+
+stream_nif(Algorithm, Operation, Arguments) ->
+    Function = list_to_existing_atom(atom_to_list(Algorithm) ++ "_" ++ atom_to_list(Operation)),
+    apply(libdecaf_nif, Function, Arguments).

@@ -17,12 +17,10 @@
     * `libdecaf:xof/3` and `libdecaf:xof_init/1`, using `cshake128` or `cshake256`.
   * Original Keccak-XOF-128 and Keccak-XOF-256 through `libdecaf:xof/3` and the incremental XOF API.
     * Algorithm names: `keccakxof_128` and `keccakxof_256`.
-  * Streaming Ed25519ph and Ed448ph signing and verification with immutable states.
-    * `libdecaf_eddsa:sign_init/2`, `libdecaf_eddsa:sign_init/3`
-    * `libdecaf_eddsa:sign_update/2`, `libdecaf_eddsa:sign_final/1`
-    * `libdecaf_eddsa:verify_init/3`, `libdecaf_eddsa:verify_init/4`
-    * `libdecaf_eddsa:verify_update/2`, `libdecaf_eddsa:verify_final/1`
-    * Corresponding `ed25519ph_*` and `ed448ph_*` convenience functions on the curve modules.
+  * Native streaming Ed25519ph and Ed448ph signing and verification with immutable, algorithm-specific resources.
+    * `ed25519ph_*` and `ed448ph_*` functions on the NIF and respective curve modules.
+    * Separate `*_keypair_sign_init/1,2` and `*_sign_init/1,2` constructors for native keypairs and encoded seed/public key pairs, with shared signing update/final functions.
+    * Native state retains the keypair and context; large prehash updates yield and cancelled updates release their private state.
   * Ristretto255 and Decaf448 prime-order groups.
     * `libdecaf_ristretto255` and `libdecaf_decaf448` point and scalar APIs.
     * Uniform byte mapping and precomputed multiplication.

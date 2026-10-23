@@ -17,6 +17,22 @@ libdecaf_nif_ed448_load(ErlNifEnv *env)
     return libdecaf_nif_ed448_keypair_resource_type != NULL ? 0 : -1;
 }
 
+libdecaf_nif_ed448_keypair_t *
+libdecaf_nif_ed448_keypair_from_secret(const uint8_t secret[DECAF_EDDSA_448_PRIVATE_BYTES])
+{
+    libdecaf_nif_ed448_keypair_t *keypair = enif_alloc_resource(libdecaf_nif_ed448_keypair_resource_type, sizeof(*keypair));
+    if (keypair != NULL)
+        decaf_ed448_derive_keypair(keypair->inner, secret);
+    return keypair;
+}
+
+libdecaf_nif_ed448_keypair_t *
+libdecaf_nif_ed448_get_keypair(ErlNifEnv *env, ERL_NIF_TERM term)
+{
+    libdecaf_nif_ed448_keypair_t *keypair;
+    return enif_get_resource(env, term, libdecaf_nif_ed448_keypair_resource_type, (void **)&keypair) ? keypair : NULL;
+}
+
 /* Function Definitions */
 
 /* libdecaf_nif:ed448_derive_keypair/1 */

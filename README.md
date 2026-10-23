@@ -322,31 +322,32 @@ libdecaf_curve448:ed448ph_verify(SigEd448phC, M, PK448, C).
 
 ### Streaming prehash signatures
 
-`libdecaf_eddsa` supports streaming Ed25519ph and Ed448ph signatures and
-verification. Signing takes a keypair resource from `keypair_random/0` or
-`keypair_derive/1`. Each update accepts iodata and returns a new immutable state;
+`libdecaf_curve25519` and `libdecaf_curve448` expose native streaming
+Ed25519ph and Ed448ph signatures and verification. The NIF retains the keypair,
+context, and prehash state; message chunks are not kept between updates.
+Signing accepts either a keypair resource or an encoded seed/public key pair. Each update accepts iodata and returns a new immutable state;
 states can be reused, branched, finalized repeatedly, and shared between
 processes. Contexts are binaries of up to 255 bytes and default to `<<>>`.
 
 ```erlang
 Keypair = libdecaf_curve25519:keypair_random(),
 PublicKey = libdecaf_curve25519:keypair_extract_public_key(Keypair),
-S0 = libdecaf_eddsa:sign_init(ed25519ph, Keypair, <<"example">>),
-S1 = libdecaf_eddsa:sign_update(S0, <<"first chunk">>),
-S2 = libdecaf_eddsa:sign_update(S1, [<<"second">>, <<" chunk">>]),
-Signature = libdecaf_eddsa:sign_final(S2),
+S0 = libdecaf_curve25519:ed25519ph_keypair_sign_init(Keypair, <<"example">>),
+S1 = libdecaf_curve25519:ed25519ph_sign_update(S0, <<"first chunk">>),
+S2 = libdecaf_curve25519:ed25519ph_sign_update(S1, [<<"second">>, <<" chunk">>]),
+Signature = libdecaf_curve25519:ed25519ph_sign_final(S2),
 
-V0 = libdecaf_eddsa:verify_init(ed25519ph, Signature, PublicKey, <<"example">>),
-V1 = libdecaf_eddsa:verify_update(V0, <<"first chunksecond chunk">>),
-true = libdecaf_eddsa:verify_final(V1).
+V0 = libdecaf_curve25519:ed25519ph_verify_init(Signature, PublicKey, <<"example">>),
+V1 = libdecaf_curve25519:ed25519ph_verify_update(V0, <<"first chunksecond chunk">>),
+true = libdecaf_curve25519:ed25519ph_verify_final(V1).
 ```
 
-Use `ed448ph` and a `libdecaf_curve448` keypair for Ed448ph. Matching convenience
-functions are also available on the curve modules:
-`ed25519ph_sign_init/1,2`, `ed25519ph_sign_update/2`,
-`ed25519ph_sign_final/1`, `ed25519ph_verify_init/2,3`,
-`ed25519ph_verify_update/2`, and `ed25519ph_verify_final/1`, with corresponding
-`ed448ph_*` functions on `libdecaf_curve448`.
+Use the corresponding `ed448ph_*` functions on `libdecaf_curve448` for Ed448ph.
+`ed25519ph_keypair_sign_init/1,2` accepts a native keypair resource, while
+`ed25519ph_sign_init/1,2` accepts the encoded secret seed followed by its public key.
+Both initializers return the same signing state for `ed25519ph_sign_update/2`,
+`ed25519ph_sign_final/1`. Verification uses `ed25519ph_verify_init/2,3`,
+`ed25519ph_verify_update/2`, and `ed25519ph_verify_final/1`.
 
 ### Ristretto255 and Decaf448
 

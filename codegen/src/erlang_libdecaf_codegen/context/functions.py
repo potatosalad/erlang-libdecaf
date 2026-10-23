@@ -336,6 +336,61 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         ]
         for operation, arguments, returns, doc in operations:
             add(f"{curve}_{operation}", arguments, returns, doc, title)
+        ph = f"{curve}ph"
+        sign_state, verify_state = f"{ph}_sign_state()", f"{ph}_verify_state()"
+        for name, args, returns, doc in [
+            (
+                "sign_init",
+                [("SigningKey", f"{curve}_signing_key()")],
+                sign_state,
+                "Start signing with an encoded seed followed by its public key, using an empty context.",
+            ),
+            (
+                "sign_init",
+                [("SigningKey", f"{curve}_signing_key()"), ("Context", "binary()")],
+                sign_state,
+                "Validate the encoded seed/public key pair and retain a native keypair with a context of at most 255 bytes.",
+            ),
+            ("keypair_sign_init", [("Keypair", keypair)], sign_state, "Start signing with an empty context."),
+            (
+                "keypair_sign_init",
+                [("Keypair", keypair), ("Context", "binary()")],
+                sign_state,
+                "Start signing, retaining the keypair and a context of at most 255 bytes in native state.",
+            ),
+            (
+                "sign_update",
+                [("State", sign_state), ("Input", "iodata()")],
+                sign_state,
+                "Prehash another message chunk. Return a new immutable signing state; large updates yield.",
+            ),
+            ("sign_final", [("State", sign_state)], signature, "Sign the accumulated message without changing the signing state."),
+            (
+                "verify_init",
+                [("Signature", signature), ("PublicKey", public)],
+                verify_state,
+                "Start verification with an empty context.",
+            ),
+            (
+                "verify_init",
+                [("Signature", signature), ("PublicKey", public), ("Context", "binary()")],
+                verify_state,
+                "Start verification, retaining the signature, public key, and a context of at most 255 bytes in native state.",
+            ),
+            (
+                "verify_update",
+                [("State", verify_state), ("Input", "iodata()")],
+                verify_state,
+                "Prehash another message chunk. Return a new immutable verification state; large updates yield.",
+            ),
+            (
+                "verify_final",
+                [("State", verify_state)],
+                "boolean()",
+                "Verify the accumulated message without changing the verification state.",
+            ),
+        ]:
+            add(f"{ph}_{name}", args, returns, f"{title}ph: {doc}", title)
         xcurve = "x25519" if curve == "ed25519" else "x448"
         add(
             f"{curve}_convert_public_key_to_{xcurve}",
@@ -442,6 +497,21 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
                 )
             )
         result.append((f"{curve}_keypair", "erlang:nif_resource()", f"An immutable native {curve.upper()} keypair resource."))
+        result.append(
+            (
+                f"{curve}_signing_key",
+                f"<<_:{size * 16}>>",
+                f"A {size * 2}-byte {curve} signing key: secret seed followed by the matching public key.",
+            )
+        )
+        for operation in ("sign", "verify"):
+            result.append(
+                (
+                    f"{curve}ph_{operation}_state",
+                    "erlang:nif_resource()",
+                    f"An immutable native {curve}ph {operation} state, distinct from other curves and operations.",
+                )
+            )
     for curve, size in [("x25519", 32), ("x448", 56)]:
         for part in ["scalar", "public_key", "shared_secret"]:
             result.append(

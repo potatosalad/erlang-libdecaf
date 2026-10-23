@@ -2,8 +2,10 @@
 
 #include "csprng/csprng.h"
 #include "curve25519/ed25519.h"
+#include "curve25519/ed25519ph.h"
 #include "curve25519/x25519.h"
 #include "curve448/ed448.h"
+#include "curve448/ed448ph.h"
 #include "curve448/x448.h"
 #include "hash/hash.h"
 #include "xof/xof.h"
@@ -23,6 +25,16 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
 {% endfor %}
 {% endfor %}
     /* decaf/ed255.h */
+    {"ed25519ph_keypair_sign_init", 1, libdecaf_nif_ed25519ph_keypair_sign_init_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519ph_sign_init", 1, libdecaf_nif_ed25519ph_sign_init_1, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519ph_keypair_sign_init", 2, libdecaf_nif_ed25519ph_keypair_sign_init_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519ph_sign_init", 2, libdecaf_nif_ed25519ph_sign_init_2, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519ph_sign_update", 2, libdecaf_nif_ed25519ph_sign_update_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519ph_sign_final", 1, libdecaf_nif_ed25519ph_sign_final_1, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed25519ph_verify_init", 2, libdecaf_nif_ed25519ph_verify_init_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519ph_verify_init", 3, libdecaf_nif_ed25519ph_verify_init_3, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519ph_verify_update", 2, libdecaf_nif_ed25519ph_verify_update_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed25519ph_verify_final", 1, libdecaf_nif_ed25519ph_verify_final_1, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed25519_derive_keypair", 1, libdecaf_nif_ed25519_derive_keypair_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"ed25519_derive_public_key", 1, libdecaf_nif_ed25519_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"ed25519_keypair_extract_private_key", 1, libdecaf_nif_ed25519_keypair_extract_private_key_1, ERL_NIF_NORMAL_JOB_BOUND},
@@ -36,6 +48,16 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"ed25519_convert_public_key_to_x25519", 1, libdecaf_nif_ed25519_convert_public_key_to_x25519_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"ed25519_convert_private_key_to_x25519", 1, libdecaf_nif_ed25519_convert_private_key_to_x25519_1, ERL_NIF_NORMAL_JOB_BOUND},
     /* decaf/ed448.h */
+    {"ed448ph_keypair_sign_init", 1, libdecaf_nif_ed448ph_keypair_sign_init_1, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448ph_sign_init", 1, libdecaf_nif_ed448ph_sign_init_1, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448ph_keypair_sign_init", 2, libdecaf_nif_ed448ph_keypair_sign_init_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448ph_sign_init", 2, libdecaf_nif_ed448ph_sign_init_2, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448ph_sign_update", 2, libdecaf_nif_ed448ph_sign_update_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448ph_sign_final", 1, libdecaf_nif_ed448ph_sign_final_1, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"ed448ph_verify_init", 2, libdecaf_nif_ed448ph_verify_init_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448ph_verify_init", 3, libdecaf_nif_ed448ph_verify_init_3, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448ph_verify_update", 2, libdecaf_nif_ed448ph_verify_update_2, ERL_NIF_NORMAL_JOB_BOUND},
+    {"ed448ph_verify_final", 1, libdecaf_nif_ed448ph_verify_final_1, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"ed448_derive_keypair", 1, libdecaf_nif_ed448_derive_keypair_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"ed448_derive_public_key", 1, libdecaf_nif_ed448_derive_public_key_1, ERL_NIF_NORMAL_JOB_BOUND},
     {"ed448_keypair_extract_private_key", 1, libdecaf_nif_ed448_keypair_extract_private_key_1, ERL_NIF_NORMAL_JOB_BOUND},
@@ -80,7 +102,11 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
         return -1;
     if (libdecaf_nif_ed25519_load(env) != 0)
         return -1;
+    if (libdecaf_nif_ed25519ph_load(env) != 0)
+        return -1;
     if (libdecaf_nif_ed448_load(env) != 0)
+        return -1;
+    if (libdecaf_nif_ed448ph_load(env) != 0)
         return -1;
     if (libdecaf_nif_hash_load(env) != 0)
         return -1;
@@ -110,7 +136,11 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
         return -1;
     if (libdecaf_nif_ed25519_load(env) != 0)
         return -1;
+    if (libdecaf_nif_ed25519ph_load(env) != 0)
+        return -1;
     if (libdecaf_nif_ed448_load(env) != 0)
+        return -1;
+    if (libdecaf_nif_ed448ph_load(env) != 0)
         return -1;
     if (libdecaf_nif_hash_load(env) != 0)
         return -1;

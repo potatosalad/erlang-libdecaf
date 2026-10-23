@@ -8,7 +8,7 @@ restore_build="${SANITIZERS_RESTORE_BUILD:-1}"
 stress_iterations="${SANITIZERS_STRESS_ITERATIONS:-10000}"
 jobs="${SANITIZERS_JOBS:-4}"
 color="${SANITIZERS_COLOR:-always}"
-suites="${SANITIZERS_CT_SUITES:-nif_components hash_api cshake keccak_xof rfc9861 hash_compat sp800185}"
+suites="${SANITIZERS_CT_SUITES:-cfrg eddsa_stream nif_components hash_api cshake keccak_xof rfc9861 hash_compat sp800185}"
 make_cmd="${MAKE:-make}"
 
 case "${restore_build}" in 0 | 1) ;; *) echo 'SANITIZERS_RESTORE_BUILD must be 0 or 1' >&2; exit 2 ;; esac
