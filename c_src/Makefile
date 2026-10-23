@@ -217,6 +217,7 @@ ifeq ($(SOURCES),)
 SOURCES := $(sort $(foreach pat,*.c *.C *.cc *.cpp,$(call core_find,$(C_SRC_DIR)/nif/,$(pat))))
 endif
 OBJECTS = $(addsuffix .o, $(basename $(SOURCES)))
+DEPFILES = $(OBJECTS:.o=.d)
 
 ifeq ($(FORMAT_NIF_SOURCES),)
 FORMAT_NIF_SOURCES := $(shell find $(C_SRC_DIR)/nif \( -type l -o -type f \) \( -name '*.c' -o -name '*.C' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.c.h' -o -name '*.hpp' \) | grep -v " ")
@@ -226,8 +227,8 @@ ifeq ($(FORMAT_PRIMITIVE_SOURCES),)
 FORMAT_PRIMITIVE_SOURCES := $(shell find $(C_SRC_DIR)/primitive \( -type l -o -type f \) \( -name '*.c' -o -name '*.C' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.c.h' -o -name '*.hpp' \) | grep -v " ")
 endif
 
-COMPILE_C = $(c_verbose) $(CC) $(CFLAGS) $(CPPFLAGS) -c
-COMPILE_CPP = $(cpp_verbose) $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c
+COMPILE_C = $(c_verbose) $(CC) $(CFLAGS) $(CPPFLAGS) -MMD -MP -MF $(@:.o=.d) -MT $@ -c
+COMPILE_CPP = $(cpp_verbose) $(CXX) $(CXXFLAGS) $(CPPFLAGS) -MMD -MP -MF $(@:.o=.d) -MT $@ -c
 
 all:: deps app
 
@@ -291,7 +292,7 @@ $(OBJECTS): $(MAKEFILE_LIST) $(C_SRC_ENV) | $(ALL_DEPS_OUTPUT)
 clean:: clean-c_src
 
 clean-c_src:
-	$(gen_verbose) rm -f $(C_SRC_OUTPUT_FILE) $(OBJECTS)
+	$(gen_verbose) rm -f $(C_SRC_OUTPUT_FILE) $(OBJECTS) $(DEPFILES)
 
 distclean:: distclean-c_src-env distclean-deps
 
@@ -330,4 +331,6 @@ $(C_SRC_ENV):
 ifneq ($(ERL_ERTS_DIR),$(ERTS_DIR))
 $(shell rm -f $(C_SRC_ENV))
 endif
+
+-include $(DEPFILES)
 endif
