@@ -1,5 +1,6 @@
 %%% % @format
 -module(parallel_hash_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Parallel Hash/XOF framing, ordered joins, retained input, cancellation, and queue budgets.
 """.
@@ -25,6 +26,12 @@ Parallel Hash/XOF framing, ordered joins, retained input, cancellation, and queu
     invalid_arguments/1
 ]).
 
+-type hash_progress() ::
+    {await, reference(), libdecaf_nif:parallel_hash_operation()}
+    | {done, reference(), libdecaf_nif:parallel_hash_state()}
+    | {finalize, reference(), libdecaf_nif:parallel_hash_state(), non_neg_integer()}.
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [
         boundaries,
@@ -41,12 +48,16 @@ all() ->
         invalid_arguments
     ].
 
+-spec init_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_suite(Config) ->
     {ok, _} = application:ensure_all_started(libdecaf),
     Config.
 
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 end_per_suite(_) -> ok.
 
+-spec algorithms() -> Result when
+    Result :: [{libdecaf:parallel_hash_parameters(), libdecaf:parallel_xof_parameters(), pos_integer()}].
 algorithms() ->
     [
         {kt128, kt128, 8192},
@@ -57,6 +68,7 @@ algorithms() ->
         {{parallelhash256, 37, 1024, <<"custom">>}, {parallelhashxof256, 1024, <<"custom">>}, 1024}
     ].
 
+-spec boundaries(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 boundaries(_) ->
     lists:foreach(
         fun({Hash, Xof, Block}) ->
@@ -73,8 +85,10 @@ boundaries(_) ->
             )
         end,
         algorithms()
-    ).
+    ),
+    ok.
 
+-spec streaming(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 streaming(_) ->
     lists:foreach(
         fun({Hash, Xof, _}) ->
@@ -97,14 +111,16 @@ streaming(_) ->
                     {_, B} = libdecaf:parallel_xof_squeeze(X3, 58),
                     Output = libdecaf:xof(Xof, Input, 71),
                     Output = <<A/binary, B/binary>>,
-                    badarg(fun() -> libdecaf:parallel_xof_absorb(X3, <<>>) end)
+                    libdecaf_ct:assert_badarg(libdecaf, parallel_xof_absorb, [X3, <<>>])
                 end,
                 [1, 63, 137, 8191, 8192, 8193]
             )
         end,
         algorithms()
-    ).
+    ),
+    ok.
 
+-spec windows(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 windows(_) ->
     Input = data(65 * 1024 * 1024 + 37),
     lists:foreach(
@@ -130,8 +146,10 @@ windows(_) ->
             )
         end,
         [1, 7, 8, 9, 135, 136, 137, 167, 168, 169, 8192, 8193, 16384]
-    ).
+    ),
+    ok.
 
+-spec concurrent_branches(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 concurrent_branches(_) ->
     Hash = libdecaf:parallel_hash_update(libdecaf:parallel_hash_init(kt128), <<"prefix">>),
     Xof = libdecaf:parallel_xof_absorb(libdecaf:parallel_xof_init(kt128), <<"prefix">>),
@@ -156,8 +174,10 @@ concurrent_branches(_) ->
             down(Ref, Pid, normal)
         end,
         Refs
-    ).
+    ),
+    ok.
 
+-spec concurrent_windows(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 concurrent_windows(_) ->
     % Full windows followed by short ones exercise completion publication while
     % earlier workers are still returning and the collector reuses the slots.
@@ -193,8 +213,10 @@ concurrent_windows(_) ->
             )
         end,
         [{kt128, kt128}, {{parallelhash128, 32, 8192}, {parallelhashxof128, 8192}}]
-    ).
+    ),
+    ok.
 
+-spec round_limits(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 round_limits(_) ->
     with_paused_routers(fun(Names) ->
         Input = data(8192 * 257),
@@ -238,8 +260,10 @@ round_limits(_) ->
         Expected = libdecaf:hash(kt128, Input),
         Expected = libdecaf:parallel_hash_final(Updated),
         [] = messages()
-    end).
+    end),
+    ok.
 
+-spec cancellation(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 cancellation(_) ->
     with_paused_routers(fun(_) ->
         Parent = self(),
@@ -259,12 +283,17 @@ cancellation(_) ->
         exit(Pid, kill),
         down(Ref, Pid, killed),
         await(fun() -> queued() =:= 0 end)
-    end).
+    end),
+    ok.
 
+-spec worker_restart(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 worker_restart(_) ->
     #{names := Names} = libdecaf_nif:parallel_router_info(),
     lists:foreach(fun wait_ready/1, Names),
-    Workers = [whereis(libdecaf_parallel_absorb:child_name(Number)) || Number <- lists:seq(1, length(Names))],
+    Workers = [
+        libdecaf_ct:registered_pid(libdecaf_parallel_absorb:child_name(Number))
+     || Number <- lists:seq(1, length(Names))
+    ],
     lists:foreach(fun(Pid) -> true = erlang:suspend_process(Pid) end, Workers),
     try
         Input = data(3 * 1024 * 1024),
@@ -292,8 +321,10 @@ worker_restart(_) ->
             end,
             Workers
         )
-    end.
+    end,
+    ok.
 
+-spec retained_binary(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 retained_binary(_) ->
     Input = data(8 * 1024 * 1024),
     with_paused_routers(fun(_) ->
@@ -308,8 +339,10 @@ retained_binary(_) ->
         % Consume without routers so the retained operation can finish normally.
         #{count := Count} = libdecaf_nif:parallel_router_info(),
         drain_hash(Pending, Count)
-    end).
+    end),
+    ok.
 
+-spec upgrade(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 upgrade(_) ->
     with_paused_routers(fun(Names) ->
         Input = data(8192 * 40 + 3),
@@ -324,8 +357,10 @@ upgrade(_) ->
         S1 = native_hash_wait(Pending),
         Expected = libdecaf:hash(kt128, Input),
         Expected = libdecaf:parallel_hash_final(S1)
-    end).
+    end),
+    ok.
 
+-spec fallback(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 fallback(_) ->
     ok = application:stop(libdecaf),
     try
@@ -335,8 +370,10 @@ fallback(_) ->
         Expected = libdecaf:parallel_xof(kt128, Input, 32)
     after
         {ok, _} = application:ensure_all_started(libdecaf)
-    end.
+    end,
+    ok.
 
+-spec invalid_arguments(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 invalid_arguments(_) ->
     lists:foreach(
         fun(Parameters) ->
@@ -351,8 +388,10 @@ invalid_arguments(_) ->
     badarg(fun() -> apply(libdecaf, parallel_xof_absorb, [H, <<>>]) end),
     badarg(fun() -> apply(libdecaf, parallel_hash_update, [H, [256]]) end),
     badarg(fun() -> apply(libdecaf_nif, parallel_absorb, [1, -1]) end),
-    badarg(fun() -> apply(libdecaf_nif, parallel_absorb, [0, 0]) end).
+    badarg(fun() -> apply(libdecaf_nif, parallel_absorb, [0, 0]) end),
+    ok.
 
+-spec with_paused_routers(Function) -> Result when Function :: fun(([atom()]) -> Value), Result :: Value.
 with_paused_routers(Fun) ->
     #{names := Names} = libdecaf_nif:parallel_router_info(),
     lists:foreach(
@@ -362,7 +401,10 @@ with_paused_routers(Fun) ->
         end,
         Names
     ),
-    Workers = [whereis(libdecaf_parallel_absorb:child_name(Number)) || Number <- lists:seq(1, length(Names))],
+    Workers = [
+        libdecaf_ct:registered_pid(libdecaf_parallel_absorb:child_name(Number))
+     || Number <- lists:seq(1, length(Names))
+    ],
     lists:foreach(fun(Pid) -> true = erlang:suspend_process(Pid) end, Workers),
     try
         Fun(Names)
@@ -371,6 +413,7 @@ with_paused_routers(Fun) ->
         lists:foreach(fun(Name) -> ok = sys:resume(Name) end, Names)
     end.
 
+-spec wait_ready(Name) -> Result when Name :: atom(), Result :: {ready, tuple()}.
 wait_ready(Name) ->
     await(fun() ->
         {State, _} = sys:get_state(Name),
@@ -378,6 +421,10 @@ wait_ready(Name) ->
     end),
     sys:get_state(Name).
 
+-spec native_hash_wait(Progress) -> Result when
+    Progress :: hash_progress(), Result :: libdecaf_nif:parallel_hash_state().
+native_hash_wait({finalize, _, _, _}) ->
+    error(unexpected_parallel_finalize);
 native_hash_wait({await, Ref, Operation}) ->
     receive
         {libdecaf_parallel, Ref} -> ok
@@ -388,12 +435,17 @@ native_hash_wait({done, Ref, State}) ->
     flush(Ref),
     State.
 
+-spec drain_hash(Progress, RouterCount) -> Result when
+    Progress :: hash_progress(), RouterCount :: pos_integer(), Result :: ok.
+drain_hash({finalize, _, _, _}, _) ->
+    error(unexpected_parallel_finalize);
 drain_hash({await, _, Operation}, Count) ->
     lists:foreach(fun(Number) -> libdecaf_nif:parallel_absorb(Number, 0) end, lists:seq(1, Count)),
     drain_hash(libdecaf_nif:parallel_hash_continue(Operation), Count);
 drain_hash({done, Ref, _State}, _) ->
     flush(Ref).
 
+-spec binary_memory() -> Result when Result :: non_neg_integer() | unavailable.
 binary_memory() ->
     % ASan emulators can disable allocator statistics; still exercise retention
     % and release under ASan, with the allocation bound checked on ordinary OTP.
@@ -403,33 +455,41 @@ binary_memory() ->
         error:notsup -> unavailable
     end.
 
+-spec queued() -> Result when Result :: non_neg_integer().
 queued() ->
     #{queued := Count} = libdecaf_nif:parallel_router_info(),
     Count.
 
+-spec data(Length) -> Result when Length :: non_neg_integer(), Result :: binary().
 data(Length) ->
     Block = list_to_binary(lists:seq(0, 250)),
     binary:part(binary:copy(Block, (Length + 250) div 251), 0, Length).
 
+-spec messages() -> Result when Result :: [reference()].
 messages() ->
     receive
         {libdecaf_parallel, Ref} -> [Ref | messages()]
     after 0 -> []
     end.
 
+-spec flush(Reference) -> Result when Reference :: reference(), Result :: ok.
 flush(Ref) ->
     receive
         {libdecaf_parallel, Ref} -> flush(Ref)
     after 0 -> ok
     end.
 
+-spec down(Monitor, Pid, Reason) -> Result when Monitor :: reference(), Pid :: pid(), Reason :: term(), Result :: ok.
 down(Ref, Pid, Reason) ->
     receive
         {'DOWN', Ref, process, Pid, Reason} -> ok
     after 5000 -> error({not_down, Pid, Reason})
     end.
 
+-spec await(Predicate) -> Result when Predicate :: fun(() -> boolean()), Result :: ok.
 await(Predicate) -> await_until(Predicate, erlang:monotonic_time(millisecond) + 5000).
+-spec await_until(Predicate, Deadline) -> Result when
+    Predicate :: fun(() -> boolean()), Deadline :: integer(), Result :: ok.
 await_until(Predicate, Deadline) ->
     case Predicate() of
         true ->
@@ -442,6 +502,7 @@ await_until(Predicate, Deadline) ->
             await_until(Predicate, Deadline)
     end.
 
+-spec badarg(Function) -> Result when Function :: fun(() -> term()), Result :: ok.
 badarg(Fun) ->
     try Fun() of
         Value -> error({expected_badarg, Value})

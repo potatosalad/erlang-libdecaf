@@ -1,5 +1,6 @@
 %%% % @format
 -module(fips180_4_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Common Test coverage for SHA-512 using the FIPS 180-4 test vectors.
 """.
@@ -13,15 +14,19 @@ Common Test coverage for SHA-512 using the FIPS 180-4 test vectors.
 -include_lib("stdlib/include/zip.hrl").
 
 %% ct.
--export([all/0]).
--export([groups/0]).
--export([init_per_suite/1]).
--export([end_per_suite/1]).
--export([init_per_group/2]).
--export([end_per_group/2]).
+-export([
+    all/0,
+    groups/0,
+    init_per_suite/1,
+    end_per_suite/1,
+    init_per_group/2,
+    end_per_group/2
+]).
 
 %% Tests.
--export([fips180_4/1]).
+-export([
+    fips180_4/1
+]).
 
 %% Macros.
 -define(tv_ok(T, M, F, A, E),
@@ -33,11 +38,13 @@ Common Test coverage for SHA-512 using the FIPS 180-4 test vectors.
     end
 ).
 
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [
         {group, 'shabytetestvectors'}
     ].
 
+-spec groups() -> Result when Result :: [ct_suite:ct_group_def()].
 groups() ->
     [
         {'shabytetestvectors', [], [
@@ -45,20 +52,26 @@ groups() ->
         ]}
     ].
 
+-spec init_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_suite(Config) ->
     _ = application:ensure_all_started(libdecaf),
     data_setup(Config).
 
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 end_per_suite(_Config) ->
     _ = application:stop(libdecaf),
     ok.
 
+-spec init_per_group(Group, Config) -> Result when
+    Group :: ct_suite:ct_groupname(), Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_group(G = 'shabytetestvectors', Config) ->
     Folder = data_file("shabytetestvectors", Config),
     {ok, Entries} = file:list_dir(Folder),
     Files = [filename:join([Folder, Entry]) || Entry <- Entries],
     [{'fips180-4_files', Files} | libdecaf_ct:start(G, Config)].
 
+-spec end_per_group(Group, Config) -> Result when
+    Group :: ct_suite:ct_groupname(), Config :: ct_suite:ct_config(), Result :: ok.
 end_per_group(_Group, Config) ->
     libdecaf_ct:stop(Config),
     ok.
@@ -67,19 +80,24 @@ end_per_group(_Group, Config) ->
 %% Tests
 %%====================================================================
 
+-spec fips180_4(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 fips180_4(Config) ->
     Files = [File || File <- ?config('fips180-4_files', Config)],
-    lists:foldl(fun fips180_4/2, Config, Files).
+    lists:foreach(fun(File) -> fips180_4(File, Config) end, Files),
+    ok.
 
 %%%-------------------------------------------------------------------
 %%% Internal functions
 %%%-------------------------------------------------------------------
 
 %% @private
+-spec data_file(File, Config) -> Result when
+    File :: file:filename_all(), Config :: ct_suite:ct_config(), Result :: file:filename_all().
 data_file(File, Config) ->
     filename:join([?config(data_dir, Config), File]).
 
 %% @private
+-spec data_setup(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 data_setup(Config) ->
     lists:foldl(
         fun(F, C) ->
@@ -96,6 +114,8 @@ data_setup(Config) ->
     ).
 
 %% @private
+-spec data_setup(Archive, Config) -> Result when
+    Archive :: string(), Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 data_setup(F = "shabytetestvectors", Config) ->
     BaseURL =
         "https://raw.github.com/coruus/nist-testvectors/2841a2d486a155c8c79c1e6b2fe5a653e7276d96/csrc.nist.gov/groups/STM/cavp/documents/shs/shabytetestvectors/",
@@ -110,6 +130,8 @@ data_setup(F = "shabytetestvectors", Config) ->
     Config.
 
 %% @private
+-spec data_setup_multiple(Files, Directory, URLs) -> Result when
+    Files :: [file:filename_all()], Directory :: file:filename_all(), URLs :: [string()], Result :: ok.
 data_setup_multiple([DataFile | DataFiles], Directory, [URL | URLs]) ->
     case filelib:is_dir(Directory) of
         true ->
@@ -128,12 +150,16 @@ data_setup_multiple([], _Directory, []) ->
     ok.
 
 %% @private
+-spec fips180_4(File, Config) -> Result when File :: file:filename_all(), Config :: ct_suite:ct_config(), Result :: ok.
 fips180_4(File, Config) ->
     Vectors = fips_testvector:from_file(File),
+    true = is_list(Vectors),
     io:format("~s", [filename:basename(File)]),
     fips180_4_test(Vectors, Config).
 
 %% @private
+-spec fips180_4_test(Vectors, Config) -> Result when
+    Vectors :: [fips_testvector:entry()], Config :: ct_suite:ct_config(), Result :: ok.
 fips180_4_test(
     [
         {option, {<<"L">>, LBin}}
@@ -147,10 +173,12 @@ fips180_4_test([Vector | _Vectors], _Config) ->
     ct:fail("Unhandled test vector: ~p~n", [Vector]).
 
 %% @private
+-spec fips180_4_test(Vectors, Length, Config) -> Result when
+    Vectors :: [fips_testvector:entry()], Length :: non_neg_integer(), Config :: ct_suite:ct_config(), Result :: ok.
 fips180_4_test(
     [
-        {vector, {<<"Len">>, Len}, _},
-        {vector, {<<"Msg">>, Msg}, _},
+        {vector, {<<"Len">>, Len}, int},
+        {vector, {<<"Msg">>, Msg}, hex},
         {vector, {<<"MD">>, MD}, _}
         | Vectors
     ],

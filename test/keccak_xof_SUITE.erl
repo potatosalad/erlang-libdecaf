@@ -1,5 +1,6 @@
 %%% % @format
 -module(keccak_xof_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Original Keccak XOF vectors and incremental API regressions.
 """.
@@ -15,9 +16,13 @@ Original Keccak XOF vectors and incremental API regressions.
     invalid_arguments/1
 ]).
 
+-type input_spec() :: empty | abc | {zeroes, non_neg_integer()}.
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [known_answers, large_input_and_output, immutable_states, invalid_arguments].
 
+-spec known_answers(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 known_answers(Config) ->
     {ok, Vectors} = file:consult(filename:join(?config(data_dir, Config), "vectors.config")),
     lists:foreach(
@@ -41,8 +46,10 @@ known_answers(Config) ->
             )
         end,
         Vectors
-    ).
+    ),
+    ok.
 
+-spec large_input_and_output(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 large_input_and_output(_) ->
     each(fun(Type) ->
         Chunks = [binary:copy(<<0, 1, 2, 3>>, 65537), [<<"tail">>]],
@@ -53,8 +60,10 @@ large_input_and_output(_) ->
         ),
         Expected = element(2, libdecaf:xof_squeeze(Updated, 131073)),
         Expected = element(2, libdecaf:xof_squeeze(Updated, 131073))
-    end).
+    end),
+    ok.
 
+-spec immutable_states(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 immutable_states(_) ->
     each(fun(Type) ->
         Initial = libdecaf:xof_init(Type),
@@ -70,28 +79,25 @@ immutable_states(_) ->
         Def = element(2, libdecaf:xof_squeeze(Second, 200)),
         Abcd = libdecaf:xof(Type, <<"abcd">>, 200),
         Abcd = element(2, libdecaf:xof_squeeze(libdecaf:xof_absorb(First, <<"d">>), 200))
-    end).
+    end),
+    ok.
 
+-spec invalid_arguments(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 invalid_arguments(_) ->
     each(fun(Type) ->
         State = libdecaf:xof_init(Type),
-        badarg(fun() -> libdecaf:hash_init(Type) end),
-        badarg(fun() -> libdecaf:xof(Type, <<>>, -1) end),
-        badarg(fun() -> element(2, libdecaf:xof_squeeze(State, -1)) end),
-        badarg(fun() -> libdecaf:hash_update(State, <<>>) end)
-    end).
+        libdecaf_ct:assert_badarg(libdecaf, hash_init, [Type]),
+        libdecaf_ct:assert_badarg(libdecaf, xof, [Type, <<>>, -1]),
+        libdecaf_ct:assert_badarg(libdecaf, xof_squeeze, [State, -1]),
+        libdecaf_ct:assert_badarg(libdecaf, hash_update, [State, <<>>])
+    end),
+    ok.
 
+-spec each(Function) -> Result when Function :: fun((keccakxof_128 | keccakxof_256) -> term()), Result :: ok.
 each(Fun) ->
     lists:foreach(Fun, [keccakxof_128, keccakxof_256]).
 
+-spec input(Input) -> Result when Input :: input_spec(), Result :: binary().
 input(empty) -> <<>>;
 input(abc) -> <<"abc">>;
 input({zeroes, Length}) -> binary:copy(<<0>>, Length).
-
-badarg(Fun) ->
-    try Fun() of
-        Result -> ct:fail({expected_badarg, Result})
-    catch
-        error:badarg -> ok;
-        error:{badarg, _, _} -> ok
-    end.

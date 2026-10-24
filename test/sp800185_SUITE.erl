@@ -1,5 +1,6 @@
 %%% % @format
 -module(sp800185_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Published SP 800-185 vectors, RFC 9861 HopMAC composition, and native API lifecycles.
 """.
@@ -22,6 +23,16 @@ Published SP 800-185 vectors, RFC 9861 HopMAC composition, and native API lifecy
     documentation/1
 ]).
 
+-type family() :: cshake | hopmac | keccak | kmac | kt | parallelhash | sha3 | tuplehash | turboshake.
+
+-type draft_vector() :: {atom(), kmac128 | kmac256, atom(), binary(), binary(), binary(), binary()}.
+-type kmac_vector() :: {atom(), kmac128 | kmac256, nist, binary(), binary(), binary(), binary()}.
+-type tuple_vector() :: {atom(), tuplehash128 | tuplehash256, boolean(), [binary()], binary(), binary()}.
+-type parallel_vector() :: {
+    atom(), parallelhash128 | parallelhash256, boolean(), pos_integer(), binary(), binary(), binary()
+}.
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [
         kmac_draft_vectors,
@@ -39,8 +50,9 @@ all() ->
         documentation
     ].
 
+-spec kmac_draft_vectors(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 kmac_draft_vectors(Config) ->
-    Vectors = vectors("draft.config", Config),
+    Vectors = vectors(draft, Config),
     18 = length(Vectors),
     lists:foreach(
         fun({_Name, Type, Kind, KeyHex, DataHex, CustomHex, TagHex}) ->
@@ -54,12 +66,14 @@ kmac_draft_vectors(Config) ->
             check(kmac, Type, Data, [Key, binary:decode_hex(CustomHex)], binary:decode_hex(TagHex), false)
         end,
         Vectors
-    ).
+    ),
+    ok.
 
+-spec nist_vectors(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 nist_vectors(Config) ->
     lists:foreach(
-        fun({File, Xof}) ->
-            Records = vectors(File, Config),
+        fun({Kind, Xof}) ->
+            Records = vectors(Kind, Config),
             6 = length(Records),
             lists:foreach(
                 fun({_Name, Type, nist, Key, Data, Custom, Output}) ->
@@ -75,44 +89,59 @@ nist_vectors(Config) ->
                 Records
             )
         end,
-        [{"nist.config", false}, {"kmac_xof.config", true}]
+        [{nist, false}, {kmac_xof, true}]
     ),
     lists:foreach(
-        fun({File, Family}) ->
-            Records = vectors(File, Config),
-            12 = length(Records),
-            lists:foreach(
-                fun(Record) ->
-                    case Record of
-                        {_Name, Type, Xof, Elements, Custom, Output} ->
-                            check(
-                                Family,
-                                selector(Type, Xof),
-                                [binary:decode_hex(E) || E <- Elements],
-                                [binary:decode_hex(Custom)],
-                                binary:decode_hex(Output),
-                                Xof
-                            );
-                        {_Name, Type, Xof, Size, Data, Custom, Output} ->
-                            check(
-                                Family,
-                                selector(Type, Xof),
-                                binary:decode_hex(Data),
-                                [Size, binary:decode_hex(Custom)],
-                                binary:decode_hex(Output),
-                                Xof
-                            )
-                    end
-                end,
-                Records
-            )
+        fun
+            (tuplehash) ->
+                Records = vectors(tuplehash, Config),
+                12 = length(Records),
+                lists:foreach(
+                    fun({_Name, Type, Xof, Elements, Custom, Output}) ->
+                        check(
+                            tuplehash,
+                            selector(Type, Xof),
+                            [binary:decode_hex(E) || E <- Elements],
+                            [binary:decode_hex(Custom)],
+                            binary:decode_hex(Output),
+                            Xof
+                        )
+                    end,
+                    Records
+                );
+            (parallelhash) ->
+                Records = vectors(parallelhash, Config),
+                12 = length(Records),
+                lists:foreach(
+                    fun({_Name, Type, Xof, Size, Data, Custom, Output}) ->
+                        check(
+                            parallelhash,
+                            selector(Type, Xof),
+                            binary:decode_hex(Data),
+                            [Size, binary:decode_hex(Custom)],
+                            binary:decode_hex(Output),
+                            Xof
+                        )
+                    end,
+                    Records
+                )
         end,
-        [{"tuplehash.config", tuplehash}, {"parallelhash.config", parallelhash}]
-    ).
+        [tuplehash, parallelhash]
+    ),
+    ok.
 
+-spec selector(Type, Xof) -> Result when Type :: atom(), Xof :: boolean(), Result :: atom().
 selector(Type, false) -> Type;
 selector(Type, true) -> list_to_atom(re:replace(atom_to_list(Type), "(128|256)$", "xof\\1", [{return, list}])).
 
+-spec check(Family, Type, Input, Parameters, Expected, Xof) -> Result when
+    Family :: family(),
+    Type :: atom(),
+    Input :: iodata(),
+    Parameters :: [binary() | pos_integer()],
+    Expected :: binary(),
+    Xof :: boolean(),
+    Result :: ok.
 check(Family, Type, Input, Parameters, Expected, Xof) ->
     Mode =
         case Xof of
@@ -136,8 +165,8 @@ check(Family, Type, Input, Parameters, Expected, Xof) ->
         F when F == parallelhash; F == hopmac ->
             Expected =
                 case Xof of
-                    true -> libdecaf:parallel_xof(list_to_tuple(InitArgs), Input, Length);
-                    false -> libdecaf:parallel_hash(list_to_tuple(InitArgs), Input)
+                    true -> libdecaf:parallel_xof(parallel_xof_parameters(Type, Parameters), Input, Length);
+                    false -> libdecaf:parallel_hash(parallel_hash_parameters(Type, Length, Parameters), Input)
                 end;
         _ ->
             ok
@@ -160,8 +189,11 @@ check(Family, Type, Input, Parameters, Expected, Xof) ->
             Generic = apply(Module, GenericInit, [list_to_tuple(InitArgs)]),
             Chunks =
                 case Family of
-                    tuplehash -> Input;
-                    _ -> chunks(iolist_to_binary(Input), 137)
+                    tuplehash ->
+                        true = is_list(Input),
+                        Input;
+                    _ ->
+                        chunks(iolist_to_binary(Input), 137)
                 end,
             State = lists:foldl(fun(Chunk, Acc) -> Module:Update(Acc, [Chunk]) end, Initial, Chunks),
             State2 = lists:foldl(fun(Chunk, Acc) -> Module:Update(Acc, Chunk) end, Generic, Chunks),
@@ -183,6 +215,7 @@ check(Family, Type, Input, Parameters, Expected, Xof) ->
         [libdecaf, libdecaf_nif]
     ).
 
+-spec reference_framing(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 reference_framing(_) ->
     lists:foreach(
         fun({Kmac, Tuple, Parallel, Cshake, Shake, Rate}) ->
@@ -240,8 +273,10 @@ reference_framing(_) ->
             {kmac128, tuplehash128, parallelhash128, cshake128, shake128, 168},
             {kmac256, tuplehash256, parallelhash256, cshake256, shake256, 136}
         ]
-    ).
+    ),
+    ok.
 
+-spec tuple_boundaries(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 tuple_boundaries(_) ->
     lists:foreach(
         fun({Hash, Xof}) ->
@@ -255,8 +290,10 @@ tuple_boundaries(_) ->
             false = libdecaf:hash_final(State) =:= A
         end,
         [{tuplehash128, tuplehashxof128}, {tuplehash256, tuplehashxof256}]
-    ).
+    ),
+    ok.
 
+-spec parallel_boundaries(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 parallel_boundaries(_) ->
     lists:foreach(
         fun(Type) ->
@@ -278,8 +315,10 @@ parallel_boundaries(_) ->
                     libdecaf:hash({Type, 32, 9}, <<"abcdefghijk">>)
         end,
         [parallelhash128, parallelhash256]
-    ).
+    ),
+    ok.
 
+-spec length_binding(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 length_binding(_) ->
     lists:foreach(
         fun({_Family, Type, Input, Parameters}) ->
@@ -287,7 +326,7 @@ length_binding(_) ->
             Short = apply(libdecaf, Name, [list_to_tuple([Type, 16 | Parameters]), Input]),
             Long = apply(libdecaf, Name, [list_to_tuple([Type, 32 | Parameters]), Input]),
             true = Short =/= binary:part(Long, 0, 16),
-            XofParameters = list_to_tuple([selector(Type, true) | Parameters]),
+            XofParameters = xof_parameters(selector(Type, true), Parameters),
             XofShort = libdecaf:xof(XofParameters, Input, 16),
             XofLong = libdecaf:xof(XofParameters, Input, 32),
             XofShort = binary:part(XofLong, 0, 16),
@@ -302,8 +341,10 @@ length_binding(_) ->
             {parallelhash, parallelhash256, <<>>, [8]}
         ]
     ),
-    <<"E6AFF27FEF95903EB939BC3745730D34">> = binary:encode_hex(libdecaf:hash({kmac128, 16, <<>>}, <<>>)).
+    <<"E6AFF27FEF95903EB939BC3745730D34">> = binary:encode_hex(libdecaf:hash({kmac128, 16, <<>>}, <<>>)),
+    ok.
 
+-spec hopmac_reference(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 hopmac_reference(_) ->
     %% RFC 9861 section 4: KT(Key, KT(Message, Customization, 32/64), Length).
     lists:foreach(
@@ -322,8 +363,10 @@ hopmac_reference(_) ->
             )
         end,
         [{hopmac128, kt128, 32}, {hopmac256, kt256, 64}]
-    ).
+    ),
+    ok.
 
+-spec lifecycle(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 lifecycle(_) ->
     lists:foreach(
         fun({Family, Hash, Xof, Parameters}) ->
@@ -341,8 +384,8 @@ lifecycle(_) ->
                         end,
                     Expected =
                         case Mode of
-                            true -> libdecaf:xof(list_to_tuple([Type | Parameters]), Input, 32);
-                            false -> libdecaf:hash(list_to_tuple([Type, 32 | Parameters]), Input)
+                            true -> libdecaf:xof(xof_parameters(Type, Parameters), Input, 32);
+                            false -> libdecaf:hash(hash_parameters(Type, 32, Parameters), Input)
                         end,
                     check(Family, Type, Input, Parameters, Expected, Mode)
                 end,
@@ -350,8 +393,10 @@ lifecycle(_) ->
             )
         end,
         families()
-    ).
+    ),
+    ok.
 
+-spec families() -> Result when Result :: [{family(), atom(), atom(), [binary() | pos_integer()]}].
 families() ->
     [
         {cshake, cshake128, cshake128, []},
@@ -374,6 +419,7 @@ families() ->
         {turboshake, turboshake256, turboshake256, [127]}
     ].
 
+-spec invalid_arguments(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 invalid_arguments(_) ->
     lists:foreach(
         fun(Module) ->
@@ -402,14 +448,18 @@ invalid_arguments(_) ->
                 fun() -> Module:xof_squeeze(Hash, 32) end,
                 fun() -> Module:xof_squeeze(Xof, -1) end,
                 fun() -> Module:hash_update(Hash, [256]) end,
-                fun() -> Module:hash({tuplehash128, 32}, [<<>> | invalid]) end,
+                fun() ->
+                    apply(Module, hash, [{tuplehash128, 32}, libdecaf_ct:call(erlang, '++', [[<<>>], invalid])])
+                end,
                 fun() -> Module:xof(tuplehashxof128, <<"flattened">>, 32) end,
                 fun() -> Module:xof_absorb(make_ref(), <<>>) end
             ])
         end,
         [libdecaf, libdecaf_nif]
-    ).
+    ),
+    ok.
 
+-spec trapping(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 trapping(_) ->
     Large = binary:copy(<<42>>, 200001),
     lists:foreach(
@@ -437,8 +487,10 @@ trapping(_) ->
     _ = traced(fun() -> libdecaf:hash({tuplehash128, 32}, Empty) end, [libdecaf_nif_hash_absorb_continue]),
     _ = traced(fun() -> libdecaf:hash({parallelhash128, 32, 1}, Large) end, [
         libdecaf_nif_hash_absorb_continue
-    ]).
+    ]),
+    ok.
 
+-spec cancellation(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 cancellation(_) ->
     Large = binary:copy(<<42>>, 1000001),
     lists:foreach(
@@ -461,8 +513,10 @@ cancellation(_) ->
     ),
     KT = libdecaf:xof_init({kt128, Large}),
     cancelled(fun() -> libdecaf:xof_squeeze(KT, 32) end, libdecaf_nif_xof_absorb_continue),
-    erlang:garbage_collect().
+    erlang:garbage_collect(),
+    ok.
 
+-spec upgrade(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 upgrade(_) ->
     States = [
         begin
@@ -483,19 +537,33 @@ upgrade(_) ->
             Digest = libdecaf:hash_final(Hash),
             {_, First} = libdecaf:xof_squeeze(Xof, 16),
             {_, Last} = libdecaf:xof_squeeze(Advanced, 16),
-            badarg(fun() -> libdecaf:xof_absorb(Advanced, <<>>) end)
+            libdecaf_ct:assert_badarg(libdecaf, xof_absorb, [Advanced, <<>>])
         end,
         States
     ),
-    true = code:soft_purge(libdecaf_nif).
+    true = code:soft_purge(libdecaf_nif),
+    ok.
 
-vectors(File, Config) ->
+-spec vectors
+    (Kind, Config) -> Records when
+        Kind :: draft, Config :: ct_suite:ct_config(), Records :: [draft_vector()];
+    (Kind, Config) -> Records when
+        Kind :: nist | kmac_xof, Config :: ct_suite:ct_config(), Records :: [kmac_vector()];
+    (Kind, Config) -> Records when
+        Kind :: tuplehash, Config :: ct_suite:ct_config(), Records :: [tuple_vector()];
+    (Kind, Config) -> Records when
+        Kind :: parallelhash, Config :: ct_suite:ct_config(), Records :: [parallel_vector()].
+vectors(Kind, Config) ->
+    File = atom_to_list(Kind) ++ ".config",
     {ok, Records} = file:consult(filename:join(?config(data_dir, Config), File)),
     Records.
 
+-spec encode_string(Input) -> Result when Input :: binary(), Result :: iodata().
 encode_string(Binary) -> [left_encode(byte_size(Binary) * 8), Binary].
+-spec chunks(Input, Size) -> Result when Input :: binary(), Size :: pos_integer(), Result :: [binary()].
 chunks(<<>>, _) -> [<<>>];
 chunks(Input, Size) -> chunks_nonempty(Input, Size).
+-spec chunks_nonempty(Input, Size) -> Result when Input :: binary(), Size :: pos_integer(), Result :: [binary()].
 chunks_nonempty(<<>>, _) ->
     [];
 chunks_nonempty(Input, Size) when byte_size(Input) =< Size -> [Input];
@@ -503,6 +571,7 @@ chunks_nonempty(Input, Size) ->
     <<Head:Size/binary, Tail/binary>> = Input,
     [Head | chunks_nonempty(Tail, Size)].
 
+-spec documentation(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 documentation(_) ->
     {ok, {docs_v1, _, erlang, <<"text/markdown">>, _, _, Entries}} = code:get_doc(libdecaf),
     lists:foreach(
@@ -512,7 +581,7 @@ documentation(_) ->
                     {match, Examples} ->
                         lists:foreach(
                             fun([Example]) ->
-                                {ok, Tokens, _} = erl_scan:string(unicode:characters_to_list(Example)),
+                                {ok, Tokens, _} = erl_scan:string(libdecaf_ct:unicode_list(Example)),
                                 {ok, Expressions} = erl_parse:parse_exprs(Tokens),
                                 {value, _, _} = erl_eval:exprs(Expressions, erl_eval:new_bindings())
                             end,
@@ -525,21 +594,26 @@ documentation(_) ->
                 ok
         end,
         Entries
-    ).
+    ),
+    ok.
 
+-spec left_encode(Integer) -> Result when Integer :: non_neg_integer(), Result :: binary().
 left_encode(Integer) ->
     Bytes = binary:encode_unsigned(Integer),
     <<(byte_size(Bytes)), Bytes/binary>>.
 
+-spec right_encode(Integer) -> Result when Integer :: non_neg_integer(), Result :: binary().
 right_encode(Integer) ->
     Bytes = binary:encode_unsigned(Integer),
     <<Bytes/binary, (byte_size(Bytes))>>.
 
+-spec bytepad(Input, Width) -> Result when Input :: iodata(), Width :: pos_integer(), Result :: binary().
 bytepad(Input, Width) ->
     Binary = iolist_to_binary([left_encode(Width), Input]),
     Padding = (Width - byte_size(Binary) rem Width) rem Width,
     <<Binary/binary, 0:(Padding * 8)>>.
 
+-spec badarg(Function) -> Result when Function :: fun(() -> term()), Result :: ok.
 badarg(Fun) ->
     try Fun() of
         Value -> ct:fail({expected_badarg, Value})
@@ -548,9 +622,12 @@ badarg(Fun) ->
         error:{badarg, _, _} -> ok
     end.
 
+-spec traced(Function, Expected) -> Result when Function :: fun(() -> Value), Expected :: [atom()], Result :: Value.
 traced(Fun, Expected) ->
     with_trace(Fun, fun(Pid, Ref) -> trace_result(Pid, Ref, Expected) end).
 
+-spec trace_result(Pid, Monitor, Expected) -> Result when
+    Pid :: pid(), Monitor :: reference(), Expected :: [atom()], Result :: dynamic().
 trace_result(Pid, Ref, Expected) ->
     receive
         {trace, Pid, out, {libdecaf_nif, Function, 1}} ->
@@ -566,9 +643,12 @@ trace_result(Pid, Ref, Expected) ->
         ct:fail({missing_continuations, Expected})
     end.
 
+-spec cancelled(Function, Expected) -> Result when Function :: fun(() -> term()), Expected :: atom(), Result :: ok.
 cancelled(Fun, Expected) ->
     with_trace(Fun, fun(Pid, Ref) -> cancel_at(Pid, Ref, Expected) end).
 
+-spec cancel_at(Pid, Monitor, Expected) -> Result when
+    Pid :: pid(), Monitor :: reference(), Expected :: atom(), Result :: ok.
 cancel_at(Pid, Ref, Expected) ->
     receive
         {trace, Pid, out, {libdecaf_nif, Expected, 1}} ->
@@ -588,6 +668,8 @@ cancel_at(Pid, Ref, Expected) ->
         ct:fail({missing_continuation, Expected})
     end.
 
+-spec with_trace(Function, Check) -> Result when
+    Function :: fun(() -> term()), Check :: fun((pid(), reference()) -> Value), Result :: Value.
 with_trace(Fun, Check) ->
     Parent = self(),
     {Pid, Ref} = spawn_opt(
@@ -608,9 +690,135 @@ with_trace(Fun, Check) ->
         flush_trace(Pid)
     end.
 
+-spec flush_trace(Pid) -> Result when Pid :: pid(), Result :: ok.
 flush_trace(Pid) ->
     receive
         {trace, Pid, _, _} -> flush_trace(Pid);
         {result, Pid, _} -> flush_trace(Pid)
     after 0 -> ok
     end.
+
+-spec parallel_hash_parameters(Type, Length, Parameters) -> Result when
+    Type :: atom(),
+    Length :: non_neg_integer(),
+    Parameters :: [binary() | pos_integer()],
+    Result :: libdecaf:parallel_hash_parameters().
+parallel_hash_parameters(Type, Length, [Key]) when
+    (Type =:= hopmac128 orelse Type =:= hopmac256), is_binary(Key)
+->
+    {Type, Length, Key};
+parallel_hash_parameters(Type, Length, [Key, Custom]) when
+    (Type =:= hopmac128 orelse Type =:= hopmac256), is_binary(Key), is_binary(Custom)
+->
+    {Type, Length, Key, Custom};
+parallel_hash_parameters(Type, Length, [Block]) when
+    (Type =:= parallelhash128 orelse Type =:= parallelhash256), is_integer(Block), Block > 0
+->
+    {Type, Length, Block};
+parallel_hash_parameters(Type, Length, [Block, Custom]) when
+    (Type =:= parallelhash128 orelse Type =:= parallelhash256), is_integer(Block), Block > 0, is_binary(Custom)
+->
+    {Type, Length, Block, Custom}.
+
+-spec parallel_xof_parameters(Type, Parameters) -> Result when
+    Type :: atom(), Parameters :: [binary() | pos_integer()], Result :: libdecaf:parallel_xof_parameters().
+parallel_xof_parameters(Type, [Key]) when
+    (Type =:= hopmac128 orelse Type =:= hopmac256), is_binary(Key)
+->
+    {Type, Key};
+parallel_xof_parameters(Type, [Key, Custom]) when
+    (Type =:= hopmac128 orelse Type =:= hopmac256), is_binary(Key), is_binary(Custom)
+->
+    {Type, Key, Custom};
+parallel_xof_parameters(Type, [Block]) when
+    (Type =:= parallelhashxof128 orelse Type =:= parallelhashxof256), is_integer(Block), Block > 0
+->
+    {Type, Block};
+parallel_xof_parameters(Type, [Block, Custom]) when
+    (Type =:= parallelhashxof128 orelse Type =:= parallelhashxof256), is_integer(Block), Block > 0, is_binary(Custom)
+->
+    {Type, Block, Custom}.
+
+-spec hash_parameters(Type, Length, Parameters) -> Result when
+    Type :: atom(),
+    Length :: non_neg_integer(),
+    Parameters :: [binary() | pos_integer()],
+    Result :: libdecaf:hash_parameters().
+hash_parameters(Type, Length, Parameters) when
+    Type =:= hopmac128; Type =:= hopmac256; Type =:= parallelhash128; Type =:= parallelhash256
+->
+    parallel_hash_parameters(Type, Length, Parameters);
+hash_parameters(Type, Length, []) when
+    Type =:= cshake128;
+    Type =:= cshake256;
+    Type =:= keccakxof_128;
+    Type =:= keccakxof_256;
+    Type =:= kt128;
+    Type =:= kt256;
+    Type =:= shake128;
+    Type =:= shake256;
+    Type =:= tuplehash128;
+    Type =:= tuplehash256;
+    Type =:= turboshake128;
+    Type =:= turboshake256
+->
+    {Type, Length};
+hash_parameters(Type, Length, [Custom]) when
+    (Type =:= kt128 orelse Type =:= kt256 orelse Type =:= tuplehash128 orelse Type =:= tuplehash256), is_binary(Custom)
+->
+    {Type, Length, Custom};
+hash_parameters(Type, Length, [Key]) when
+    (Type =:= kmac128 orelse Type =:= kmac256), is_binary(Key)
+->
+    {Type, Length, Key};
+hash_parameters(Type, Length, [Name, Custom]) when
+    (Type =:= cshake128 orelse Type =:= cshake256 orelse Type =:= kmac128 orelse Type =:= kmac256),
+    is_binary(Name),
+    is_binary(Custom)
+->
+    {Type, Length, Name, Custom};
+hash_parameters(Type, Length, [Domain]) when
+    (Type =:= turboshake128 orelse Type =:= turboshake256), is_integer(Domain), Domain >= 1, Domain =< 127
+->
+    {Type, Length, Domain}.
+
+-spec xof_parameters(Type, Parameters) -> Result when
+    Type :: atom(), Parameters :: [binary() | pos_integer()], Result :: libdecaf:xof_parameters().
+xof_parameters(Type, Parameters) when
+    Type =:= hopmac128; Type =:= hopmac256; Type =:= parallelhashxof128; Type =:= parallelhashxof256
+->
+    parallel_xof_parameters(Type, Parameters);
+xof_parameters(Type, []) when
+    Type =:= cshake128;
+    Type =:= cshake256;
+    Type =:= keccakxof_128;
+    Type =:= keccakxof_256;
+    Type =:= kt128;
+    Type =:= kt256;
+    Type =:= shake128;
+    Type =:= shake256;
+    Type =:= tuplehashxof128;
+    Type =:= tuplehashxof256;
+    Type =:= turboshake128;
+    Type =:= turboshake256
+->
+    Type;
+xof_parameters(Type, [Custom]) when
+    (Type =:= kt128 orelse Type =:= kt256 orelse Type =:= tuplehashxof128 orelse Type =:= tuplehashxof256),
+    is_binary(Custom)
+->
+    {Type, Custom};
+xof_parameters(Type, [Key]) when
+    (Type =:= kmacxof128 orelse Type =:= kmacxof256), is_binary(Key)
+->
+    {Type, Key};
+xof_parameters(Type, [Name, Custom]) when
+    (Type =:= cshake128 orelse Type =:= cshake256 orelse Type =:= kmacxof128 orelse Type =:= kmacxof256),
+    is_binary(Name),
+    is_binary(Custom)
+->
+    {Type, Name, Custom};
+xof_parameters(Type, [Domain]) when
+    (Type =:= turboshake128 orelse Type =:= turboshake256), is_integer(Domain), Domain >= 1, Domain =< 127
+->
+    {Type, Domain}.

@@ -1,5 +1,6 @@
 %%% % @format
 -module(tuak_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Exercise every TUAK test set in TS 35.232 and TS 35.233 Release 19 through the NIF.
 """.
@@ -26,6 +27,9 @@ Exercise every TUAK test set in TS 35.232 and TS 35.233 Release 19 through the N
     public_api/1
 ]).
 
+-type vector() :: #{atom() => binary() | pos_integer()}.
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [
         {group, implementers_mac},
@@ -38,34 +42,62 @@ all() ->
         public_api
     ].
 
+-spec groups() -> Result when Result :: [ct_suite:ct_group_def()].
 groups() ->
     [
         {Name, [parallel], [vector_1, vector_2, vector_3, vector_4, vector_5, vector_6]}
      || Name <- [implementers_mac, implementers_derive, conformance]
     ].
 
+-spec init_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_suite(Config) ->
     {ok, _} = application:ensure_all_started(libdecaf),
     {module, libdecaf_nif} = code:ensure_loaded(libdecaf_nif),
     {ok, Vectors} = file:consult(filename:join(?config(data_dir, Config), "vectors.config")),
     [{vectors, Vectors} | Config].
 
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 end_per_suite(_) -> ok.
+-spec end_per_group(Group, Config) -> Result when
+    Group :: ct_suite:ct_groupname(), Config :: ct_suite:ct_config(), Result :: ok.
 end_per_group(_, _) -> ok.
 
+-spec init_per_group(Group, Config) -> Result when
+    Group :: ct_suite:ct_groupname(), Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_group(Name, Config) ->
     [{cases, proplists:get_value(Name, ?config(vectors, Config))} | Config].
 
-vector_1(Config) -> vector(1, Config).
-vector_2(Config) -> vector(2, Config).
-vector_3(Config) -> vector(3, Config).
-vector_4(Config) -> vector(4, Config).
-vector_5(Config) -> vector(5, Config).
-vector_6(Config) -> vector(6, Config).
+-spec vector_1(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+vector_1(Config) ->
+    vector(1, Config),
+    ok.
+-spec vector_2(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+vector_2(Config) ->
+    vector(2, Config),
+    ok.
+-spec vector_3(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+vector_3(Config) ->
+    vector(3, Config),
+    ok.
+-spec vector_4(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+vector_4(Config) ->
+    vector(4, Config),
+    ok.
+-spec vector_5(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+vector_5(Config) ->
+    vector(5, Config),
+    ok.
+-spec vector_6(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+vector_6(Config) ->
+    vector(6, Config),
+    ok.
 
+-spec vector(Index, Config) -> Result when Index :: pos_integer(), Config :: ct_suite:ct_config(), Result :: ok.
 vector(Index, Config) ->
     vector_case(lists:nth(Index, ?config(cases, Config)), fun call/2).
 
+-spec vector_case(Vector, Call) -> Result when
+    Vector :: vector(), Call :: fun((atom(), [term()]) -> dynamic()), Result :: ok.
 vector_case(V, Call) ->
     Key = hex(key, V),
     TOP = hex(top, V),
@@ -103,6 +135,7 @@ vector_case(V, Call) ->
     end,
     ok.
 
+-spec defaults(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 defaults(_) ->
     {Key, TOP, RAND, SQN, AMF} = inputs(),
     TOPc = call(topc, [Key, TOP]),
@@ -127,6 +160,7 @@ defaults(_) ->
     Star = call(f5_star, [Key, TOPc, RAND, #{iterations => 1}]),
     ok.
 
+-spec invalid_arguments(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 invalid_arguments(_) ->
     {Key, TOP, RAND, SQN, AMF} = inputs(),
     TOPc = call(topc, [Key, TOP]),
@@ -188,8 +222,10 @@ invalid_arguments(_) ->
     badarg(fun() -> call(topc, [Key, TOP, #{mac_length => 8}]) end),
     badarg(fun() -> call(f1, [Key, TOPc, RAND, SQN, AMF, #{res_length => 8}]) end),
     badarg(fun() -> call(f2345, [Key, TOPc, RAND, #{mac_length => 8}]) end),
-    badarg(fun() -> call(f5_star, [Key, TOPc, RAND, #{res_length => 8}]) end).
+    badarg(fun() -> call(f5_star, [Key, TOPc, RAND, #{res_length => 8}]) end),
+    ok.
 
+-spec output_domains(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 output_domains(_) ->
     {Key, TOP, RAND, SQN, AMF} = inputs(),
     TOPc = call(topc, [Key, TOP]),
@@ -214,6 +250,7 @@ output_domains(_) ->
     true = TOPc =/= Twice,
     ok.
 
+-spec concurrent(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 concurrent(_) ->
     Parent = self(),
     Workers = [
@@ -253,8 +290,10 @@ concurrent(_) ->
             end
         end,
         Workers
-    ).
+    ),
+    ok.
 
+-spec public_api(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 public_api(Config) ->
     lists:foreach(
         fun({_, Cases}) ->
@@ -266,8 +305,10 @@ public_api(Config) ->
             )
         end,
         ?config(vectors, Config)
-    ).
+    ),
+    ok.
 
+-spec inputs() -> Result when Result :: {binary(), binary(), binary(), binary(), binary()}.
 inputs() ->
     {
         binary:copy(<<16#AB>>, 16),
@@ -277,9 +318,17 @@ inputs() ->
         <<255, 255>>
     }.
 
-hex(Name, V) -> binary:decode_hex(maps:get(Name, V)).
+-spec hex(Name, Vector) -> Result when Name :: atom(), Vector :: vector(), Result :: binary().
+hex(Name, V) ->
+    Value = maps:get(Name, V),
+    true = is_binary(Value),
+    binary:decode_hex(Value).
+-spec call(Function, Arguments) -> Result when Function :: atom(), Arguments :: [term()], Result :: dynamic().
 call(Function, Args) -> apply(libdecaf_nif, list_to_existing_atom("tuak_" ++ atom_to_list(Function)), Args).
+-spec replace(Index, Value, List) -> Result when
+    Index :: pos_integer(), Value :: term(), List :: [term()], Result :: [term()].
 replace(Index, Value, List) -> lists:sublist(List, Index - 1) ++ [Value | lists:nthtail(Index, List)].
+-spec badarg(Function) -> Result when Function :: fun(() -> term()), Result :: ok.
 badarg(Fun) ->
     try Fun() of
         Value -> ct:fail({expected_badarg, Value})

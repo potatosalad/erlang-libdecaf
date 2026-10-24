@@ -1,5 +1,6 @@
 %%% % @format
 -module(spongerng_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Common Test coverage for deterministic sponge PRNG initialization and output.
 """.
@@ -10,16 +11,20 @@ Common Test coverage for deterministic sponge PRNG initialization and output.
 -include_lib("common_test/include/ct.hrl").
 
 %% ct.
--export([all/0]).
--export([groups/0]).
--export([init_per_suite/1]).
--export([end_per_suite/1]).
--export([init_per_group/2]).
--export([end_per_group/2]).
+-export([
+    all/0,
+    groups/0,
+    init_per_suite/1,
+    end_per_suite/1,
+    init_per_group/2,
+    end_per_group/2
+]).
 
 %% Tests.
--export([spongerng_empty_deterministic/1]).
--export([spongerng_seed_deterministic/1]).
+-export([
+    spongerng_empty_deterministic/1,
+    spongerng_seed_deterministic/1
+]).
 
 %% Macros.
 -define(tv_ok(T, M, F, A, E),
@@ -31,12 +36,16 @@ Common Test coverage for deterministic sponge PRNG initialization and output.
     end
 ).
 
+-type operation() :: {next, non_neg_integer(), binary()} | {stir, iodata()}.
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [
         {group, 'spongerng_init_from_buffer'},
         {group, 'spongerng_init_from_file'}
     ].
 
+-spec groups() -> Result when Result :: [ct_suite:ct_group_def()].
 groups() ->
     [
         {'spongerng_init_from_buffer', [parallel], [
@@ -48,14 +57,18 @@ groups() ->
         ]}
     ].
 
+-spec init_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_suite(Config) ->
     _ = application:ensure_all_started(libdecaf),
     Config.
 
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 end_per_suite(_Config) ->
     _ = application:stop(libdecaf),
     ok.
 
+-spec init_per_group(Group, Config) -> Result when
+    Group :: ct_suite:ct_groupname(), Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_group(G = 'spongerng_init_from_buffer', Config) ->
     EmptySponge = libdecaf_spongerng:init_from_buffer(<<>>, true),
     SeedSponge = libdecaf_spongerng:init_from_buffer(
@@ -168,6 +181,8 @@ init_per_group(G = 'spongerng_init_from_file', Config) ->
         | libdecaf_ct:start(G, Config)
     ].
 
+-spec end_per_group(Group, Config) -> Result when
+    Group :: ct_suite:ct_groupname(), Config :: ct_suite:ct_config(), Result :: ok.
 end_per_group(_Group, Config) ->
     libdecaf_ct:stop(Config),
     ok.
@@ -176,29 +191,37 @@ end_per_group(_Group, Config) ->
 %% Tests
 %%====================================================================
 
+-spec spongerng_empty_deterministic(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 spongerng_empty_deterministic(Config) ->
     Vectors = ?config(spongerng_empty_deterministic, Config),
-    lists:foreach(fun spongerng_deterministic/1, Vectors).
+    lists:foreach(fun spongerng_deterministic/1, Vectors),
+    ok.
 
+-spec spongerng_seed_deterministic(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 spongerng_seed_deterministic(Config) ->
     Vectors = ?config(spongerng_seed_deterministic, Config),
-    lists:foreach(fun spongerng_deterministic/1, Vectors).
+    lists:foreach(fun spongerng_deterministic/1, Vectors),
+    ok.
 
 %%%-------------------------------------------------------------------
 %%% Internal functions
 %%%-------------------------------------------------------------------
 
 %% @private
-spongerng_deterministic({Sponge = {spongerng, _}, Vectors}) when is_list(Vectors) ->
+-spec spongerng_deterministic(Vector) -> Result when
+    Vector :: {libdecaf_spongerng:state(), [operation()]}, Result :: ok.
+spongerng_deterministic({Sponge, Vectors}) when is_list(Vectors) ->
     _ = lists:foldl(fun spongerng_deterministic_vector/2, Sponge, Vectors),
     ok.
 
 %% @private
+-spec spongerng_deterministic_vector(Operation, State) -> Result when
+    Operation :: operation(), State :: libdecaf_spongerng:state(), Result :: libdecaf_spongerng:state().
 spongerng_deterministic_vector({next, Outlen, Output}, Sponge0) ->
     case libdecaf_spongerng:next(Sponge0, Outlen) of
-        {Sponge1 = {spongerng, _}, Output} ->
+        {Sponge1, Output} ->
             Sponge1;
-        {Sponge1 = {spongerng, _}, Badout} ->
+        {Sponge1, Badout} ->
             ct:fail({
                 {libdecaf, next, [Sponge0, Outlen]},
                 {expected, {Sponge1, hex:bin_to_hex(Output)}},
@@ -207,21 +230,24 @@ spongerng_deterministic_vector({next, Outlen, Output}, Sponge0) ->
     end;
 spongerng_deterministic_vector({stir, Input}, Sponge0) ->
     case libdecaf_spongerng:stir(Sponge0, Input) of
-        Sponge1 = {spongerng, _} ->
+        Sponge1 ->
             Sponge1
     end.
 
 %% @private
+-spec hexstr2bin(Hex) -> Result when Hex :: string(), Result :: binary().
 hexstr2bin(S) ->
     list_to_binary(hexstr2list(S)).
 
 %% @private
+-spec hexstr2list(Hex) -> Result when Hex :: string(), Result :: [byte()].
 hexstr2list([X, Y | T]) ->
     [mkint(X) * 16 + mkint(Y) | hexstr2list(T)];
 hexstr2list([]) ->
     [].
 
 %% @private
+-spec mkint(Character) -> Result when Character :: char(), Result :: 0..15.
 mkint(C) when $0 =< C, C =< $9 ->
     C - $0;
 mkint(C) when $A =< C, C =< $F ->

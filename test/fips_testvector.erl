@@ -1,5 +1,6 @@
 %%% % @format
 -module(fips_testvector).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Parse cryptographic test-vector response files for the Common Test suites.
 """.
@@ -8,19 +9,34 @@ Parse cryptographic test-vector response files for the Common Test suites.
 -moduledoc #{copyright => "Andrew Bennett"}.
 
 %% API
--export([from_binary/1]).
--export([from_file/1]).
--export([to_binary/1]).
--export([to_file/2]).
+-export([
+    from_binary/1,
+    from_file/1,
+    to_binary/1,
+    to_file/2
+]).
 
 %%====================================================================
 %% API functions
 %%====================================================================
 
+-type entry() ::
+    {flag, binary()}
+    | {option, {binary(), binary()}}
+    | {token, binary()}
+    | {vector, {binary(), binary()}, hex | raw}
+    | {vector, {binary(), integer()}, int}.
+-export_type([
+    entry/0
+]).
+
+-spec from_binary(Input) -> Result when Input :: binary(), Result :: [entry()].
 from_binary(Binary) ->
     Lines = binary:split(Binary, [<<$\n>>, <<$\r>>], [global, trim]),
     parse_lines(Lines, []).
 
+-spec from_file(File) -> Result when
+    File :: file:filename_all(), Result :: [entry()] | {error, file:posix() | badarg | system_limit | terminated}.
 from_file(File) ->
     case file:read_file(File) of
         {ok, Binary} ->
@@ -29,6 +45,7 @@ from_file(File) ->
             ReadError
     end.
 
+-spec to_binary(Vectors) -> Result when Vectors :: [entry()], Result :: binary().
 to_binary(Vectors) when is_list(Vectors) ->
     <<
         <<
@@ -50,8 +67,12 @@ to_binary(Vectors) when is_list(Vectors) ->
      || Vector <- Vectors
     >>.
 
-to_file(File, State = {_, _, _}) ->
-    Binary = to_binary(State),
+-spec to_file(File, Vectors) -> Result when
+    File :: file:filename_all(),
+    Vectors :: [entry()],
+    Result :: ok | {error, file:posix() | badarg | system_limit | terminated}.
+to_file(File, Vectors) when is_list(Vectors) ->
+    Binary = to_binary(Vectors),
     file:write_file(File, Binary).
 
 %%%-------------------------------------------------------------------
@@ -59,6 +80,7 @@ to_file(File, State = {_, _, _}) ->
 %%%-------------------------------------------------------------------
 
 %% @private
+-spec parse_lines(Lines, Accumulator) -> Result when Lines :: [binary()], Accumulator :: [entry()], Result :: [entry()].
 parse_lines([], Acc) ->
     lists:reverse(Acc);
 parse_lines([Line | Lines], Acc) ->
@@ -70,6 +92,7 @@ parse_lines([Line | Lines], Acc) ->
     end.
 
 %% @private
+-spec parse_line(Line) -> Result when Line :: binary(), Result :: entry() | skip.
 parse_line(<<$#, _/binary>>) ->
     skip;
 parse_line(<<$\s, Rest/binary>>) ->
@@ -84,6 +107,7 @@ parse_line(Rest) ->
     parse_vector(Rest).
 
 %% @private
+-spec parse_option(Input) -> Result when Input :: binary(), Result :: entry().
 parse_option(Rest) ->
     case binary:match(Rest, <<$]>>) of
         {OptionEndPos, 1} ->
@@ -101,6 +125,7 @@ parse_option(Rest) ->
     end.
 
 %% @private
+-spec parse_option_key(Input, Key) -> Result when Input :: binary(), Key :: binary(), Result :: binary().
 parse_option_key(<<$\s, Rest/binary>>, Key) ->
     parse_option_key(Rest, Key);
 parse_option_key(<<$\t, Rest/binary>>, Key) ->
@@ -111,6 +136,7 @@ parse_option_key(<<>>, Key) ->
     Key.
 
 %% @private
+-spec parse_option_val(Input, Value) -> Result when Input :: binary(), Value :: binary(), Result :: binary().
 parse_option_val(<<$\s, Rest/binary>>, Val) ->
     parse_option_val(Rest, Val);
 parse_option_val(<<$\t, Rest/binary>>, Val) ->
@@ -121,6 +147,7 @@ parse_option_val(<<>>, Val) ->
     Val.
 
 %% @private
+-spec parse_vector(Input) -> Result when Input :: binary(), Result :: entry().
 parse_vector(<<C, Rest/binary>>) when
     (C >= $A andalso C =< $Z) orelse
         (C >= $a andalso C =< $z) orelse
@@ -131,6 +158,7 @@ parse_vector(Rest) ->
     erlang:error({badarg, [Rest]}).
 
 %% @private
+-spec parse_vector_key(Input, Key) -> Result when Input :: binary(), Key :: binary(), Result :: entry().
 parse_vector_key(<<$=, Rest/binary>>, Key) ->
     parse_vector_val(Rest, Key, <<>>, true);
 parse_vector_key(<<$\s, Rest/binary>>, Key) ->
@@ -149,6 +177,8 @@ parse_vector_key(Rest, Key) ->
     erlang:error({badarg, [Rest, Key]}).
 
 %% @private
+-spec parse_vector_val(Input, Key, Value, Hex) -> Result when
+    Input :: binary(), Key :: binary(), Value :: binary(), Hex :: boolean(), Result :: entry().
 parse_vector_val(<<$#, _/binary>>, Key = <<C, O, U, N, T>>, Bin, true) when
     (C =:= $C orelse C =:= $c) andalso
         (O =:= $O orelse O =:= $o) andalso

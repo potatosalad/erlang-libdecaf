@@ -1,5 +1,6 @@
 %%% % @format
 -module(fetch).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Download test-vector archives over HTTP, HTTPS, or FTP.
 
@@ -12,52 +13,30 @@ Based on [`core_http_get.erl`][erlang-mk].
 -moduledoc #{copyright => "Andrew Bennett"}.
 
 %% API
--export([fetch/2]).
+-export([
+    fetch/2
+]).
 
 %%====================================================================
 %% API functions
 %%====================================================================
 
+-spec fetch(URL, OutputFile) -> Result when
+    URL :: string(), OutputFile :: file:filename_all(), Result :: ok | {error, term()}.
 fetch(URL = "ftp" ++ _, OutputFile) ->
-    ssl:start(),
-    inets:start(),
-    <<"ftp://", HostPath/binary>> = list_to_binary(URL),
-    [Host | Paths] = binary:split(HostPath, <<$/>>, [global]),
-    [File | RevPath] = lists:reverse(Paths),
-    Path = lists:reverse(RevPath),
-    HostString = binary_to_list(Host),
-    FileString = binary_to_list(File),
-    PathString = lists:flatten([[binary_to_list(P), $/] || P <- Path]),
-    case ftp:open(HostString) of
-        {ok, Pid} ->
-            case ftp:user(Pid, "anonymous", "") of
-                ok ->
-                    case ftp:type(Pid, binary) of
-                        ok ->
-                            case ftp:cd(Pid, PathString) of
-                                ok ->
-                                    case ftp:recv_bin(Pid, FileString) of
-                                        {ok, Body} ->
-                                            _ = (catch ftp:close(Pid)),
-                                            file:write_file(OutputFile, Body);
-                                        RecvError ->
-                                            _ = (catch ftp:close(Pid)),
-                                            RecvError
-                                    end;
-                                CdError ->
-                                    _ = (catch ftp:close(Pid)),
-                                    CdError
-                            end;
-                        TypeError ->
-                            _ = (catch ftp:close(Pid)),
-                            TypeError
-                    end;
-                UserError ->
-                    _ = (catch ftp:close(Pid)),
-                    UserError
-            end;
-        OpenError ->
-            OpenError
+    % OTP's FTP client is deprecated. Curl is already used by the build tools.
+    case os:find_executable("curl") of
+        false ->
+            {error, curl_not_found};
+        Curl ->
+            Port = open_port({spawn_executable, Curl}, [
+                binary,
+                exit_status,
+                use_stdio,
+                stderr_to_stdout,
+                {args, ["--fail", "--location", "--silent", "--show-error", "--output", OutputFile, URL]}
+            ]),
+            curl_result(Port, [])
     end;
 fetch(URL = "http" ++ _, File) ->
     ssl:start(),
@@ -65,10 +44,21 @@ fetch(URL = "http" ++ _, File) ->
     case httpc:request(get, {URL, []}, [{autoredirect, true}], []) of
         {ok, {{_, 200, _}, _, Body}} ->
             file:write_file(File, Body);
-        Error ->
-            Error
+        {error, Reason} ->
+            {error, Reason};
+        Response ->
+            {error, {unexpected_http_response, Response}}
     end.
 
 %%%-------------------------------------------------------------------
 %%% Internal functions
 %%%-------------------------------------------------------------------
+
+-spec curl_result(Port, Output) -> Result when
+    Port :: port(), Output :: [binary()], Result :: ok | {error, term()}.
+curl_result(Port, Output) ->
+    receive
+        {Port, {data, Data}} -> curl_result(Port, [Data | Output]);
+        {Port, {exit_status, 0}} -> ok;
+        {Port, {exit_status, Status}} -> {error, {curl, Status, iolist_to_binary(lists:reverse(Output))}}
+    end.

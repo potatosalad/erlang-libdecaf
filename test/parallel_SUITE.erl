@@ -1,5 +1,6 @@
 %%% % @format
 -module(parallel_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Parallel router supervision, asynchronous absorb startup, and wakeup coalescing.
 """.
@@ -26,6 +27,7 @@ Parallel router supervision, asynchronous absorb startup, and wakeup coalescing.
     disabled/1
 ]).
 
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [
         native_info,
@@ -42,17 +44,22 @@ all() ->
         disabled
     ].
 
+-spec init_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_suite(Config) ->
     {ok, _} = application:ensure_all_started(libdecaf),
     Config.
 
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 end_per_suite(_) -> ok.
 
+-spec init_per_testcase(TestCase, Config) -> Result when
+    TestCase :: ct_suite:ct_testname(), Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_testcase(_, Config) ->
     ok = application:stop(libdecaf),
     {ok, _} = application:ensure_all_started(libdecaf),
     Config.
 
+-spec native_info(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 native_info(_) ->
     #{count := Count, limit := Limit, names := Names} = Info = libdecaf_nif:parallel_router_info(),
     Count = min(erlang:system_info(schedulers), Limit),
@@ -69,8 +76,10 @@ native_info(_) ->
     end,
     {libdecaf_nif, Beam, Filename} = code:get_object_code(libdecaf_nif),
     {module, libdecaf_nif} = code:load_binary(libdecaf_nif, Filename, Beam),
-    Info = libdecaf_nif:parallel_router_info().
+    Info = libdecaf_nif:parallel_router_info(),
+    ok.
 
+-spec workers(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 workers(_) ->
     #{count := Count, names := Names} = libdecaf_nif:parallel_router_info(),
     Count = length(supervisor:which_children(libdecaf_parallel_routers_sup)),
@@ -82,8 +91,10 @@ workers(_) ->
             ready_absorb(Number)
         end,
         lists:enumerate(Names)
-    ).
+    ),
+    ok.
 
+-spec wakeup(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 wakeup(_) ->
     Name = libdecaf_parallel_router:child_name(1),
     Router = whereis(Name),
@@ -97,8 +108,10 @@ wakeup(_) ->
         no_absorb_calls()
     end),
     Router = whereis(Name),
-    ok = await(fun() -> hibernating(Router) end, 7000).
+    ok = await(fun() -> hibernating(Router) end, 7000),
+    ok.
 
+-spec coalescing(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 coalescing(_) ->
     Name = libdecaf_parallel_router:child_name(1),
     First = ready_absorb(1),
@@ -115,8 +128,10 @@ coalescing(_) ->
         absorb_calls(2),
         _ = ready_absorb(1),
         no_absorb_calls()
-    end).
+    end),
+    ok.
 
+-spec startup_wakeup(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 startup_wakeup(_) ->
     Name = libdecaf_parallel_router:child_name(1),
     AbsorbSup = libdecaf_parallel_absorb_sup:child_name(1),
@@ -134,14 +149,20 @@ startup_wakeup(_) ->
         absorb_calls(1),
         _ = ready_absorb(1),
         no_absorb_calls()
-    end).
+    end),
+    ok.
 
+-spec startup_failures(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 startup_failures(_) ->
-    failed_starts(error).
+    failed_starts(error),
+    ok.
 
+-spec starter_crashes(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 starter_crashes(_) ->
-    failed_starts(crash).
+    failed_starts(crash),
+    ok.
 
+-spec absorb_restart(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 absorb_restart(_) ->
     Name = libdecaf_parallel_router:child_name(1),
     Router = whereis(Name),
@@ -151,8 +172,10 @@ absorb_restart(_) ->
     down(Ref, Old, killed),
     New = ready_absorb(1),
     true = Old =/= New,
-    Router = whereis(Name).
+    Router = whereis(Name),
+    ok.
 
+-spec router_restart(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 router_restart(_) ->
     Name = libdecaf_parallel_router:child_name(1),
     Old = whereis(Name),
@@ -164,11 +187,13 @@ router_restart(_) ->
     down(Ref, Absorb, normal),
     ok = await(fun() -> new_process(Name, Old) end, 2000),
     _ = ready_absorb(1),
-    AbsorbSup = whereis(libdecaf_parallel_absorb_sup:child_name(1)).
+    AbsorbSup = whereis(libdecaf_parallel_absorb_sup:child_name(1)),
+    ok.
 
+-spec restart(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 restart(_) ->
     Name = libdecaf_parallel_router:child_name(1),
-    OldRouter = whereis(Name),
+    OldRouter = libdecaf_ct:registered_pid(Name),
     AbsorbSupName = libdecaf_parallel_absorb_sup:child_name(1),
     OldSup = whereis(AbsorbSupName),
     true = is_pid(OldSup),
@@ -177,13 +202,17 @@ restart(_) ->
     exit(OldSup, kill),
     ok = await(fun() -> new_process(AbsorbSupName, OldSup) andalso new_process(Name, OldRouter) end, 2000),
     _ = ready_absorb(1),
-    RouterSup = whereis(libdecaf_parallel_router_sup:child_name(1)).
+    RouterSup = whereis(libdecaf_parallel_router_sup:child_name(1)),
+    ok.
 
+-spec dirty_cpu(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 dirty_cpu(_) ->
     ok = libdecaf_nif:parallel_absorb(1, 1),
     ok = libdecaf_nif:parallel_absorb(1, 100),
-    ok = libdecaf_nif:parallel_absorb(1, 0).
+    ok = libdecaf_nif:parallel_absorb(1, 0),
+    ok.
 
+-spec disabled(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 disabled(_) ->
     Previous = application:get_env(libdecaf, parallel),
     #{names := Names} = Info = libdecaf_nif:parallel_router_info(),
@@ -204,8 +233,10 @@ disabled(_) ->
         end,
         {ok, _} = application:ensure_all_started(libdecaf)
     end,
-    workers([]).
+    workers([]),
+    ok.
 
+-spec failed_starts(Mode) -> Result when Mode :: error | crash, Result :: ok.
 failed_starts(Mode) ->
     Name = libdecaf_parallel_router:child_name(1),
     Router = whereis(Name),
@@ -240,9 +271,12 @@ failed_starts(Mode) ->
         _ = ready_absorb(1),
         no_absorb_calls(),
         Router = whereis(Name),
-        AncestorPids = [whereis(Ancestor) || Ancestor <- Ancestors]
+        AncestorPids = [whereis(Ancestor) || Ancestor <- Ancestors],
+        ok
     end).
 
+-spec fail_start_requests(Parent, Mode, Attempt) -> Result when
+    Parent :: pid(), Mode :: error | crash, Attempt :: pos_integer(), Result :: no_return().
 fail_start_requests(Parent, Mode, Attempt) ->
     receive
         {'$gen_call', From = {Starter, _Tag}, {start_child, _Args}} ->
@@ -254,17 +288,22 @@ fail_start_requests(Parent, Mode, Attempt) ->
             fail_start_requests(Parent, Mode, Attempt + 1)
     end.
 
+-spec start_attempt(Fake, Attempt) -> Result when Fake :: pid(), Attempt :: pos_integer(), Result :: integer().
 start_attempt(Fake, Attempt) ->
     receive
         {start_attempt, Fake, Attempt, Time} -> Time
     after 2000 -> error({no_start_attempt, Attempt})
     end.
 
+-spec ready_absorb(Router) -> Result when Router :: pos_integer(), Result :: pid().
 ready_absorb(Number) ->
     Name = libdecaf_parallel_router:child_name(Number),
     ok = await(fun() -> router_state(Name) =:= ready andalso is_pid(only_absorb(Number)) end, 2000),
-    only_absorb(Number).
+    Pid = only_absorb(Number),
+    true = is_pid(Pid),
+    Pid.
 
+-spec only_absorb(Router) -> Result when Router :: pos_integer(), Result :: pid() | undefined.
 only_absorb(Number) ->
     Sup = libdecaf_parallel_absorb_sup:child_name(Number),
     case [Pid || {_, Pid, _, _} <- supervisor:which_children(Sup), is_pid(Pid), is_process_alive(Pid)] of
@@ -272,14 +311,17 @@ only_absorb(Number) ->
         _ -> undefined
     end.
 
+-spec new_process(Name, Old) -> Result when Name :: atom(), Old :: pid(), Result :: boolean().
 new_process(Name, Old) ->
     Pid = whereis(Name),
     is_pid(Pid) andalso Pid =/= Old.
 
+-spec router_state(Name) -> Result when Name :: atom(), Result :: starting | ready | working.
 router_state(Name) ->
     {State, _} = sys:get_state(Name),
     State.
 
+-spec with_absorb_trace(Worker, Function) -> Result when Worker :: pid(), Function :: fun(() -> Value), Result :: Value.
 with_absorb_trace(First, Fun) ->
     Session = trace:session_create(?MODULE, self(), []),
     1 = trace:function(Session, {libdecaf_nif, parallel_absorb, 2}, true, []),
@@ -291,6 +333,7 @@ with_absorb_trace(First, Fun) ->
         trace:session_destroy(Session)
     end.
 
+-spec absorb_calls(Count) -> Result when Count :: non_neg_integer(), Result :: ok.
 absorb_calls(0) ->
     ok;
 absorb_calls(Count) ->
@@ -299,18 +342,21 @@ absorb_calls(Count) ->
     after 3000 -> error({missing_absorb_calls, Count})
     end.
 
+-spec no_absorb_calls() -> Result when Result :: ok.
 no_absorb_calls() ->
     receive
         {trace, _Pid, call, {libdecaf_nif, parallel_absorb, [1, _]}} -> error(extra_absorb_call)
     after 100 -> ok
     end.
 
+-spec down(Monitor, Pid, Reason) -> Result when Monitor :: reference(), Pid :: pid(), Reason :: term(), Result :: ok.
 down(Ref, Pid, Reason) ->
     receive
         {'DOWN', Ref, process, Pid, Reason} -> ok
     after 4000 -> error({not_down, Pid, Reason})
     end.
 
+-spec hibernating(Pid) -> Result when Pid :: pid(), Result :: boolean().
 hibernating(Pid) ->
     case process_info(Pid, current_function) of
         {current_function, {gen_statem, loop_hibernate, 3}} -> true;
@@ -318,9 +364,13 @@ hibernating(Pid) ->
         _ -> false
     end.
 
+-spec await(Predicate, Timeout) -> Result when
+    Predicate :: fun(() -> boolean()), Timeout :: non_neg_integer(), Result :: ok.
 await(Predicate, Timeout) ->
     await_until(Predicate, erlang:monotonic_time(millisecond) + Timeout).
 
+-spec await_until(Predicate, Deadline) -> Result when
+    Predicate :: fun(() -> boolean()), Deadline :: integer(), Result :: ok.
 await_until(Predicate, Deadline) ->
     case Predicate() of
         true ->

@@ -1,5 +1,6 @@
 %%% % @format
 -module(rfc9861_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 All RFC 9861 TurboSHAKE and KangarooTwelve vectors through the Hash and XOF APIs.
 """.
@@ -13,8 +14,16 @@ All RFC 9861 TurboSHAKE and KangarooTwelve vectors through the Hash and XOF APIs
     kt_customization/1,
     domain_validation/1
 ]).
+
+-type input_spec() :: binary() | {repeat, byte(), non_neg_integer()} | {pattern, non_neg_integer()}.
+-type vector() ::
+    {kt128 | kt256, input_spec(), input_spec(), non_neg_integer(), binary()}
+    | {turboshake128 | turboshake256, 1..127, input_spec(), non_neg_integer(), binary()}.
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() -> [turboshake_vectors, kt_vectors, kt_boundaries, kt_customization, domain_validation].
 
+-spec turboshake_vectors(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 turboshake_vectors(Config) ->
     Vectors = vectors("turboshake.config", Config),
     31 = length(Vectors),
@@ -40,8 +49,10 @@ turboshake_vectors(Config) ->
             )
         end,
         Vectors
-    ).
+    ),
+    ok.
 
+-spec kt_vectors(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 kt_vectors(Config) ->
     Vectors = vectors("kt.config", Config),
     36 = length(Vectors),
@@ -71,8 +82,10 @@ kt_vectors(Config) ->
             )
         end,
         Vectors
-    ).
+    ),
+    ok.
 
+-spec kt_boundaries(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 kt_boundaries(_) ->
     lists:foreach(
         fun(Type) ->
@@ -98,8 +111,10 @@ kt_boundaries(_) ->
             )
         end,
         [kt128, kt256]
-    ).
+    ),
+    ok.
 
+-spec kt_customization(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 kt_customization(_) ->
     lists:foreach(
         fun(Type) ->
@@ -112,21 +127,23 @@ kt_customization(_) ->
             EmptyCustom = libdecaf:xof(Type, Message, 131073),
             true = EmptyCustom =/= Expected,
             {Next, <<>>} = libdecaf:xof_squeeze(State, 0),
-            badarg(fun() -> libdecaf:xof_absorb(Next, <<>>) end),
-            badarg(fun() -> libdecaf:xof_init({Type, invalid}) end),
-            badarg(fun() -> libdecaf:hash_init({Type, 32, 31}) end)
+            libdecaf_ct:assert_badarg(libdecaf, xof_absorb, [Next, <<>>]),
+            libdecaf_ct:assert_badarg(libdecaf, xof_init, [{Type, invalid}]),
+            libdecaf_ct:assert_badarg(libdecaf, hash_init, [{Type, 32, 31}])
         end,
         [kt128, kt256]
-    ).
+    ),
+    ok.
 
+-spec domain_validation(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 domain_validation(_) ->
     lists:foreach(
         fun(Type) ->
             lists:foreach(
                 fun(Domain) ->
-                    badarg(fun() -> libdecaf:xof({Type, Domain}, <<>>, 32) end),
-                    badarg(fun() -> libdecaf:xof_init({Type, Domain}) end),
-                    badarg(fun() -> libdecaf:hash_init({Type, 32, Domain}) end)
+                    libdecaf_ct:assert_badarg(libdecaf, xof, [{Type, Domain}, <<>>, 32]),
+                    libdecaf_ct:assert_badarg(libdecaf, xof_init, [{Type, Domain}]),
+                    libdecaf_ct:assert_badarg(libdecaf, hash_init, [{Type, 32, Domain}])
                 end,
                 [-1, 0, 128, 256, <<31>>, invalid]
             ),
@@ -134,19 +151,14 @@ domain_validation(_) ->
             Expected = libdecaf:xof({Type, 16#1F}, <<"abc">>, 32)
         end,
         [turboshake128, turboshake256]
-    ).
+    ),
+    ok.
 
-badarg(Fun) ->
-    try Fun() of
-        Result -> ct:fail({expected_badarg, Result})
-    catch
-        error:badarg -> ok;
-        error:{badarg, _, _} -> ok
-    end.
-
+-spec chunks(Input, Size) -> Result when Input :: binary(), Size :: pos_integer(), Result :: [binary()].
 chunks(<<Chunk:137/binary, Rest/binary>>, 137) -> [Chunk | chunks(Rest, 137)];
 chunks(Tail, _) -> [Tail].
 
+-spec input(Input) -> Result when Input :: input_spec(), Result :: binary().
 input({pattern, Length}) ->
     Pattern = list_to_binary(lists:seq(0, 250)),
     Whole = binary:copy(Pattern, Length div 251),
@@ -157,6 +169,8 @@ input({repeat, Byte, Length}) ->
 input(Hex) ->
     binary:decode_hex(Hex).
 
+-spec vectors(File, Config) -> Result when
+    File :: file:filename_all(), Config :: ct_suite:ct_config(), Result :: [vector()].
 vectors(File, Config) ->
     {ok, Vectors} = file:consult(filename:join(?config(data_dir, Config), File)),
     Vectors.

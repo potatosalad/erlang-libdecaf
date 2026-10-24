@@ -1,5 +1,6 @@
 %%% % @format
 -module(hex).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Convert between binary data and hexadecimal test-vector encodings.
 """.
@@ -8,8 +9,10 @@ Convert between binary data and hexadecimal test-vector encodings.
 -moduledoc #{copyright => "Andrew Bennett"}.
 
 %% API
--export([bin_to_hex/1]).
--export([hex_to_bin/1]).
+-export([
+    bin_to_hex/1,
+    hex_to_bin/1
+]).
 
 -define(HEX_TO_INT(C),
     case C of
@@ -63,9 +66,11 @@ Convert between binary data and hexadecimal test-vector encodings.
 %% API functions
 %%====================================================================
 
+-spec bin_to_hex(Input) -> Result when Input :: binary(), Result :: binary().
 bin_to_hex(Bin) ->
     <<<<(?INT_TO_HEX(V bsr 4)), (?INT_TO_HEX(V band 16#F))>> || <<V>> <= Bin>>.
 
+-spec hex_to_bin(Hex) -> Result when Hex :: binary(), Result :: binary().
 hex_to_bin(Hex) ->
     <<<<((?HEX_TO_INT(X) bsl 4) + ?HEX_TO_INT(Y))>> || <<X, Y>> <= Hex>>.
 

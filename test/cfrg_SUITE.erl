@@ -1,5 +1,6 @@
 %%% % @format
 -module(cfrg_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Common Test coverage for Ed25519/Ed448 signatures and X25519/X448 key agreement.
 
@@ -12,24 +13,31 @@ Includes published test vectors and regressions for key handling and input encod
 -include_lib("common_test/include/ct.hrl").
 
 %% ct.
--export([all/0]).
--export([groups/0]).
--export([init_per_suite/1]).
--export([end_per_suite/1]).
--export([init_per_group/2]).
--export([end_per_group/2]).
+-export([
+    all/0,
+    groups/0,
+    init_per_suite/1,
+    end_per_suite/1,
+    init_per_group/2,
+    end_per_group/2
+]).
 
 %% Tests.
--export([curve25519/1]).
--export([curve448/1]).
--export([ed25519/1]).
--export([ed25519ctx/1]).
--export([ed25519ph/1]).
--export([ed448/1]).
--export([ed448ph/1]).
--export([x25519/1]).
--export([x448/1]).
--export([x25519_high_bit/1, x25519_noncanonical/1, x25519_low_order/1, mismatched_keypairs/1]).
+-export([
+    curve25519/1,
+    curve448/1,
+    ed25519/1,
+    ed25519ctx/1,
+    ed25519ph/1,
+    ed448/1,
+    ed448ph/1,
+    x25519/1,
+    x448/1,
+    x25519_high_bit/1,
+    x25519_noncanonical/1,
+    x25519_low_order/1,
+    mismatched_keypairs/1
+]).
 
 %% Macros.
 -define(tv_ok(T, M, F, A, E),
@@ -41,12 +49,16 @@ Includes published test vectors and regressions for key handling and input encod
     end
 ).
 
+-type eddsa_vector() :: {binary(), binary(), binary(), binary()} | {binary(), binary(), binary(), binary(), binary()}.
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [
         {group, 'curve25519'},
         {group, 'curve448'}
     ].
 
+-spec groups() -> Result when Result :: [ct_suite:ct_group_def()].
 groups() ->
     [
         {'curve25519', [parallel], [
@@ -68,14 +80,18 @@ groups() ->
         ]}
     ].
 
+-spec init_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_suite(Config) ->
     _ = application:ensure_all_started(libdecaf),
     Config.
 
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 end_per_suite(_Config) ->
     _ = application:stop(libdecaf),
     ok.
 
+-spec init_per_group(Group, Config) -> Result when
+    Group :: ct_suite:ct_groupname(), Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_group(G = 'curve25519', Config) ->
     [
         {curve25519, [
@@ -943,6 +959,8 @@ init_per_group(G = 'curve448', Config) ->
         | libdecaf_ct:start(G, Config)
     ].
 
+-spec end_per_group(Group, Config) -> Result when
+    Group :: ct_suite:ct_groupname(), Config :: ct_suite:ct_config(), Result :: ok.
 end_per_group(_Group, Config) ->
     libdecaf_ct:stop(Config),
     ok.
@@ -951,55 +969,78 @@ end_per_group(_Group, Config) ->
 %% Tests
 %%====================================================================
 
+-spec curve25519(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 curve25519(Config) ->
     Vectors = ?config(curve25519, Config),
-    lists:foreach(fun curve25519_vector/1, Vectors).
+    lists:foreach(fun curve25519_vector/1, Vectors),
+    ok.
 
+-spec curve448(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 curve448(Config) ->
     Vectors = ?config(curve448, Config),
-    lists:foreach(fun curve448_vector/1, Vectors).
+    lists:foreach(fun curve448_vector/1, Vectors),
+    ok.
 
+-spec ed25519(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 ed25519(Config) ->
     Vectors = ?config(ed25519, Config),
-    lists:foreach(fun ed25519_vector/1, Vectors).
+    lists:foreach(fun ed25519_vector/1, Vectors),
+    ok.
 
+-spec ed25519ctx(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 ed25519ctx(Config) ->
     Vectors = ?config(ed25519ctx, Config),
-    lists:foreach(fun ed25519ctx_vector/1, Vectors).
+    lists:foreach(fun ed25519ctx_vector/1, Vectors),
+    ok.
 
+-spec ed25519ph(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 ed25519ph(Config) ->
     Vectors = ?config(ed25519ph, Config),
-    lists:foreach(fun ed25519ph_vector/1, Vectors).
+    lists:foreach(fun ed25519ph_vector/1, Vectors),
+    ok.
 
+-spec ed448(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 ed448(Config) ->
     Vectors = ?config(ed448, Config),
-    lists:foreach(fun ed448_vector/1, Vectors).
+    lists:foreach(fun ed448_vector/1, Vectors),
+    ok.
 
+-spec ed448ph(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 ed448ph(Config) ->
     Vectors = ?config(ed448ph, Config),
-    lists:foreach(fun ed448ph_vector/1, Vectors).
+    lists:foreach(fun ed448ph_vector/1, Vectors),
+    ok.
 
+-spec x25519(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 x25519(Config) ->
     Vectors = ?config(x25519, Config),
-    lists:foreach(fun x25519_vector/1, Vectors).
+    lists:foreach(fun x25519_vector/1, Vectors),
+    ok.
 
+-spec x448(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 x448(Config) ->
     Vectors = ?config(x448, Config),
-    lists:foreach(fun x448_vector/1, Vectors).
+    lists:foreach(fun x448_vector/1, Vectors),
+    ok.
 
 %%%-------------------------------------------------------------------
 %%% Internal functions
 %%%-------------------------------------------------------------------
 
 %% @private
+-spec curve25519_vector(Vector) -> Result when
+    Vector :: {integer() | binary(), integer() | binary(), binary()}, Result :: ok.
 curve25519_vector({InputK, InputU, OutputU}) ->
     ?tv_ok(T0, libdecaf_curve25519, curve25519, [InputK, InputU], OutputU).
 
 %% @private
+-spec curve448_vector(Vector) -> Result when
+    Vector :: {integer() | binary(), integer() | binary(), binary()}, Result :: ok.
 curve448_vector({InputK, InputU, OutputU}) ->
     ?tv_ok(T0, libdecaf_curve448, curve448, [InputK, InputU], OutputU).
 
 %% @private
+-spec ed25519_vector(Vector) -> Result when Vector :: {binary(), binary(), binary(), binary()}, Result :: ok.
 ed25519_vector({Secret, PK, Message, Signature}) ->
     SK = <<Secret/binary, PK/binary>>,
     ?tv_ok(T0, libdecaf_curve25519, eddsa_secret_to_pk, [Secret], PK),
@@ -1012,6 +1053,8 @@ ed25519_vector({Secret, PK, Message, Signature}) ->
     public_eddsa_vector(ed25519, ed25519, Secret, PK, Message, none, Signature).
 
 %% @private
+-spec ed25519ctx_vector(Vector) -> Result when
+    Vector :: {binary(), binary(), binary(), binary(), binary()}, Result :: ok.
 ed25519ctx_vector({Secret, PK, Message, Context, Signature}) ->
     SK = <<Secret/binary, PK/binary>>,
     ?tv_ok(T0, libdecaf_curve25519, eddsa_secret_to_pk, [Secret], PK),
@@ -1024,6 +1067,7 @@ ed25519ctx_vector({Secret, PK, Message, Context, Signature}) ->
     public_eddsa_vector(ed25519, ed25519ctx, Secret, PK, Message, Context, Signature).
 
 %% @private
+-spec ed25519ph_vector(Vector) -> Result when Vector :: {binary(), binary(), binary(), binary()}, Result :: ok.
 ed25519ph_vector({Secret, PK, Message, Signature}) ->
     SK = <<Secret/binary, PK/binary>>,
     ?tv_ok(T0, libdecaf_curve25519, eddsa_secret_to_pk, [Secret], PK),
@@ -1037,6 +1081,7 @@ ed25519ph_vector({Secret, PK, Message, Signature}) ->
     public_eddsa_vector(ed25519, ed25519ph, Secret, PK, Message, <<>>, Signature).
 
 %% @private
+-spec ed448_vector(Vector) -> Result when Vector :: eddsa_vector(), Result :: ok.
 ed448_vector({Secret, PK, Message, Signature}) ->
     SK = <<Secret/binary, PK/binary>>,
     ?tv_ok(T0, libdecaf_curve448, eddsa_secret_to_pk, [Secret], PK),
@@ -1059,6 +1104,7 @@ ed448_vector({Secret, PK, Message, Context, Signature}) ->
     public_eddsa_vector(ed448, ed448, Secret, PK, Message, Context, Signature).
 
 %% @private
+-spec ed448ph_vector(Vector) -> Result when Vector :: eddsa_vector(), Result :: ok.
 ed448ph_vector({Secret, PK, Message, Signature}) ->
     SK = <<Secret/binary, PK/binary>>,
     ?tv_ok(T0, libdecaf_curve448, eddsa_secret_to_pk, [Secret], PK),
@@ -1082,31 +1128,52 @@ ed448ph_vector({Secret, PK, Message, Context, Signature}) ->
     stream_vector(ed448ph, KP, PK, Message, Context, Signature),
     public_eddsa_vector(ed448, ed448ph, Secret, PK, Message, Context, Signature).
 
+-spec public_eddsa_vector(Curve, Algorithm, Seed, Public, Message, Context, Signature) -> Result when
+    Curve :: ed25519 | ed448,
+    Algorithm :: ed25519 | ed25519ctx | ed25519ph | ed448 | ed448ph,
+    Seed :: binary(),
+    Public :: binary(),
+    Message :: binary(),
+    Context :: none | binary(),
+    Signature :: binary(),
+    Result :: ok.
 public_eddsa_vector(Curve, Algorithm, Seed, Public, Message, Context, Signature) ->
     Keypair = libdecaf:eddsa_keypair(Curve, Seed),
     {Public, Seed} = libdecaf:eddsa_keypair_extract(Keypair),
-    SignParameters = public_eddsa_parameters(Algorithm, Keypair, Context),
+    SignParameters = public_eddsa_parameters(Algorithm, Seed, Context),
     VerifyParameters = public_eddsa_parameters(Algorithm, Public, Context),
     Signature = libdecaf:eddsa_sign(SignParameters, Message),
     true = libdecaf:eddsa_verify(VerifyParameters, Signature, Message),
     case Algorithm of
         PH when PH =:= ed25519ph; PH =:= ed448ph ->
-            S0 = libdecaf:eddsa_sign_init(SignParameters),
+            true = is_binary(Context),
+            S0 = libdecaf:eddsa_sign_init({PH, Keypair, Context}),
             Signature = libdecaf:eddsa_sign_final(libdecaf:eddsa_sign_update(S0, Message)),
-            V0 = libdecaf:eddsa_verify_init(VerifyParameters, Signature),
+            V0 = libdecaf:eddsa_verify_init({PH, Public, Context}, Signature),
             true = libdecaf:eddsa_verify_final(libdecaf:eddsa_verify_update(V0, Message));
         _ ->
             ok
     end.
 
-public_eddsa_parameters(Algorithm, Key, none) -> {Algorithm, Key};
-public_eddsa_parameters(Algorithm, Key, Context) -> {Algorithm, Key, Context}.
+-spec public_eddsa_parameters(Algorithm, Key, Context) -> Result when
+    Algorithm :: ed25519 | ed25519ctx | ed25519ph | ed448 | ed448ph,
+    Key :: binary(),
+    Context :: none | binary(),
+    Result :: libdecaf:eddsa_sign_parameters() | libdecaf:eddsa_verify_parameters().
+public_eddsa_parameters(Algorithm, Key, none) ->
+    {Algorithm, Key};
+public_eddsa_parameters(Algorithm, Key, Context) when Algorithm =:= ed25519ctx; Algorithm =:= ed25519ph ->
+    {Algorithm, Key, Context};
+public_eddsa_parameters(Algorithm, Key, Context) when Algorithm =:= ed448; Algorithm =:= ed448ph ->
+    {Algorithm, Key, Context}.
 
 %% @private
+-spec hexstr2bin(Hex) -> Result when Hex :: string(), Result :: binary().
 hexstr2bin(S) ->
     list_to_binary(hexstr2list(S)).
 
 %% @private
+-spec hexstr2lint(Hex) -> Result when Hex :: string(), Result :: non_neg_integer().
 hexstr2lint(S) ->
     Bin = hexstr2bin(S),
     Size = byte_size(Bin),
@@ -1114,12 +1181,14 @@ hexstr2lint(S) ->
     Int.
 
 %% @private
+-spec hexstr2list(Hex) -> Result when Hex :: string(), Result :: [byte()].
 hexstr2list([X, Y | T]) ->
     [mkint(X) * 16 + mkint(Y) | hexstr2list(T)];
 hexstr2list([]) ->
     [].
 
 %% @private
+-spec mkint(Character) -> Result when Character :: char(), Result :: 0..15.
 mkint(C) when $0 =< C, C =< $9 ->
     C - $0;
 mkint(C) when $A =< C, C =< $F ->
@@ -1128,6 +1197,7 @@ mkint(C) when $a =< C, C =< $f ->
     C - $a + 10.
 
 %% @private
+-spec x25519_vector(Vector) -> Result when Vector :: {binary(), binary(), binary(), binary(), binary()}, Result :: ok.
 x25519_vector({AliceSK, AlicePK, BobSK, BobPK, Shared}) ->
     ?tv_ok(T0, libdecaf_curve25519, x25519, [AliceSK], AlicePK),
     ?tv_ok(T1, libdecaf_curve25519, x25519, [BobSK], BobPK),
@@ -1136,6 +1206,7 @@ x25519_vector({AliceSK, AlicePK, BobSK, BobPK, Shared}) ->
     public_ecdh_vector(x25519, AliceSK, AlicePK, BobSK, BobPK, Shared).
 
 %% @private
+-spec x448_vector(Vector) -> Result when Vector :: {binary(), binary(), binary(), binary(), binary()}, Result :: ok.
 x448_vector({AliceSK, AlicePK, BobSK, BobPK, Shared}) ->
     ?tv_ok(T0, libdecaf_curve448, x448, [AliceSK], AlicePK),
     ?tv_ok(T1, libdecaf_curve448, x448, [BobSK], BobPK),
@@ -1143,6 +1214,14 @@ x448_vector({AliceSK, AlicePK, BobSK, BobPK, Shared}) ->
     ?tv_ok(T3, libdecaf_curve448, x448, [BobSK, AlicePK], Shared),
     public_ecdh_vector(x448, AliceSK, AlicePK, BobSK, BobPK, Shared).
 
+-spec public_ecdh_vector(Algorithm, AliceSecret, AlicePublic, BobSecret, BobPublic, Shared) -> Result when
+    Algorithm :: libdecaf:ecdh_algorithm(),
+    AliceSecret :: binary(),
+    AlicePublic :: binary(),
+    BobSecret :: binary(),
+    BobPublic :: binary(),
+    Shared :: binary(),
+    Result :: ok.
 public_ecdh_vector(Algorithm, AliceSK, AlicePK, BobSK, BobPK, Shared) ->
     Alice = libdecaf:ecdh_keypair(Algorithm, AliceSK),
     Bob = libdecaf:ecdh_keypair(Algorithm, BobSK),
@@ -1150,9 +1229,11 @@ public_ecdh_vector(Algorithm, AliceSK, AlicePK, BobSK, BobPK, Shared) ->
     {BobPK, BobSK} = libdecaf:ecdh_keypair_extract(Bob),
     Shared = libdecaf:ecdh_shared_secret(Algorithm, Alice, Bob),
     Shared = libdecaf:ecdh_shared_secret(Algorithm, Bob, Alice),
-    Shared = libdecaf:ecdh_shared_secret(Algorithm, AliceSK, BobPK).
+    Shared = libdecaf:ecdh_shared_secret(Algorithm, AliceSK, BobPK),
+    ok.
 
 %% RFC 7748 requires ignoring the high bit of an X25519 input coordinate.
+-spec x25519_high_bit(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 x25519_high_bit(_Config) ->
     Scalar = hexstr2bin("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"),
     Public = hexstr2bin("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f"),
@@ -1163,6 +1244,7 @@ x25519_high_bit(_Config) ->
     ok.
 
 %% Non-canonical coordinates must be reduced modulo 2^255-19.
+-spec x25519_noncanonical(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 x25519_noncanonical(_Config) ->
     Scalar = <<42:256>>,
     P = (1 bsl 255) - 19,
@@ -1175,6 +1257,7 @@ x25519_noncanonical(_Config) ->
     ),
     ok.
 
+-spec x25519_low_order(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 x25519_low_order(_Config) ->
     Scalar = <<42:256>>,
     P = (1 bsl 255) - 19,
@@ -1186,6 +1269,7 @@ x25519_low_order(_Config) ->
     ),
     ok.
 
+-spec mismatched_keypairs(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 mismatched_keypairs(_Config) ->
     lists:foreach(
         fun({Curve, Bytes, Sign, Prehash}) ->
@@ -1210,6 +1294,14 @@ mismatched_keypairs(_Config) ->
     ),
     ok.
 
+-spec stream_vector(Algorithm, Keypair, PublicKey, Message, Context, Signature) -> Result when
+    Algorithm :: ed25519ph | ed448ph,
+    Keypair :: libdecaf_nif:ed25519_keypair() | libdecaf_nif:ed448_keypair(),
+    PublicKey :: binary(),
+    Message :: binary(),
+    Context :: binary(),
+    Signature :: binary(),
+    Result :: ok.
 stream_vector(Algorithm, Keypair, PublicKey, Message, Context, Signature) ->
     Split = byte_size(Message) div 2,
     <<A:Split/binary, B/binary>> = Message,
@@ -1223,6 +1315,8 @@ stream_vector(Algorithm, Keypair, PublicKey, Message, Context, Signature) ->
     true = stream_nif(Algorithm, verify_final, [V2]),
     ok.
 
+-spec stream_nif(Algorithm, Operation, Arguments) -> Result when
+    Algorithm :: ed25519ph | ed448ph, Operation :: atom(), Arguments :: [term()], Result :: dynamic().
 stream_nif(Algorithm, Operation, Arguments) ->
     Function = list_to_existing_atom(atom_to_list(Algorithm) ++ "_" ++ atom_to_list(Operation)),
     apply(libdecaf_nif, Function, Arguments).

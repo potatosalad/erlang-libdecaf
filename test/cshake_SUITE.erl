@@ -1,5 +1,6 @@
 %%% % @format
 -module(cshake_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 SP 800-185 cSHAKE examples, framing boundaries, and immutable-state regressions.
 """.
@@ -17,6 +18,11 @@ SP 800-185 cSHAKE examples, framing boundaries, and immutable-state regressions.
     shake_equivalence/1
 ]).
 
+-type cshake_algorithm() :: cshake128 | cshake256.
+-type input_spec() :: binary() | {repeat, byte(), non_neg_integer()}.
+-type vector() :: {cshake_algorithm(), input_spec(), input_spec(), input_spec(), binary()}.
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [
         nist_vectors,
@@ -27,6 +33,7 @@ all() ->
         invalid_arguments
     ].
 
+-spec immutable_states(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 immutable_states(_) ->
     each(fun(Type, _) ->
         Initial = libdecaf:xof_init({Type, <<"KMAC">>, <<"domain">>}),
@@ -42,23 +49,27 @@ immutable_states(_) ->
         Two = libdecaf:xof({Type, <<"KMAC">>, <<"domain">>}, <<"two">>, 200),
         Two = element(2, libdecaf:xof_squeeze(Second, 200)),
         true = One =/= Two
-    end).
+    end),
+    ok.
 
+-spec invalid_arguments(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 invalid_arguments(_) ->
     each(fun(Type, Shake) ->
-        lists:foreach(fun badarg/1, [
-            fun() -> libdecaf:xof({Type, <<>>, <<>>}, <<>>, -1) end,
-            fun() -> libdecaf:xof({Type, invalid, <<>>}, <<>>, 32) end,
-            fun() -> libdecaf:xof({Type, <<>>, [256]}, <<>>, 32) end,
-            fun() -> libdecaf:xof({Type, <<>>, <<"domain">>}, invalid, 32) end,
-            fun() -> libdecaf:xof_init({Type, <<>>, invalid}) end,
-            fun() -> libdecaf:xof_init({Type, [256], <<>>}) end,
-            fun() -> libdecaf:xof({Shake, <<>>, <<>>}, <<>>, 32) end,
-            fun() -> libdecaf:xof_init({Shake, <<>>, <<>>}) end,
-            fun() -> libdecaf:hash_init(Type) end
+        lists:foreach(fun(Function) -> Function() end, [
+            fun() -> libdecaf_ct:assert_badarg(libdecaf, xof, [{Type, <<>>, <<>>}, <<>>, -1]) end,
+            fun() -> libdecaf_ct:assert_badarg(libdecaf, xof, [{Type, invalid, <<>>}, <<>>, 32]) end,
+            fun() -> libdecaf_ct:assert_badarg(libdecaf, xof, [{Type, <<>>, [256]}, <<>>, 32]) end,
+            fun() -> libdecaf_ct:assert_badarg(libdecaf, xof, [{Type, <<>>, <<"domain">>}, invalid, 32]) end,
+            fun() -> libdecaf_ct:assert_badarg(libdecaf, xof_init, [{Type, <<>>, invalid}]) end,
+            fun() -> libdecaf_ct:assert_badarg(libdecaf, xof_init, [{Type, [256], <<>>}]) end,
+            fun() -> libdecaf_ct:assert_badarg(libdecaf, xof, [{Shake, <<>>, <<>>}, <<>>, 32]) end,
+            fun() -> libdecaf_ct:assert_badarg(libdecaf, xof_init, [{Shake, <<>>, <<>>}]) end,
+            fun() -> libdecaf_ct:assert_badarg(libdecaf, hash_init, [Type]) end
         ])
-    end).
+    end),
+    ok.
 
+-spec large_customization(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 large_customization(Config) ->
     lists:foreach(
         fun
@@ -78,8 +89,10 @@ large_customization(Config) ->
                 ok
         end,
         vectors(Config)
-    ).
+    ),
+    ok.
 
+-spec nist_vectors(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 nist_vectors(_) ->
     %% https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Standards-and-Guidelines/documents/examples/cSHAKE_samples.pdf
     Vectors = [
@@ -100,16 +113,20 @@ nist_vectors(_) ->
             check(Type, <<>>, [<<"Email">>, 32, <<"Signature">>], Message, binary:decode_hex(Hex))
         end,
         Vectors
-    ).
+    ),
+    ok.
 
+-spec reference_vectors(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 reference_vectors(Config) ->
     lists:foreach(
         fun({Type, Name, Custom, Message, Hex}) ->
             check(Type, input(Name), input(Custom), input(Message), binary:decode_hex(Hex))
         end,
         vectors(Config)
-    ).
+    ),
+    ok.
 
+-spec shake_equivalence(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 shake_equivalence(_) ->
     each(fun(Type, Shake) ->
         lists:foreach(
@@ -129,16 +146,16 @@ shake_equivalence(_) ->
             end,
             [<<>>, <<"abc">>, binary:copy(<<42>>, 65537)]
         )
-    end).
+    end),
+    ok.
 
-badarg(Fun) ->
-    try Fun() of
-        Result -> ct:fail({expected_badarg, Result})
-    catch
-        error:badarg -> ok;
-        error:{badarg, _, _} -> ok
-    end.
-
+-spec check(Type, Name, Customization, Message, Expected) -> Result when
+    Type :: cshake_algorithm(),
+    Name :: iodata(),
+    Customization :: iodata(),
+    Message :: binary(),
+    Expected :: binary(),
+    Result :: binary().
 check(Type, Name, Custom, Message, Expected) ->
     Length = byte_size(Expected),
     Expected = libdecaf:xof({Type, Name, Custom}, Message, Length),
@@ -151,14 +168,17 @@ check(Type, Name, Custom, Message, Expected) ->
     Expected = element(2, libdecaf:xof_squeeze(Updated, Length)),
     Expected = element(2, libdecaf:xof_squeeze(Updated, Length)).
 
+-spec each(Function) -> Result when Function :: fun((cshake_algorithm(), shake128 | shake256) -> term()), Result :: ok.
 each(Fun) ->
     lists:foreach(fun({Type, Shake}) -> Fun(Type, Shake) end, [
         {cshake128, shake128}, {cshake256, shake256}
     ]).
 
+-spec input(Input) -> Result when Input :: input_spec(), Result :: binary().
 input({repeat, Byte, Length}) -> binary:copy(<<Byte>>, Length);
 input(Hex) -> binary:decode_hex(Hex).
 
+-spec vectors(Config) -> Result when Config :: ct_suite:ct_config(), Result :: [vector()].
 vectors(Config) ->
     {ok, Vectors} = file:consult(filename:join(?config(data_dir, Config), "vectors.config")),
     Vectors.

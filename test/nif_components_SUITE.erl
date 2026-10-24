@@ -1,5 +1,6 @@
 %%% % @format
 -module(nif_components_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Exercise component resources directly through the native interface.
 """.
@@ -14,9 +15,11 @@ Exercise component resources directly through the native interface.
     upgrade/1
 ]).
 
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [keypairs, key_exchange, csprng, prime_order_groups, upgrade].
 
+-spec keypairs(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 keypairs(_) ->
     lists:foreach(
         fun({Curve, Bytes, Context}) ->
@@ -34,8 +37,10 @@ keypairs(_) ->
             true = call(Curve, "_verify_prehash", [Prehashed, Public, <<"message">>, <<>>])
         end,
         [{ed25519, 32, no_context}, {ed448, 57, <<>>}]
-    ).
+    ),
+    ok.
 
+-spec key_exchange(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 key_exchange(_) ->
     lists:foreach(
         fun({Curve, Bytes}) ->
@@ -49,8 +54,10 @@ key_exchange(_) ->
             error = call(Curve, "", [binary:copy(<<0>>, Bytes), Alice])
         end,
         [{x25519, 32}, {x448, 56}]
-    ).
+    ),
+    ok.
 
+-spec csprng(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 csprng(_) ->
     Initial = libdecaf_nif:spongerng_csprng_init_from_buffer(<<>>, true),
     Expected = binary:decode_hex(<<"2ED664354AA87699BE93C3B62715A256">>),
@@ -60,8 +67,10 @@ csprng(_) ->
     true = Following =/= Expected,
     Stirred = libdecaf_nif:spongerng_csprng_stir(Initial, [<<"seed">>]),
     {_, Changed} = libdecaf_nif:spongerng_csprng_next(Stirred, 16),
-    true = Changed =/= Expected.
+    true = Changed =/= Expected,
+    ok.
 
+-spec prime_order_groups(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 prime_order_groups(Config) ->
     DataDir = filename:join(filename:split(proplists:get_value(data_dir, Config))),
     VectorsFile = filename:join([
@@ -112,8 +121,11 @@ prime_order_groups(Config) ->
             badarg(fun() -> call(Other, "_precomputed_scalarmul", [Table, OtherScalar]) end)
         end,
         [{ristretto255, 32}, {decaf448, 56}]
-    ).
+    ),
+    ok.
 
+-spec group_arithmetic(Group, Bytes, Base, Identity) -> Result when
+    Group :: ristretto255 | decaf448, Bytes :: pos_integer(), Base :: binary(), Identity :: binary(), Result :: ok.
 group_arithmetic(Group, Bytes, Base, Identity) ->
     One = integer(1, Bytes),
     Two = integer(2, Bytes),
@@ -141,6 +153,7 @@ group_arithmetic(Group, Bytes, Base, Identity) ->
     Uniform = call(Group, "_point_from_hash", [<<One/binary, One/binary>>]),
     Uniform = call(Group, "_point_add", [Nonuniform, Nonuniform]).
 
+-spec upgrade(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 upgrade(_) ->
     Keys = [
         {Curve, call(Curve, "_derive_keypair", [binary:copy(<<7>>, Bytes)])}
@@ -166,17 +179,23 @@ upgrade(_) ->
         Tables
     ),
     keypairs([]),
-    csprng([]).
+    csprng([]),
+    ok.
 
+-spec call(Component, Suffix, Arguments) -> Result when
+    Component :: atom(), Suffix :: string(), Arguments :: [term()], Result :: dynamic().
 call(Component, Suffix, Arguments) ->
     apply(libdecaf_nif, list_to_atom(atom_to_list(Component) ++ Suffix), Arguments).
 
+-spec hex(Hex) -> Result when Hex :: string() | binary(), Result :: binary().
 hex(Value) ->
-    binary:decode_hex(list_to_binary(Value)).
+    binary:decode_hex(iolist_to_binary(Value)).
 
+-spec integer(Integer, Bytes) -> Result when Integer :: non_neg_integer(), Bytes :: pos_integer(), Result :: binary().
 integer(Value, Bytes) ->
     <<Value:(Bytes * 8)/unsigned-little-integer>>.
 
+-spec badarg(Function) -> Result when Function :: fun(() -> term()), Result :: ok.
 badarg(Fun) ->
     try Fun() of
         Value -> error({expected_badarg, Value})

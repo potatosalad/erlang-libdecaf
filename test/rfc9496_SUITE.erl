@@ -1,5 +1,6 @@
 %%% % @format
 -module(rfc9496_SUITE).
+-compile(warn_missing_spec_all).
 -include_lib("common_test/include/ct.hrl").
 -export([
     all/0,
@@ -18,7 +19,9 @@
     uniform_bytes/1
 ]).
 
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() -> [{group, ristretto255}, {group, decaf448}].
+-spec groups() -> Result when Result :: [ct_suite:ct_group_def()].
 groups() ->
     [
         {G, [parallel], [
@@ -34,11 +37,15 @@ groups() ->
      || G <- [ristretto255, decaf448]
     ].
 
+-spec init_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_suite(Config) ->
     {ok, _} = application:ensure_all_started(libdecaf),
     {ok, Vectors} = file:consult(filename:join(?config(data_dir, Config), "vectors.config")),
     [{vectors, Vectors} | Config].
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 end_per_suite(_Config) -> ok.
+-spec init_per_group(Group, Config) -> Result when
+    Group :: ristretto255 | decaf448, Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_group(Group, Config) ->
     {Module, Bytes, Order} = group(Group),
     [
@@ -47,14 +54,20 @@ init_per_group(Group, Config) ->
         {order, Order}
         | proplists:get_value(Group, ?config(vectors, Config))
     ] ++ Config.
+-spec end_per_group(Group, Config) -> Result when
+    Group :: ristretto255 | decaf448, Config :: ct_suite:ct_config(), Result :: ok.
 end_per_group(_, _) -> ok.
 
+-spec group(Group) -> Result when
+    Group :: ristretto255 | decaf448,
+    Result :: {libdecaf_ristretto255 | libdecaf_decaf448, pos_integer(), pos_integer()}.
 group(ristretto255) ->
     {libdecaf_ristretto255, 32, (1 bsl 252) + 27742317777372353535851937790883648493};
 group(decaf448) ->
     {libdecaf_decaf448, 56, (1 bsl 446) - 13818066809895115352007386748515426880336692474882178609894547503885}.
 
 %% RFC 9496 A.1 and B.1: all 16 encodings, addition, and multiplication.
+-spec multiples(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 multiples(Config) ->
     M = ?config(module, Config),
     N = ?config(bytes, Config),
@@ -80,6 +93,7 @@ multiples(Config) ->
     ok.
 
 %% RFC 9496 A.2 and B.2: every prohibited encoding must be rejected.
+-spec invalid_encodings(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 invalid_encodings(Config) ->
     M = ?config(module, Config),
     Base = M:base(),
@@ -91,9 +105,11 @@ invalid_encodings(Config) ->
             badarg(fun() -> M:point_eq(Base, Invalid) end)
         end,
         ?config(invalid, Config)
-    ).
+    ),
+    ok.
 
 %% RFC 9496 A.3 and B.3, including all four equivalent ristretto inputs.
+-spec uniform_bytes(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 uniform_bytes(Config) ->
     M = ?config(module, Config),
     lists:foreach(
@@ -102,8 +118,10 @@ uniform_bytes(Config) ->
             Expected = M:point_from_hash(hex(I))
         end,
         ?config(uniform, Config)
-    ).
+    ),
+    ok.
 
+-spec scalars(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 scalars(Config) ->
     M = ?config(module, Config),
     N = ?config(bytes, Config),
@@ -141,6 +159,7 @@ scalars(Config) ->
     lists:foreach(fun(_) -> true = M:scalar_is_canonical(M:scalar_random()) end, lists:seq(1, 10)),
     ok.
 
+-spec group_laws(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 group_laws(Config) ->
     M = ?config(module, Config),
     N = ?config(bytes, Config),
@@ -171,6 +190,7 @@ group_laws(Config) ->
     Mapped = M:point_from_hash(<<A/binary, C/binary>>),
     ok.
 
+-spec precomputed(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 precomputed(Config) ->
     M = ?config(module, Config),
     N = ?config(bytes, Config),
@@ -197,6 +217,7 @@ precomputed(Config) ->
     badarg(fun() -> Other:precomputed_scalarmul(Table, Other:scalar_reduce(<<1>>)) end),
     ok.
 
+-spec invalid_arguments(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 invalid_arguments(Config) ->
     M = ?config(module, Config),
     N = ?config(bytes, Config),
@@ -231,6 +252,7 @@ invalid_arguments(Config) ->
     ok.
 
 %% Keep the examples that users copy from the generated API documentation executable.
+-spec documentation(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 documentation(Config) ->
     Module = ?config(module, Config),
     {ok, {docs_v1, _, erlang, <<"text/markdown">>, ModuleDoc, _, Entries}} = code:get_doc(Module),
@@ -249,7 +271,7 @@ documentation(Config) ->
     [_ | _] = Examples,
     lists:foreach(
         fun(Example) ->
-            {ok, Tokens, _} = erl_scan:string(unicode:characters_to_list(Example)),
+            {ok, Tokens, _} = erl_scan:string(libdecaf_ct:unicode_list(Example)),
             {ok, Expressions} = erl_parse:parse_exprs(Tokens),
             {value, _, _} = erl_eval:exprs(Expressions, erl_eval:new_bindings())
         end,
@@ -257,10 +279,14 @@ documentation(Config) ->
     ),
     ok.
 
+-spec integer(Integer, Bytes) -> Result when Integer :: non_neg_integer(), Bytes :: pos_integer(), Result :: binary().
 integer(I, Bytes) -> <<I:(Bytes * 8)/little>>.
+-spec hex(Hex) -> Result when Hex :: string(), Result :: binary().
 hex(S) -> list_to_binary([list_to_integer([A, B], 16) || [A, B] <- pairs(S)]).
+-spec pairs(Characters) -> Result when Characters :: string(), Result :: [string()].
 pairs([]) -> [];
 pairs([A, B | Rest]) -> [[A, B] | pairs(Rest)].
+-spec badarg(Function) -> Result when Function :: fun(() -> term()), Result :: ok.
 badarg(F) ->
     try F() of
         V -> ct:fail({expected_badarg, V})

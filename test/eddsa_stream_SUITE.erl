@@ -1,8 +1,11 @@
 %%% % @format
 -module(eddsa_stream_SUITE).
+-compile(warn_missing_spec_all).
 -include_lib("common_test/include/ct.hrl").
--export([all/0, init_per_suite/1, end_per_suite/1]).
 -export([
+    all/0,
+    init_per_suite/1,
+    end_per_suite/1,
     empty_message/1,
     large_input/1,
     immutable_states/1,
@@ -14,6 +17,15 @@
     interrupted_updates/1
 ]).
 
+-type prehash_algorithm() :: ed25519ph | ed448ph.
+-type keypair() :: libdecaf_nif:ed25519_keypair() | libdecaf_nif:ed448_keypair().
+-type stream_state() ::
+    libdecaf_nif:ed25519ph_sign_state()
+    | libdecaf_nif:ed25519ph_verify_state()
+    | libdecaf_nif:ed448ph_sign_state()
+    | libdecaf_nif:ed448ph_verify_state().
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [
         empty_message,
@@ -26,22 +38,31 @@ all() ->
         resource_lifetimes,
         interrupted_updates
     ].
+-spec init_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_suite(Config) ->
     {ok, _} = application:ensure_all_started(libdecaf),
     Config.
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 end_per_suite(_) -> ok.
 
+-spec keys(Algorithm) -> Result when Algorithm :: prehash_algorithm(), Result :: {keypair(), binary()}.
 keys(ed25519ph) -> keys(libdecaf_curve25519, 32);
 keys(ed448ph) -> keys(libdecaf_curve448, 57).
+-spec keys(Curve, Bytes) -> Result when
+    Curve :: libdecaf_curve25519 | libdecaf_curve448, Bytes :: 32 | 57, Result :: {keypair(), binary()}.
 keys(Curve, Bytes) ->
     Key = Curve:keypair_derive(binary:copy(<<7>>, Bytes)),
     {Key, Curve:keypair_extract_public_key(Key)}.
 
+-spec one_shot(Algorithm, Message, Key, Context) -> Result when
+    Algorithm :: prehash_algorithm(), Message :: binary(), Key :: keypair(), Context :: binary(), Result :: binary().
 one_shot(ed25519ph, Message, Key, Context) -> libdecaf_curve25519:ed25519ph_keypair_sign(Message, Key, Context);
 one_shot(ed448ph, Message, Key, Context) -> libdecaf_curve448:ed448ph_keypair_sign(Message, Key, Context).
 
+-spec each(Function) -> Result when Function :: fun((prehash_algorithm()) -> term()), Result :: ok.
 each(F) -> lists:foreach(F, [ed25519ph, ed448ph]).
 
+-spec empty_message(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 empty_message(_) ->
     each(fun(A) ->
         {Key, Public} = keys(A),
@@ -50,8 +71,10 @@ empty_message(_) ->
         Signature = nif(A, sign_final, [S]),
         Signature = nif(A, sign_final, [nif(A, sign_update, [S, []])]),
         true = nif(A, verify_final, [nif(A, verify_init, [Signature, Public])])
-    end).
+    end),
+    ok.
 
+-spec large_input(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 large_input(_) ->
     each(fun(A) ->
         {Key, Public} = keys(A),
@@ -71,8 +94,10 @@ large_input(_) ->
             Chunks
         ),
         true = nif(A, verify_final, [V])
-    end).
+    end),
+    ok.
 
+-spec immutable_states(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 immutable_states(_) ->
     each(fun(A) ->
         {Key, Public} = keys(A),
@@ -100,8 +125,10 @@ immutable_states(_) ->
             {'DOWN', Ref, process, Pid, normal} -> ok
         after 5000 -> ct:fail(stream_process)
         end
-    end).
+    end),
+    ok.
 
+-spec rejects_changes(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 rejects_changes(_) ->
     each(fun(A) ->
         {Key, Public} = keys(A),
@@ -114,8 +141,10 @@ rejects_changes(_) ->
         Altered = <<(First bxor 1), Rest/binary>>,
         V2 = nif(A, verify_init, [Altered, Public, <<"context">>]),
         false = nif(A, verify_final, [nif(A, verify_update, [V2, <<"message">>])])
-    end).
+    end),
+    ok.
 
+-spec invalid_arguments(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 invalid_arguments(_) ->
     each(fun(A) ->
         Other =
@@ -156,8 +185,10 @@ invalid_arguments(_) ->
             fun() -> libdecaf_nif:hash_update(S, <<>>) end,
             fun() -> libdecaf_nif:xof_absorb(V, <<>>) end
         ])
-    end).
+    end),
+    ok.
 
+-spec curve_helpers(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 curve_helpers(_) ->
     {K255, P255} = keys(ed25519ph),
     S255 = libdecaf_curve25519:ed25519ph_sign_update(libdecaf_curve25519:ed25519ph_keypair_sign_init(K255), <<"abc">>),
@@ -175,6 +206,7 @@ curve_helpers(_) ->
     true = libdecaf_curve448:ed448ph_verify_final(V448),
     ok.
 
+-spec badarg(Function) -> Result when Function :: fun(() -> term()), Result :: ok.
 badarg(F) ->
     try F() of
         Value -> ct:fail({expected_badarg, Value})
@@ -183,6 +215,7 @@ badarg(F) ->
         error:{badarg, _, _} -> ok
     end.
 
+-spec encoded_keys(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 encoded_keys(_) ->
     each(fun(A) ->
         {Curve, Bytes} = curve(A),
@@ -213,8 +246,10 @@ encoded_keys(_) ->
         catch
             error:{error, _, _} -> ok
         end
-    end).
+    end),
+    ok.
 
+-spec resource_lifetimes(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 resource_lifetimes(_) ->
     each(fun(A) ->
         Parent = self(),
@@ -241,8 +276,10 @@ resource_lifetimes(_) ->
                 true = nif(A, verify_final, [nif(A, verify_update, [V, <<"message">>])])
         after 5000 -> ct:fail(state_timeout)
         end
-    end).
+    end),
+    ok.
 
+-spec interrupted_updates(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 interrupted_updates(_) ->
     Input = binary:copy(<<42>>, 8 * 1024 * 1024),
     each(fun(A) ->
@@ -281,15 +318,26 @@ interrupted_updates(_) ->
         Signature = nif(A, sign_final, [S]),
         true = nif(A, verify_final, [V])
     end),
-    erlang:garbage_collect().
+    erlang:garbage_collect(),
+    ok.
 
+-spec repeat_updates(Algorithm, Operation, State, Input) -> Result when
+    Algorithm :: prehash_algorithm(),
+    Operation :: sign_update | verify_update,
+    State :: stream_state(),
+    Input :: binary(),
+    Result :: no_return().
 repeat_updates(A, Operation, State, Input) ->
     _ = nif(A, Operation, [State, Input]),
     repeat_updates(A, Operation, State, Input).
 
+-spec curve(Algorithm) -> Result when
+    Algorithm :: prehash_algorithm(), Result :: {libdecaf_curve25519 | libdecaf_curve448, 32 | 57}.
 curve(ed25519ph) -> {libdecaf_curve25519, 32};
 curve(ed448ph) -> {libdecaf_curve448, 57}.
 
+-spec nif(Algorithm, Operation, Arguments) -> Result when
+    Algorithm :: prehash_algorithm(), Operation :: atom(), Arguments :: [term()], Result :: dynamic().
 nif(Algorithm, Operation, Arguments) ->
     Function = list_to_existing_atom(atom_to_list(Algorithm) ++ "_" ++ atom_to_list(Operation)),
     apply(libdecaf_nif, Function, Arguments).

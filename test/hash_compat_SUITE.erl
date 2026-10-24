@@ -1,5 +1,6 @@
 %%% % @format
 -module(hash_compat_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Compatibility hash wrappers, legacy state tuples, and deprecation documentation.
 """.
@@ -13,9 +14,14 @@ Compatibility hash wrappers, legacy state tuples, and deprecation documentation.
     shake/1
 ]).
 
+-type fixed_hash_algorithm() ::
+    sha2_512 | sha3_224 | sha3_256 | sha3_384 | sha3_512 | keccak_224 | keccak_256 | keccak_384 | keccak_512.
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [fixed_hashes, shake, invalid_arguments, deprecation_and_examples].
 
+-spec fixed_hashes(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 fixed_hashes(_) ->
     lists:foreach(
         fun({Module, Algorithms}) ->
@@ -46,8 +52,8 @@ fixed_hashes(_) ->
                                 end,
                                 [0, 1, DefaultLength - 1, DefaultLength]
                             ),
-                            badarg(fun() -> Module:hash(Algorithm, Message, DefaultLength + 1) end),
-                            badarg(fun() -> Module:final(Updated, DefaultLength + 1) end)
+                            badarg(fun() -> libdecaf_ct:call(Module, hash, [Algorithm, Message, DefaultLength + 1]) end),
+                            badarg(fun() -> libdecaf_ct:call(Module, final, [Updated, DefaultLength + 1]) end)
                         end,
                         [<<>>, <<"abc">>, binary:copy(<<42>>, 65537)]
                     )
@@ -56,8 +62,10 @@ fixed_hashes(_) ->
             )
         end,
         profiles()
-    ).
+    ),
+    ok.
 
+-spec shake(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 shake(_) ->
     Module = libdecaf_sha3,
     lists:foreach(
@@ -76,38 +84,42 @@ shake(_) ->
                 end,
                 [0, 1, 32, 65537]
             ),
-            rejected(fun() -> Module:hash(Algorithm, <<"abc">>) end, [Algorithm, <<"abc">>]),
-            rejected(fun() -> Module:final(Updated) end, [Updated])
+            rejected(fun() -> libdecaf_ct:call(Module, hash, [Algorithm, <<"abc">>]) end, [Algorithm, <<"abc">>]),
+            rejected(fun() -> libdecaf_ct:call(Module, final, [Updated]) end, [Updated])
         end,
         [shake128, shake256]
-    ).
+    ),
+    ok.
 
+-spec invalid_arguments(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 invalid_arguments(_) ->
     lists:foreach(
         fun({Module, [{Algorithm, _} | _]}) ->
-            rejected(fun() -> Module:hash(unknown, <<>>) end, [unknown, <<>>]),
-            rejected(fun() -> Module:hash(unknown, <<>>, 1) end, [unknown, <<>>, 1]),
-            rejected(fun() -> Module:init(unknown) end, [unknown]),
+            rejected(fun() -> libdecaf_ct:call(Module, hash, [unknown, <<>>]) end, [unknown, <<>>]),
+            rejected(fun() -> libdecaf_ct:call(Module, hash, [unknown, <<>>, 1]) end, [unknown, <<>>, 1]),
+            rejected(fun() -> libdecaf_ct:call(Module, init, [unknown]) end, [unknown]),
             lists:foreach(
                 fun(State) ->
-                    rejected(fun() -> Module:update(State, <<>>) end, [State, <<>>]),
-                    rejected(fun() -> Module:final(State) end, [State]),
-                    rejected(fun() -> Module:final(State, 1) end, [State, 1])
+                    rejected(fun() -> libdecaf_ct:call(Module, update, [State, <<>>]) end, [State, <<>>]),
+                    rejected(fun() -> libdecaf_ct:call(Module, final, [State]) end, [State]),
+                    rejected(fun() -> libdecaf_ct:call(Module, final, [State, 1]) end, [State, 1])
                 end,
                 [make_ref(), {unknown, make_ref()}, {Algorithm}]
             ),
-            badarg(fun() -> Module:update({Algorithm, make_ref()}, <<>>) end),
-            badarg(fun() -> Module:final({Algorithm, make_ref()}) end),
-            badarg(fun() -> Module:hash(Algorithm, [invalid_iodata]) end),
-            badarg(fun() -> Module:hash(Algorithm, <<>>, -1) end)
+            badarg(fun() -> libdecaf_ct:call(Module, update, [{Algorithm, make_ref()}, <<>>]) end),
+            badarg(fun() -> libdecaf_ct:call(Module, final, [{Algorithm, make_ref()}]) end),
+            badarg(fun() -> libdecaf_ct:call(Module, hash, [Algorithm, [invalid_iodata]]) end),
+            badarg(fun() -> libdecaf_ct:call(Module, hash, [Algorithm, <<>>, -1]) end)
         end,
         profiles()
     ),
     Module = libdecaf_sha3,
-    rejected(fun() -> Module:xof(sha3_256, <<>>, 32) end, [sha3_256, <<>>, 32]),
-    badarg(fun() -> Module:final({shake128, libdecaf_nif:hash_init(sha3_256)}, 32) end),
-    badarg(fun() -> Module:final({sha3_256, libdecaf_nif:xof_init(shake128)}, 32) end).
+    rejected(fun() -> libdecaf_ct:call(Module, xof, [sha3_256, <<>>, 32]) end, [sha3_256, <<>>, 32]),
+    badarg(fun() -> libdecaf_ct:call(Module, final, [{shake128, libdecaf_nif:hash_init(sha3_256)}, 32]) end),
+    badarg(fun() -> libdecaf_ct:call(Module, final, [{sha3_256, libdecaf_nif:xof_init(shake128)}, 32]) end),
+    ok.
 
+-spec deprecation_and_examples(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 deprecation_and_examples(_) ->
     lists:foreach(
         fun({Module, _}) ->
@@ -127,13 +139,16 @@ deprecation_and_examples(_) ->
             {match, [[Example]]} = re:run(maps:get(<<"en">>, ModuleDoc), <<"```erlang\\n(.*?)```">>, [
                 global, dotall, {capture, [1], binary}
             ]),
-            {ok, Tokens, _} = erl_scan:string(unicode:characters_to_list(Example)),
+            {ok, Tokens, _} = erl_scan:string(libdecaf_ct:unicode_list(Example)),
             {ok, Expressions} = erl_parse:parse_exprs(Tokens),
             {value, _, _} = erl_eval:exprs(Expressions, erl_eval:new_bindings())
         end,
         profiles()
-    ).
+    ),
+    ok.
 
+-spec profiles() -> Result when
+    Result :: [{libdecaf_keccak_sha3 | libdecaf_sha2 | libdecaf_sha3, [{fixed_hash_algorithm(), pos_integer()}]}].
 profiles() ->
     [
         {libdecaf_keccak_sha3, [{keccak_224, 28}, {keccak_256, 32}, {keccak_384, 48}, {keccak_512, 64}]},
@@ -141,6 +156,7 @@ profiles() ->
         {libdecaf_sha3, [{sha3_224, 28}, {sha3_256, 32}, {sha3_384, 48}, {sha3_512, 64}]}
     ].
 
+-spec rejected(Function, Arguments) -> Result when Function :: fun(() -> term()), Arguments :: [term()], Result :: ok.
 rejected(Function, Arguments) ->
     try Function() of
         Value -> ct:fail({expected_legacy_badarg, Arguments, Value})
@@ -148,6 +164,7 @@ rejected(Function, Arguments) ->
         error:{badarg, Arguments} -> ok
     end.
 
+-spec badarg(Function) -> Result when Function :: fun(() -> term()), Result :: ok.
 badarg(Function) ->
     try Function() of
         Value -> ct:fail({expected_badarg, Value})

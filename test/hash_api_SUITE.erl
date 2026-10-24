@@ -1,5 +1,6 @@
 %%% % @format
 -module(hash_api_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Fixed digest prefixes, default lengths, parameter tuples, and native dispatch.
 """.
@@ -13,8 +14,11 @@ Fixed digest prefixes, default lengths, parameter tuples, and native dispatch.
     xof_one_shot/1,
     isolation/1
 ]).
+
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() -> [fixed_hashes, defaults, parameters, exports, xof_one_shot, isolation].
 
+-spec fixed_hashes(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 fixed_hashes(_) ->
     lists:foreach(
         fun({_Family, Type, Crypto, Maximum}) ->
@@ -62,8 +66,10 @@ fixed_hashes(_) ->
         ]
     ),
     <<"4E03657AEA45A94FC7D47BA826C8D667C0D1E6E33A64A036EC44F58FA12D6C45">> =
-        binary:encode_hex(libdecaf:hash(keccak_256, <<"abc">>)).
+        binary:encode_hex(libdecaf:hash(keccak_256, <<"abc">>)),
+    ok.
 
+-spec defaults(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 defaults(_) ->
     lists:foreach(
         fun({_Family, Type, Length}) ->
@@ -73,8 +79,10 @@ defaults(_) ->
             Output = libdecaf:hash_final(libdecaf:hash_update(libdecaf:hash_init(Type), <<"abc">>))
         end,
         [{kt, kt128, 32}, {kt, kt256, 64}, {turboshake, turboshake128, 32}, {turboshake, turboshake256, 64}]
-    ).
+    ),
+    ok.
 
+-spec parameters(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 parameters(_) ->
     lists:foreach(
         fun(Module) ->
@@ -97,8 +105,10 @@ parameters(_) ->
             )
         end,
         [libdecaf, libdecaf_nif]
-    ).
+    ),
+    ok.
 
+-spec exports(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 exports(_) ->
     Public = lists:sort([
         Export
@@ -131,8 +141,10 @@ exports(_) ->
         ]
     ),
     false = lists:member({hash_init_parallelhash, 4}, Native),
-    false = lists:member({parallelhash128_hash_update, 2}, Native).
+    false = lists:member({parallelhash128_hash_update, 2}, Native),
+    ok.
 
+-spec xof_one_shot(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 xof_one_shot(_) ->
     lists:foreach(
         fun(Module) ->
@@ -148,8 +160,10 @@ xof_one_shot(_) ->
             )
         end,
         [libdecaf, libdecaf_nif]
-    ).
+    ),
+    ok.
 
+-spec isolation(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 isolation(_) ->
     lists:foreach(
         fun(Module) ->
@@ -162,8 +176,10 @@ isolation(_) ->
             badarg(fun() -> Module:hash_final(make_ref()) end)
         end,
         [libdecaf, libdecaf_nif]
-    ).
+    ),
+    ok.
 
+-spec badarg(Function) -> Result when Function :: fun(() -> term()), Result :: ok.
 badarg(Fun) ->
     try Fun() of
         Value -> ct:fail({expected_badarg, Value})

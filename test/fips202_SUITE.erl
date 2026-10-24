@@ -1,5 +1,6 @@
 %%% % @format
 -module(fips202_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 Common Test coverage for SHA-3 and SHAKE using the FIPS 202 test vectors.
 """.
@@ -13,15 +14,19 @@ Common Test coverage for SHA-3 and SHAKE using the FIPS 202 test vectors.
 -include_lib("stdlib/include/zip.hrl").
 
 %% ct.
--export([all/0]).
--export([groups/0]).
--export([init_per_suite/1]).
--export([end_per_suite/1]).
--export([init_per_group/2]).
--export([end_per_group/2]).
+-export([
+    all/0,
+    groups/0,
+    init_per_suite/1,
+    end_per_suite/1,
+    init_per_group/2,
+    end_per_group/2
+]).
 
 %% Tests.
--export([fips202/1]).
+-export([
+    fips202/1
+]).
 
 %% Macros.
 -define(tv_ok(T, M, F, A, E),
@@ -33,11 +38,13 @@ Common Test coverage for SHA-3 and SHAKE using the FIPS 202 test vectors.
     end
 ).
 
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [
         {group, 'keccaktestvectors'}
     ].
 
+-spec groups() -> Result when Result :: [ct_suite:ct_group_def()].
 groups() ->
     [
         {'keccaktestvectors', [], [
@@ -45,20 +52,26 @@ groups() ->
         ]}
     ].
 
+-spec init_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_suite(Config) ->
     _ = application:ensure_all_started(libdecaf),
     data_setup(Config).
 
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 end_per_suite(_Config) ->
     _ = application:stop(libdecaf),
     ok.
 
+-spec init_per_group(Group, Config) -> Result when
+    Group :: ct_suite:ct_groupname(), Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_group(G = 'keccaktestvectors', Config) ->
     Folder = data_file("keccaktestvectors", Config),
     {ok, Entries} = file:list_dir(Folder),
     Files = [filename:join([Folder, Entry]) || Entry <- Entries],
     [{fips202_files, Files} | libdecaf_ct:start(G, Config)].
 
+-spec end_per_group(Group, Config) -> Result when
+    Group :: ct_suite:ct_groupname(), Config :: ct_suite:ct_config(), Result :: ok.
 end_per_group(_Group, Config) ->
     libdecaf_ct:stop(Config),
     ok.
@@ -67,19 +80,24 @@ end_per_group(_Group, Config) ->
 %% Tests
 %%====================================================================
 
+-spec fips202(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 fips202(Config) ->
     Files = [File || File <- ?config(fips202_files, Config)],
-    lists:foldl(fun fips202/2, Config, Files).
+    lists:foreach(fun(File) -> fips202(File, Config) end, Files),
+    ok.
 
 %%%-------------------------------------------------------------------
 %%% Internal functions
 %%%-------------------------------------------------------------------
 
 %% @private
+-spec data_file(File, Config) -> Result when
+    File :: file:filename_all(), Config :: ct_suite:ct_config(), Result :: file:filename_all().
 data_file(File, Config) ->
     filename:join([?config(data_dir, Config), File]).
 
 %% @private
+-spec data_setup(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 data_setup(Config) ->
     lists:foldl(
         fun(F, C) ->
@@ -96,6 +114,8 @@ data_setup(Config) ->
     ).
 
 %% @private
+-spec data_setup(Archive, Config) -> Result when
+    Archive :: string(), Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 data_setup(F = "keccaktestvectors", Config) ->
     BaseURL = "https://raw.github.com/XKCP/XKCP/fc23735511f06ff57d47f9c47dc950eaf913c83b/tests/TestVectors/",
     Files = [
@@ -113,6 +133,8 @@ data_setup(F = "keccaktestvectors", Config) ->
     Config.
 
 %% @private
+-spec data_setup_multiple(Files, Directory, URLs) -> Result when
+    Files :: [file:filename_all()], Directory :: file:filename_all(), URLs :: [string()], Result :: ok.
 data_setup_multiple([DataFile | DataFiles], Directory, [URL | URLs]) ->
     case filelib:is_dir(Directory) of
         true ->
@@ -131,31 +153,48 @@ data_setup_multiple([], _Directory, []) ->
     ok.
 
 %% @private
+-spec fips202(File, Config) -> Result when File :: file:filename_all(), Config :: ct_suite:ct_config(), Result :: ok.
 fips202(File, Config) ->
     Options =
         case iolist_to_binary(filename:basename(File)) of
             <<"ShortMsgKAT_SHA3-", BitsBin:3/binary, _/binary>> ->
                 Bits = binary_to_integer(BitsBin),
                 Bytes = (Bits + 7) div 8,
-                Type = list_to_atom("sha3_" ++ integer_to_list(Bits)),
+                Type =
+                    case Bits of
+                        224 -> sha3_224;
+                        256 -> sha3_256;
+                        384 -> sha3_384;
+                        512 -> sha3_512
+                    end,
                 Arity = 1,
                 {Type, Arity, Bytes};
             <<"ShortMsgKAT_SHAKE", BitsBin:3/binary, _/binary>> ->
                 Bits = binary_to_integer(BitsBin),
                 Bytes = 512,
-                Type = list_to_atom("shake" ++ integer_to_list(Bits)),
+                Type =
+                    case Bits of
+                        128 -> shake128;
+                        256 -> shake256
+                    end,
                 Arity = 2,
                 {Type, Arity, Bytes}
         end,
     Vectors = fips_testvector:from_file(File),
+    true = is_list(Vectors),
     io:format("~s", [filename:basename(File)]),
     fips202(Vectors, Options, Config).
 
 %% @private
+-spec fips202(Vectors, Options, Config) -> Result when
+    Vectors :: [fips_testvector:entry()],
+    Options :: {libdecaf_sha3:algorithm(), 1 | 2, non_neg_integer()},
+    Config :: ct_suite:ct_config(),
+    Result :: ok.
 fips202(
     [
-        {vector, {<<"Len">>, Len}, _},
-        {vector, {<<"Msg">>, Msg}, _},
+        {vector, {<<"Len">>, Len}, int},
+        {vector, {<<"Msg">>, Msg}, hex},
         {vector, {<<"MD">>, MD}, _}
         | Vectors
     ],
@@ -170,8 +209,8 @@ fips202(
     fips202(Vectors, {Type, Arity, OutputByteLen}, Config);
 fips202(
     [
-        {vector, {<<"Len">>, Len}, _},
-        {vector, {<<"Msg">>, Msg}, _},
+        {vector, {<<"Len">>, Len}, int},
+        {vector, {<<"Msg">>, Msg}, hex},
         {vector, {<<"Squeezed">>, Squeezed}, _}
         | Vectors
     ],

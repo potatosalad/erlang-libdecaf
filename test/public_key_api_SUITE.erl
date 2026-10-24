@@ -1,5 +1,6 @@
 %%% % @format
 -module(public_key_api_SUITE).
+-compile(warn_missing_spec_all).
 -moduledoc """
 High-level EdDSA/ECDH key formats, dispatch, streaming, and failure contracts.
 Published vectors also exercise this API in cfrg_SUITE.
@@ -20,15 +21,19 @@ Published vectors also exercise this API in cfrg_SUITE.
     metadata/1
 ]).
 
+-spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
     [keypairs, key_formats, contexts, streaming, rejected_peers, mismatched_keys, invalid_arguments, metadata].
 
+-spec init_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ct_suite:ct_config().
 init_per_suite(Config) ->
     {ok, _} = application:ensure_all_started(libdecaf),
     Config.
 
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 end_per_suite(_) -> ok.
 
+-spec keypairs(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 keypairs(_) ->
     lists:foreach(
         fun({Algorithm, Bytes}) ->
@@ -58,8 +63,10 @@ keypairs(_) ->
             Bytes = byte_size(Shared)
         end,
         [{x25519, 32}, {x448, 56}]
-    ).
+    ),
+    ok.
 
+-spec key_formats(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 key_formats(_) ->
     lists:foreach(
         fun({Algorithm, Curve, Bytes, Variants}) ->
@@ -100,8 +107,10 @@ key_formats(_) ->
             )
         end,
         [x25519, x448]
-    ).
+    ),
+    ok.
 
+-spec contexts(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 contexts(_) ->
     K255 = libdecaf:eddsa_keypair(ed25519),
     K448 = libdecaf:eddsa_keypair(ed448),
@@ -120,8 +129,10 @@ contexts(_) ->
     ),
     Pure = call(eddsa_sign, [{ed25519, K255}, <<"message">>]),
     false = call(eddsa_verify, [{ed25519ctx, K255}, Pure, <<"message">>]),
-    false = call(eddsa_verify, [{ed25519ph, K255}, Pure, <<"message">>]).
+    false = call(eddsa_verify, [{ed25519ph, K255}, Pure, <<"message">>]),
+    ok.
 
+-spec streaming(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 streaming(_) ->
     lists:foreach(
         fun({Algorithm, Variant}) ->
@@ -166,8 +177,10 @@ streaming(_) ->
             badarg(fun() -> call(eddsa_verify_update, [S, []]) end)
         end,
         [{ed25519, ed25519ph}, {ed448, ed448ph}]
-    ).
+    ),
+    ok.
 
+-spec rejected_peers(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 rejected_peers(_) ->
     lists:foreach(
         fun({Algorithm, Bytes}) ->
@@ -181,8 +194,10 @@ rejected_peers(_) ->
             )
         end,
         [{x25519, 32}, {x448, 56}]
-    ).
+    ),
+    ok.
 
+-spec mismatched_keys(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 mismatched_keys(_) ->
     lists:foreach(
         fun({Algorithm, Variant}) ->
@@ -212,8 +227,10 @@ mismatched_keys(_) ->
     X255 = libdecaf:ecdh_keypair(x25519),
     X448 = libdecaf:ecdh_keypair(x448),
     badarg(fun() -> call(ecdh_shared_secret, [x25519, X448, X255]) end),
-    badarg(fun() -> call(ecdh_shared_secret, [x448, X448, X255]) end).
+    badarg(fun() -> call(ecdh_shared_secret, [x448, X448, X255]) end),
+    ok.
 
+-spec invalid_arguments(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 invalid_arguments(_) ->
     KP = libdecaf:eddsa_keypair(ed25519),
     Signature = libdecaf:eddsa_sign({ed25519ph, KP}, <<>>),
@@ -250,8 +267,10 @@ invalid_arguments(_) ->
     badarg(fun() -> call(ecdh_keypair, [x448, <<0:256>>]) end),
     badarg(fun() -> call(ecdh_keypair_extract, [{<<>>, <<>>}]) end),
     badarg(fun() -> call(ecdh_shared_secret, [x25519, <<>>, <<0:256>>]) end),
-    badarg(fun() -> call(ecdh_shared_secret, [unknown, <<>>, <<>>]) end).
+    badarg(fun() -> call(ecdh_shared_secret, [unknown, <<>>, <<>>]) end),
+    ok.
 
+-spec metadata(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 metadata(_) ->
     {ok, {docs_v1, _, erlang, _, _, _, Entries}} = code:get_doc(libdecaf),
     Exports = [
@@ -267,8 +286,10 @@ metadata(_) ->
             false = maps:is_key(deprecated, Metadata)
         end,
         Exports
-    ).
+    ),
+    ok.
 
+-spec badarg(Function) -> Result when Function :: fun(() -> term()), Result :: ok.
 badarg(Fun) ->
     try Fun() of
         _ -> ct:fail(expected_badarg)
@@ -279,5 +300,6 @@ badarg(Fun) ->
     end.
 
 % Runtime rejection cases intentionally pass values outside the public typespecs.
+-spec call(Function, Arguments) -> Result when Function :: atom(), Arguments :: [term()], Result :: dynamic().
 call(Name, Arguments) ->
     erlang:apply(libdecaf, Name, Arguments).
