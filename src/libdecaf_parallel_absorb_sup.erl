@@ -3,8 +3,8 @@
 -moduledoc """
 Dynamic supervisor for one router's temporary absorb processes.
 
-Uses `simple_one_for_one`. Each child performs a single unit of work and
-exits; the router prepares its replacement rather than restarting the child.
+Uses `simple_one_for_one`. Each child drains its native queue when woken and
+waits for more work. The router replaces exited children asynchronously.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.

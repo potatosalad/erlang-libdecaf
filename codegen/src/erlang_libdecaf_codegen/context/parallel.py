@@ -62,7 +62,7 @@ The NIF tops up a partial leaf before dispatching full blocks to the routers.
 Binary payloads are retained once and jobs use offsets; iodata is normalized
 once. Workers compute leaves independently, and the caller joins chaining
 values in input order. The Erlang wrapper waits for native completion messages.
-Work and result storage are bounded to 256 leaves per operation at a time.
+Work and result storage grow with the input, up to 4096 leaves per operation at a time.
 If the router pool is disabled, the caller performs the work on a dirty scheduler.
 The previous state remains reusable, including from other processes.""",
             finish: (

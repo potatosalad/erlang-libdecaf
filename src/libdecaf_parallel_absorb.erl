@@ -1,15 +1,16 @@
 %%% % @format
 -module(libdecaf_parallel_absorb).
 -moduledoc """
-Single-use parallel absorb process, started with `proc_lib`.
+Reusable parallel absorb process, started with `proc_lib`.
 
 Registers its readiness with its router, then waits for that router's work
 message. The NIF processes queued leaves on a dirty CPU scheduler;
-after it returns the process exits normally. An unused process exits if its
-router dies. Each process belongs to a temporary supervised child.
+then waits for more work. Native queues wake the registered worker directly;
+router wakeups are acknowledged after the call. The process exits if its router
+dies. Each process belongs to a temporary supervised child.
 
 The `parallel_absorb_rounds` application option defaults to 100 leaves per call.
-Set it to zero to drain until the queue becomes empty, even if producers keep
+Set it to zero to drain until the pool becomes idle, even if producers keep
 the call running indefinitely.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
@@ -19,6 +20,7 @@ the call running indefinitely.
 
 %% OTP callbacks
 -export([
+    child_name/1,
     child_spec/1,
     start_link/3
 ]).
@@ -30,6 +32,13 @@ the call running indefinitely.
 %%%=============================================================================
 %%% OTP callbacks
 %%%=============================================================================
+
+-doc "Return the registered name for a router's native queue consumer.".
+-spec child_name(RouterNumber) -> ChildName when
+    RouterNumber :: libdecaf_parallel_router:router_number(), ChildName :: atom().
+child_name(RouterNumber) ->
+    _ = libdecaf_parallel_router:child_name(RouterNumber),
+    binary_to_atom(<<"libdecaf_parallel_absorb_", (integer_to_binary(RouterNumber))/binary>>, utf8).
 
 -doc "Return the dynamic child template for a router's absorb processes.".
 -spec child_spec(RouterNumber) -> ChildSpec when
@@ -62,13 +71,57 @@ start_link(RouterNumber, RouterPid, Token) ->
     RouterNumber :: libdecaf_parallel_router:router_number(), RouterPid :: pid(), Token :: reference(), Result :: ok.
 init(RouterNumber, RouterPid, Token) ->
     RouterMonitor = monitor(process, RouterPid),
+    true = register(child_name(RouterNumber), self()),
     ok = proc_lib:init_ack({ok, self()}),
     RouterPid ! {absorb_ready, self(), Token},
+    case libdecaf_nif:parallel_router_info() of
+        #{queued := 0} -> ok;
+        _ -> self() ! wakeup
+    end,
+    loop(RouterNumber, RouterPid, Token, RouterMonitor).
+
+-spec loop(RouterNumber, RouterPid, Token, RouterMonitor) -> Result when
+    RouterNumber :: libdecaf_parallel_router:router_number(),
+    RouterPid :: pid(),
+    Token :: reference(),
+    RouterMonitor :: reference(),
+    Result :: ok.
+loop(RouterNumber, RouterPid, Token, RouterMonitor) ->
     receive
+        wakeup ->
+            work(RouterNumber, RouterPid, Token, false),
+            loop(RouterNumber, RouterPid, Token, RouterMonitor);
         {wakeup, Token} ->
-            libdecaf_nif:parallel_absorb(RouterNumber, application:get_env(libdecaf, parallel_absorb_rounds, 100));
+            work(RouterNumber, RouterPid, Token, true),
+            loop(RouterNumber, RouterPid, Token, RouterMonitor);
         {absorb_rejected, Token} ->
             ok;
         {'DOWN', RouterMonitor, process, RouterPid, _Reason} ->
             ok
+    end.
+
+-spec work(RouterNumber, RouterPid, Token, Notify) -> Result when
+    RouterNumber :: libdecaf_parallel_router:router_number(),
+    RouterPid :: pid(),
+    Token :: reference(),
+    Notify :: boolean(),
+    Result :: ok.
+work(RouterNumber, RouterPid, Token, Notify0) ->
+    Notify = coalesce(Token, Notify0),
+    ok = libdecaf_nif:parallel_absorb(RouterNumber, application:get_env(libdecaf, parallel_absorb_rounds, 100)),
+    case Notify of
+        true ->
+            RouterPid ! {absorb_idle, self(), Token},
+            ok;
+        false ->
+            ok
+    end.
+
+-spec coalesce(Token, Notify) -> NewNotify when
+    Token :: reference(), Notify :: boolean(), NewNotify :: boolean().
+coalesce(Token, Notify) ->
+    receive
+        wakeup -> coalesce(Token, Notify);
+        {wakeup, Token} -> coalesce(Token, true)
+    after 0 -> Notify
     end.

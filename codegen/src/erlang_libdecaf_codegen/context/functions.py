@@ -78,8 +78,9 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         "parallel_absorb",
         [("RouterNumber", "pos_integer()"), ("MaxRounds", "non_neg_integer()")],
         "ok",
-        "Process up to MaxRounds queued leaves for RouterNumber on a dirty CPU scheduler.\n"
-        "Zero drains until the queue is empty, and can run indefinitely if producers keep adding leaves.",
+        "Process up to MaxRounds queued leaves on a dirty CPU scheduler, preferring RouterNumber.\n"
+        "Idle workers steal from other queues. Zero drains until the pool has no queued leaves,\n"
+        "and can run indefinitely if producers keep adding leaves.",
         "Parallel API",
     )
     add(

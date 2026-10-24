@@ -90,10 +90,12 @@ wakeup(_) ->
     true = is_pid(Router),
     Absorb = ready_absorb(1),
     ok = await(fun() -> hibernating(Router) end, 7000),
-    Ref = monitor(process, Absorb),
-    Name ! wakeup,
-    down(Ref, Absorb, normal),
-    _ = ready_absorb(1),
+    with_absorb_trace(Absorb, fun() ->
+        Name ! wakeup,
+        absorb_calls(1),
+        Absorb = ready_absorb(1),
+        no_absorb_calls()
+    end),
     Router = whereis(Name),
     ok = await(fun() -> hibernating(Router) end, 7000).
 

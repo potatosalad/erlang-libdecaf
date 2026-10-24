@@ -1,12 +1,13 @@
 %%% % @format
 -module(libdecaf_parallel_router).
 -moduledoc """
-Parallel-work router with one prepared absorb process and one pending wakeup.
+Parallel-work router with one reusable absorb process and one pending wakeup.
 
 An absorb process is started asynchronously before work arrives. Sending
 `wakeup` dispatches it. While it is working, further wakeups set a single
-pending flag. When it exits, the router prepares a replacement and dispatches
-it if that flag is set. Startup wakeups are coalesced in the same way.
+pending flag. When it acknowledges completion, the router dispatches it again
+if that flag is set. Native queues wake the registered absorb process directly.
+Startup wakeups are coalesced in the same way. The router replaces exited workers.
 Failed starts are retried after 250 milliseconds without restarting the router
 or discarding its pending wakeup.
 
@@ -158,6 +159,10 @@ working(info, wakeup, #data{pending = true}) ->
     keep_state_and_data;
 working(info, wakeup, Data) ->
     {keep_state, Data#data{pending = true}};
+working(info, {absorb_idle, Pid, Token}, Data = #data{absorb_pid = Pid, token = Token, pending = true}) ->
+    start_work(Data);
+working(info, {absorb_idle, Pid, Token}, Data = #data{absorb_pid = Pid, token = Token}) ->
+    {next_state, ready, Data};
 working(EventType, EventContent, Data) ->
     handle_event(EventType, EventContent, Data).
 

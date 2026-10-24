@@ -9,7 +9,7 @@ starting the application to disable the pool. Native cryptographic functions
 remain available independently of the router pool.
 
 The `parallel_absorb_rounds` option controls leaves processed per worker call.
-It defaults to 100. Zero drains until the queue is empty, so continuous producers
+It defaults to 100. Zero drains until the pool is idle, so continuous producers
 can keep a worker's dirty CPU call running indefinitely.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.

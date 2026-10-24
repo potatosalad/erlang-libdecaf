@@ -17,6 +17,7 @@ Parallel Hash/XOF framing, ordered joins, retained input, cancellation, and queu
     concurrent_branches/1,
     round_limits/1,
     cancellation/1,
+    worker_restart/1,
     retained_binary/1,
     upgrade/1,
     fallback/1,
@@ -31,6 +32,7 @@ all() ->
         concurrent_branches,
         round_limits,
         cancellation,
+        worker_restart,
         retained_binary,
         upgrade,
         fallback,
@@ -102,7 +104,7 @@ streaming(_) ->
     ).
 
 windows(_) ->
-    Input = data(5 * 1024 * 1024 + 37),
+    Input = data(65 * 1024 * 1024 + 37),
     lists:foreach(
         fun({Hash, Xof, _}) ->
             H = libdecaf:hash(Hash, Input),
@@ -159,7 +161,8 @@ round_limits(_) ->
         Input = data(8192 * 257),
         State = libdecaf_nif:parallel_hash_init(kt128),
         Pending = {await, _, _} = libdecaf_nif:parallel_hash_update(State, Input),
-        256 = queued(),
+        Initial = queued(),
+        true = Initial >= 256 - ((256 + length(Names) - 1) div length(Names)) andalso Initial =< 256,
         lists:foreach(
             fun(Number) ->
                 Before = queued(),
@@ -201,7 +204,7 @@ cancellation(_) ->
         Parent = self(),
         {Pid, Ref} = spawn_monitor(fun() ->
             State = libdecaf_nif:parallel_hash_init(kt128),
-            Pending = {await, _, _} = libdecaf_nif:parallel_hash_update(State, data(3000000)),
+            Pending = {await, _, _} = libdecaf_nif:parallel_hash_update(State, data(40 * 1024 * 1024)),
             Parent ! {pending, self()},
             receive
                 hold -> Pending
@@ -216,6 +219,39 @@ cancellation(_) ->
         down(Ref, Pid, killed),
         await(fun() -> queued() =:= 0 end)
     end).
+
+worker_restart(_) ->
+    #{names := Names} = libdecaf_nif:parallel_router_info(),
+    lists:foreach(fun wait_ready/1, Names),
+    Workers = [whereis(libdecaf_parallel_absorb:child_name(Number)) || Number <- lists:seq(1, length(Names))],
+    lists:foreach(fun(Pid) -> true = erlang:suspend_process(Pid) end, Workers),
+    try
+        Input = data(3 * 1024 * 1024),
+        State = libdecaf_nif:parallel_hash_init(kt128),
+        {await, Reference, Operation} = libdecaf_nif:parallel_hash_update(State, Input),
+        [First | _] = Workers,
+        Monitor = monitor(process, First),
+        exit(First, kill),
+        down(Monitor, First, killed),
+        % The replacement must discover queued work and help the suspended peers.
+        receive
+            {libdecaf_parallel, Reference} -> ok
+        after 5000 -> error(replacement_did_not_drain_queues)
+        end,
+        Updated = native_hash_wait(libdecaf_nif:parallel_hash_continue(Operation)),
+        Expected = libdecaf:hash(kt128, Input),
+        Expected = libdecaf:parallel_hash_final(Updated)
+    after
+        lists:foreach(
+            fun(Pid) ->
+                case is_process_alive(Pid) of
+                    true -> true = erlang:resume_process(Pid);
+                    false -> ok
+                end
+            end,
+            Workers
+        )
+    end.
 
 retained_binary(_) ->
     Input = data(8 * 1024 * 1024),
@@ -285,9 +321,12 @@ with_paused_routers(Fun) ->
         end,
         Names
     ),
+    Workers = [whereis(libdecaf_parallel_absorb:child_name(Number)) || Number <- lists:seq(1, length(Names))],
+    lists:foreach(fun(Pid) -> true = erlang:suspend_process(Pid) end, Workers),
     try
         Fun(Names)
     after
+        lists:foreach(fun(Pid) -> true = erlang:resume_process(Pid) end, Workers),
         lists:foreach(fun(Name) -> ok = sys:resume(Name) end, Names)
     end.
 

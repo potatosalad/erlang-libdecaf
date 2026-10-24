@@ -8,14 +8,20 @@ libdecaf_nif_parallel_hash_progress(ErlNifEnv *env, libdecaf_nif_parallel_operat
         libdecaf_nif_parallel_operation_abort(env, operation);
         return EXCP_BADARG(env, "Expected a parallel Hash operation");
     }
+    if (enif_thread_type() == ERL_NIF_THR_NORMAL_SCHEDULER && algorithm->parallel->block_size(state->context) > 8192) {
+        ERL_NIF_TERM argument = enif_make_resource(env, operation);
+        return enif_schedule_nif(env, "parallel_hash_continue", ERL_NIF_DIRTY_JOB_CPU_BOUND,
+                                   libdecaf_nif_parallel_hash_continue_1, 1, &argument);
+    }
     int status = libdecaf_nif_parallel_operation_step(env, operation, state->context, algorithm->parallel);
     if (status < 0 || !algorithm->valid(state->context)) {
         libdecaf_nif_parallel_operation_abort(env, operation);
         return EXCP_BADARG(env, "Parallel Hash context overflow or cancellation");
     }
-    if (status == 2) {
+    if (status == 2 || status == 3) {
         ERL_NIF_TERM argument = enif_make_resource(env, operation);
-        return enif_schedule_nif(env, "parallel_hash_continue", ERL_NIF_DIRTY_JOB_CPU_BOUND,
+        int flags = status == 3 || enif_thread_type() != ERL_NIF_THR_NORMAL_SCHEDULER ? ERL_NIF_DIRTY_JOB_CPU_BOUND : ERL_NIF_NORMAL_JOB_BOUND;
+        return enif_schedule_nif(env, "parallel_hash_continue", flags,
                                    libdecaf_nif_parallel_hash_continue_1, 1, &argument);
     }
     if (status == 0)
@@ -45,7 +51,7 @@ libdecaf_nif_parallel_hash_begin(ErlNifEnv *env, ERL_NIF_TERM old_term, ERL_NIF_
     ERL_NIF_TERM state_term = enif_make_resource(env, state), error;
     enif_release_resource(state);
     libdecaf_nif_parallel_operation_t *operation = libdecaf_nif_parallel_operation_create(env,
-        libdecaf_nif_parallel_hash_resource_type, state_term, input, finish, 0, &error);
+        libdecaf_nif_parallel_hash_resource_type, state_term, input, algorithm->parallel->block_size(state->context), finish, 0, &error);
     if (operation == NULL)
         return error;
     ERL_NIF_TERM result = libdecaf_nif_parallel_hash_progress(env, operation);

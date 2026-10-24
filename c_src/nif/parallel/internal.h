@@ -4,7 +4,7 @@
 #include "operation.h"
 #include <stdatomic.h>
 
-#define LIBDECAF_NIF_PARALLEL_WINDOW (256)
+#define LIBDECAF_NIF_PARALLEL_WINDOW (4096)
 #define LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT (1024)
 
 typedef struct libdecaf_nif_parallel_node_s {
@@ -47,7 +47,7 @@ struct libdecaf_nif_parallel_operation_s {
     atomic_size_t completed;
     atomic_bool cancelled, notified;
     bool monitored, finished, finish;
-    libdecaf_nif_parallel_result_t results[LIBDECAF_NIF_PARALLEL_WINDOW];
+    libdecaf_nif_parallel_result_t results[];
 };
 
 extern void libdecaf_nif_parallel_pool_keep(libdecaf_nif_parallel_pool_t *pool);
@@ -55,7 +55,8 @@ extern void libdecaf_nif_parallel_pool_release(libdecaf_nif_parallel_pool_t *poo
 extern void libdecaf_nif_parallel_queue_push(libdecaf_nif_parallel_queue_t *queue, libdecaf_nif_parallel_node_t *head,
                                              libdecaf_nif_parallel_node_t *tail, size_t count);
 extern void libdecaf_nif_parallel_queue_cleanup(libdecaf_nif_parallel_queue_t *queue);
-extern void libdecaf_nif_parallel_wakeup(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool, unsigned int router);
-extern void libdecaf_nif_parallel_drain(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool, unsigned int router, size_t max_rounds);
+extern bool libdecaf_nif_parallel_wakeup(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool, unsigned int router);
+extern size_t libdecaf_nif_parallel_drain(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool, unsigned int router,
+                                          size_t max_rounds);
 
 #endif

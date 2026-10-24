@@ -31,7 +31,7 @@ process KT, HopMAC, and ParallelHash leaves concurrently. They produce the same
 bytes as the serial APIs. Starting the application enables the router pool;
 without it, parallel calls complete on the caller's dirty scheduler. The
 `parallel_absorb_rounds` application option controls the worker budget, defaulting
-to 100 leaves. Zero drains a router's queue until it becomes empty.
+to 100 leaves. Zero drains queued work until the pool becomes idle.
 
 Hash and XOF states are opaque and belong to their corresponding lifecycle.
 They are immutable: keep each returned state to advance; reuse an older

@@ -3,6 +3,18 @@
 #include "leaf.h"
 #include <decaf/common.h>
 
+static _Atomic(ERL_NIF_TERM) libdecaf_nif_parallel_worker_names[LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT];
+
+static void
+libdecaf_nif_parallel_worker_atoms(ErlNifEnv *env, unsigned int count)
+{
+    for (unsigned int i = 0; i < count; i++) {
+        char name[sizeof("libdecaf_parallel_absorb_") + 20];
+        enif_snprintf(name, sizeof(name), "libdecaf_parallel_absorb_%llu", (unsigned long long)i + 1);
+        atomic_store_explicit(&libdecaf_nif_parallel_worker_names[i], enif_make_atom(env, name), memory_order_release);
+    }
+}
+
 void
 libdecaf_nif_parallel_pool_keep(libdecaf_nif_parallel_pool_t *pool)
 {
@@ -22,6 +34,7 @@ int
 libdecaf_nif_parallel_load(ErlNifEnv *env, void **priv_data, void *old_priv_data)
 {
     if (old_priv_data != NULL) {
+        libdecaf_nif_parallel_worker_atoms(env, ((libdecaf_nif_parallel_pool_t *)old_priv_data)->count);
         libdecaf_nif_parallel_pool_keep(old_priv_data);
         *priv_data = old_priv_data;
         return 0;
@@ -51,6 +64,7 @@ libdecaf_nif_parallel_load(ErlNifEnv *env, void **priv_data, void *old_priv_data
         atomic_init(&pool->queues[i].size, 0);
     }
     *priv_data = pool;
+    libdecaf_nif_parallel_worker_atoms(env, pool->count);
     return 0;
 }
 
@@ -119,14 +133,19 @@ libdecaf_nif_parallel_queue_cleanup(libdecaf_nif_parallel_queue_t *queue)
     }
 }
 
-void
+bool
 libdecaf_nif_parallel_wakeup(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool, unsigned int router)
 {
     if (atomic_load_explicit(&pool->queues[router].size, memory_order_acquire) != 0) {
         ErlNifPid pid;
-        if (enif_whereis_pid(env, pool->names[router], &pid))
+        ERL_NIF_TERM worker = atomic_load_explicit(&libdecaf_nif_parallel_worker_names[router], memory_order_acquire);
+        if (enif_whereis_pid(env, worker, &pid) || enif_whereis_pid(env, pool->names[router], &pid)) {
             (void)enif_send(env, &pid, NULL, ATOM(wakeup));
+            return true;
+        }
+        return false;
     }
+    return true;
 }
 
 static const uint8_t *
@@ -156,40 +175,51 @@ libdecaf_nif_parallel_leaf_complete(ErlNifEnv *env, libdecaf_nif_parallel_node_t
     enif_release_resource(operation);
 }
 
-void
+size_t
 libdecaf_nif_parallel_drain(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool, unsigned int router, size_t max_rounds)
 {
     libdecaf_nif_parallel_queue_t *queue = &pool->queues[router];
-    if (atomic_flag_test_and_set_explicit(&queue->reader, memory_order_acquire))
-        return;
-    for (size_t round = 0; (max_rounds == 0 || round < max_rounds); round++) {
-        if (!enif_is_current_process_alive(env))
+    size_t processed = 0;
+    while (max_rounds == 0 || processed < max_rounds) {
+        if (!enif_is_current_process_alive(env) || atomic_flag_test_and_set_explicit(&queue->reader, memory_order_acquire))
             break;
-        libdecaf_nif_parallel_node_t *node = libdecaf_nif_parallel_queue_pop(queue);
-        if (node == NULL)
-            break;
-        libdecaf_nif_parallel_operation_t *operation = node->operation;
-        libdecaf_nif_parallel_node_t *second = queue->pending;
-        bool cancelled = atomic_load_explicit(&operation->cancelled, memory_order_acquire);
-        if (!cancelled && second != NULL && second->operation == operation && (max_rounds == 0 || round + 1 < max_rounds)) {
-            second = libdecaf_nif_parallel_queue_pop(queue);
-            libdecaf_nif_parallel_leaf_hash2(operation->leaf, libdecaf_nif_parallel_leaf_input(node),
-                                             libdecaf_nif_parallel_leaf_input(second), operation->block_size,
-                                             operation->results[node->index].chaining, operation->results[second->index].chaining);
-            libdecaf_nif_parallel_leaf_complete(env, node);
-            libdecaf_nif_parallel_leaf_complete(env, second);
-            round++;
-        } else {
-            if (!cancelled)
-                libdecaf_nif_parallel_leaf_hash(operation->leaf, libdecaf_nif_parallel_leaf_input(node), operation->block_size,
-                                                operation->results[node->index].chaining);
-            libdecaf_nif_parallel_leaf_complete(env, node);
+        libdecaf_nif_parallel_node_t *nodes[16];
+        size_t count = 0;
+        while (count < 16 && (max_rounds == 0 || count < max_rounds - processed)) {
+            libdecaf_nif_parallel_node_t *node = libdecaf_nif_parallel_queue_pop(queue);
+            if (node == NULL)
+                break;
+            nodes[count++] = node;
         }
+        /* Claimed nodes retain their operations independently. Release the queue
+         * before hashing so idle workers can steal a short batch from it. */
+        atomic_flag_clear_explicit(&queue->reader, memory_order_release);
+        if (atomic_load(&queue->cleanup))
+            libdecaf_nif_parallel_queue_cleanup(queue);
+        if (count == 0)
+            break;
+        for (size_t i = 0; i < count; i++) {
+            libdecaf_nif_parallel_node_t *node = nodes[i];
+            libdecaf_nif_parallel_operation_t *operation = node->operation;
+            bool cancelled = atomic_load_explicit(&operation->cancelled, memory_order_acquire);
+            if (!cancelled && i + 1 < count && nodes[i + 1]->operation == operation) {
+                libdecaf_nif_parallel_node_t *second = nodes[++i];
+                libdecaf_nif_parallel_leaf_hash2(
+                    operation->leaf, libdecaf_nif_parallel_leaf_input(node), libdecaf_nif_parallel_leaf_input(second),
+                    operation->block_size, operation->results[node->index].chaining, operation->results[second->index].chaining);
+                libdecaf_nif_parallel_leaf_complete(env, node);
+                libdecaf_nif_parallel_leaf_complete(env, second);
+            } else {
+                if (!cancelled)
+                    libdecaf_nif_parallel_leaf_hash(operation->leaf, libdecaf_nif_parallel_leaf_input(node), operation->block_size,
+                                                    operation->results[node->index].chaining);
+                libdecaf_nif_parallel_leaf_complete(env, node);
+            }
+        }
+        processed += count;
     }
-    atomic_flag_clear_explicit(&queue->reader, memory_order_release);
-    if (atomic_load(&queue->cleanup))
-        libdecaf_nif_parallel_queue_cleanup(queue);
     libdecaf_nif_parallel_wakeup(env, pool, router);
+    return processed;
 }
 
 ERL_NIF_TERM
@@ -220,6 +250,27 @@ libdecaf_nif_parallel_absorb_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
     if (argc != 2 || !enif_get_uint(env, argv[0], &router) || router == 0 || router > pool->count ||
         !enif_get_ulong(env, argv[1], &max_rounds))
         return EXCP_BADARG(env, "Expected a native parallel router number");
-    libdecaf_nif_parallel_drain(env, pool, router - 1, max_rounds);
+    size_t processed = 0, before;
+    do {
+        before = processed;
+        for (unsigned int offset = 0; offset < pool->count && enif_is_current_process_alive(env); offset++) {
+            if (max_rounds != 0 && processed == max_rounds)
+                break;
+            size_t budget = max_rounds == 0 ? 0 : max_rounds - processed;
+            processed += libdecaf_nif_parallel_drain(env, pool, (router - 1 + offset) % pool->count, budget);
+        }
+    } while (max_rounds == 0 && processed != before);
+    /* A reusable worker can keep helping other queues on its next bounded call.
+     * Direct NIF callers do not receive worker-control messages. */
+    ErlNifPid self, worker;
+    ERL_NIF_TERM name = atomic_load_explicit(&libdecaf_nif_parallel_worker_names[router - 1], memory_order_acquire);
+    if (enif_self(env, &self) != NULL && enif_whereis_pid(env, name, &worker) && enif_compare_pids(&self, &worker) == 0) {
+        for (unsigned int i = 0; i < pool->count; i++) {
+            if (atomic_load_explicit(&pool->queues[i].size, memory_order_acquire) != 0) {
+                (void)enif_send(env, &self, NULL, ATOM(wakeup));
+                break;
+            }
+        }
+    }
     return ATOM(ok);
 }
