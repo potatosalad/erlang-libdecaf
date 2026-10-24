@@ -15,6 +15,7 @@ Parallel Hash/XOF framing, ordered joins, retained input, cancellation, and queu
     streaming/1,
     windows/1,
     concurrent_branches/1,
+    concurrent_windows/1,
     round_limits/1,
     cancellation/1,
     worker_restart/1,
@@ -30,6 +31,7 @@ all() ->
         streaming,
         windows,
         concurrent_branches,
+        concurrent_windows,
         round_limits,
         cancellation,
         worker_restart,
@@ -156,13 +158,52 @@ concurrent_branches(_) ->
         Refs
     ).
 
+concurrent_windows(_) ->
+    % Full windows followed by short ones exercise completion publication while
+    % earlier workers are still returning and the collector reuses the slots.
+    Input = data(32 * 1024 * 1024 + 17 * 8192 + 37),
+    lists:foreach(
+        fun({Hash, Xof}) ->
+            ExpectedHash = libdecaf:hash(Hash, Input),
+            ExpectedXof = libdecaf:xof(Xof, Input, 71),
+            Parent = self(),
+            Workers = [
+                spawn_monitor(fun() ->
+                    lists:foreach(
+                        fun(_) ->
+                            ExpectedHash = libdecaf:parallel_hash(Hash, Input),
+                            ExpectedXof = libdecaf:parallel_xof(Xof, Input, 71),
+                            [] = messages()
+                        end,
+                        lists:seq(1, 4)
+                    ),
+                    Parent ! {windows, self()}
+                end)
+             || _ <- lists:seq(1, 4)
+            ],
+            lists:foreach(
+                fun({Pid, Ref}) ->
+                    receive
+                        {windows, Pid} -> ok
+                    after 30000 -> error(concurrent_windows_timeout)
+                    end,
+                    down(Ref, Pid, normal)
+                end,
+                Workers
+            )
+        end,
+        [{kt128, kt128}, {{parallelhash128, 32, 8192}, {parallelhashxof128, 8192}}]
+    ).
+
 round_limits(_) ->
     with_paused_routers(fun(Names) ->
         Input = data(8192 * 257),
         State = libdecaf_nif:parallel_hash_init(kt128),
         Pending = {await, _, _} = libdecaf_nif:parallel_hash_update(State, Input),
         Initial = queued(),
-        true = Initial >= 256 - ((256 + length(Names) - 1) div length(Names)) andalso Initial =< 256,
+        % The caller may finish a share before yielding; fan-out can use fewer
+        % workers than the number of configured schedulers.
+        true = Initial > 0 andalso Initial =< 256,
         lists:foreach(
             fun(Number) ->
                 Before = queued(),

@@ -178,7 +178,11 @@ libdecaf_nif_parallel_leaf_input(const libdecaf_nif_parallel_operation_t *operat
 static void
 libdecaf_nif_parallel_job_complete(ErlNifEnv *env, libdecaf_nif_parallel_operation_t *operation, size_t count)
 {
-    if (atomic_fetch_add_explicit(&operation->completed, count, memory_order_acq_rel) + count == operation->count) {
+    /* Once every job has published completion, the collector may reuse count
+     * for the next window. Read it before this job's release, while that reuse
+     * is still blocked by our outstanding completion. */
+    size_t total = operation->count;
+    if (atomic_fetch_add_explicit(&operation->completed, count, memory_order_acq_rel) + count == total) {
         if (!atomic_load_explicit(&operation->cancelled, memory_order_acquire)) {
             ERL_NIF_TERM reference = enif_make_copy(env, operation->reference);
             (void)enif_send(env, &operation->owner, NULL, enif_make_tuple2(env, ATOM(libdecaf_parallel), reference));
