@@ -426,6 +426,9 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
     from .crypto import api_functions
 
     result.extend(api_functions(schema))
+    from .tuak import functions as tuak_functions
+
+    result.extend(tuak_functions())
 
     rng = [
         (
@@ -487,6 +490,9 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
 
     result = [entry for entry in result if entry[0] not in ("hash_algorithm", "hash_state")]
     result.extend(api_types(schema))
+    from .tuak import types as tuak_types
+
+    result.extend(tuak_types(schema.tuak))
     for curve, size in [("ed25519", 32), ("ed448", 57)]:
         for part, byte_count in [("secret_key", size), ("public_key", size), ("signature", size * 2)]:
             result.append(

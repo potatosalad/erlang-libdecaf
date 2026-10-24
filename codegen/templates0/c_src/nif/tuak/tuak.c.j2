@@ -1,0 +1,125 @@
+#include "tuak.h"
+#include "tuak_primitive.h"
+#include <decaf/common.h>
+#include <stdbool.h>
+
+/* Each operation lists its accepted options; unrelated keys are rejected. */
+typedef struct {
+    ERL_NIF_TERM key;
+    unsigned *value;
+    const unsigned *lengths;
+    size_t length_count;
+} libdecaf_nif_tuak_option_t;
+
+{% for option in ctx.tuak_options if option.lengths %}
+static const unsigned libdecaf_nif_tuak_{{ option.name }}s[] = { {{ option.lengths | join(', ') }} };
+{% endfor %}
+
+static bool
+libdecaf_nif_tuak_options(ErlNifEnv *env, ERL_NIF_TERM term, const libdecaf_nif_tuak_option_t *accepted, size_t count)
+{
+    size_t size, found = 0;
+    if (!enif_get_map_size(env, term, &size))
+        return false;
+    for (size_t i = 0; i < count; ++i) {
+        ERL_NIF_TERM value;
+        if (!enif_get_map_value(env, term, accepted[i].key, &value))
+            continue;
+        unsigned number;
+        if (!enif_get_uint(env, value, &number) || number == 0)
+            return false;
+        if (accepted[i].length_count != 0) {
+            size_t j = 0;
+            while (j < accepted[i].length_count && accepted[i].lengths[j] != number)
+                ++j;
+            if (j == accepted[i].length_count)
+                return false;
+        } else if (number > UINT32_MAX) {
+            return false;
+        }
+        *accepted[i].value = number;
+        ++found;
+    }
+    return found == size;
+}
+
+{% for operation in ctx.tuak_operations %}
+ERL_NIF_TERM
+libdecaf_nif_tuak_{{ operation.name }}_{{ operation.arity }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    if (argc != {{ operation.arity }})
+        return enif_make_badarg(env);
+    ERL_NIF_TERM args[] = { {% for input in operation.inputs %}argv[{{ loop.index0 }}], {% endfor %}enif_make_new_map(env) };
+    return libdecaf_nif_tuak_{{ operation.name }}_{{ operation.arity + 1 }}(env, {{ operation.arity + 1 }}, args);
+}
+
+ERL_NIF_TERM
+libdecaf_nif_tuak_{{ operation.name }}_{{ operation.arity + 1 }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    if (argc != {{ operation.arity + 1 }})
+        return enif_make_badarg(env);
+{% for input in operation.inputs %}
+    ErlNifBinary {{ input.c_name }};
+    if (!enif_inspect_binary(env, argv[{{ loop.index0 }}], &{{ input.c_name }}) ||
+        ({% for length in input.lengths %}{{ input.c_name }}.size != {{ length }}{{ ' && ' if not loop.last else '' }}{% endfor %}))
+        return EXCP_BADARG(env, "{{ input.name }} must be a binary of {{ input.lengths | join(' or ') }} bytes");
+{% endfor %}
+    libdecaf_nif_tuak_options_t options = {
+{% for option in ctx.tuak_options %}
+        .{{ option.name }} = {{ ctx.schema.nif.tuak | attr('default_' + option.name) }},
+{% endfor %}
+    };
+    const libdecaf_nif_tuak_option_t accepted[] = {
+{% for name in operation.options %}
+{% set option = ctx.tuak_options | selectattr('name', 'equalto', name) | first %}
+        {ATOM({{ name }}), &options.{{ name }}, {{ 'libdecaf_nif_tuak_' + name + 's' if option.lengths else 'NULL' }}, {{ option.lengths | length }}},
+{% endfor %}
+    };
+    if (!libdecaf_nif_tuak_options(env, argv[{{ operation.arity }}], accepted, sizeof(accepted) / sizeof(accepted[0])))
+        return EXCP_BADARG(env, "TUAK {{ operation.name }} options must contain valid values for {{ operation.options | join(', ') }} only");
+{% if operation.name == 'f2345' %}
+    ERL_NIF_TERM res_term, ck_term, ik_term, ak_term;
+    uint8_t *res = enif_make_new_binary(env, options.res_length, &res_term);
+    uint8_t *ck = enif_make_new_binary(env, options.ck_length, &ck_term);
+    uint8_t *ik = enif_make_new_binary(env, options.ik_length, &ik_term);
+    uint8_t *ak = enif_make_new_binary(env, 6, &ak_term);
+    if (res == NULL || ck == NULL || ik == NULL || ak == NULL)
+        return EXCP_ERROR(env, "Cannot allocate TUAK outputs");
+    libdecaf_nif_tuak_outputs_t outputs;
+    libdecaf_nif_tuak_f2345_compute(key.data, key.size, topc.data, rand.data, &options, &outputs);
+    memcpy(res, outputs.res, options.res_length);
+    memcpy(ck, outputs.ck, options.ck_length);
+    memcpy(ik, outputs.ik, options.ik_length);
+    memcpy(ak, outputs.ak, 6);
+    decaf_bzero(&outputs, sizeof(outputs));
+    return enif_make_tuple4(env, res_term, ck_term, ik_term, ak_term);
+{% else %}
+    ERL_NIF_TERM result;
+{% if operation.name == 'topc' %}
+    uint8_t *output = enif_make_new_binary(env, 32, &result);
+{% elif operation.name in ('f1', 'f1_star') %}
+    uint8_t *output = enif_make_new_binary(env, options.mac_length, &result);
+{% elif operation.name in ('f5', 'f5_star') %}
+    uint8_t *output = enif_make_new_binary(env, 6, &result);
+{% else %}
+    uint8_t *output = enif_make_new_binary(env, options.{{ operation.member }}_length, &result);
+{% endif %}
+    if (output == NULL)
+        return EXCP_ERROR(env, "Cannot allocate TUAK output");
+{% if operation.member %}
+    libdecaf_nif_tuak_outputs_t outputs;
+    libdecaf_nif_tuak_f2345_compute(key.data, key.size, topc.data, rand.data, &options, &outputs);
+    memcpy(output, outputs.{{ operation.member }}, {{ '6' if operation.member == 'ak' else 'options.' + operation.member + '_length' }});
+    decaf_bzero(&outputs, sizeof(outputs));
+{% elif operation.name == 'topc' %}
+    libdecaf_nif_tuak_topc_compute(key.data, key.size, top.data, options.iterations, output);
+{% elif operation.name == 'f5_star' %}
+    libdecaf_nif_tuak_f5_star_compute(key.data, key.size, topc.data, rand.data, options.iterations, output);
+{% else %}
+    libdecaf_nif_tuak_{{ operation.name }}_compute(key.data, key.size, topc.data, rand.data, sqn.data, amf.data, &options, output);
+{% endif %}
+    return result;
+{% endif %}
+}
+
+{% endfor %}

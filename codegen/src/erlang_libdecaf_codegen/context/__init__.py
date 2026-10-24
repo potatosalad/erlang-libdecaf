@@ -99,5 +99,36 @@ class Context:
         return tuple(n for n in sorted(self.schema.nif.hash) if n.startswith(prefix))
 
     @property
+    def tuak_functions(self):
+        return tuple(f for f in self.nif.functions if f.family == "tuak")
+
+    @property
+    def tuak_operations(self):
+        from .tuak import operations
+
+        return operations()
+
+    @property
+    def tuak_options(self):
+        from .tuak import OPTIONS
+
+        return OPTIONS
+
+    @property
+    def tuak_types(self):
+        from .tuak import types
+
+        return tuple(
+            (name.removeprefix("tuak_"), definition.replace("tuak_", ""), doc)
+            for name, definition, doc in types(self.schema.nif.tuak)
+        )
+
+    @property
+    def tuak_public_functions(self):
+        from .tuak import public_functions
+
+        return public_functions()
+
+    @property
     def prime_order_groups(self) -> tuple[PrimeOrderGroup, ...]:
         return PRIME_ORDER_GROUPS

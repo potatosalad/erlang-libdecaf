@@ -40,6 +40,11 @@ iteration(Index) ->
             0 -> binary:copy(<<42>>, 65537);
             _ -> <<Index:64>>
         end,
+    TUAKKey = <<Index:256>>,
+    TOPc = libdecaf_nif:tuak_topc(TUAKKey, <<0:256>>),
+    {_, _, _, <<_:48>>} = libdecaf_nif:tuak_f2345(TUAKKey, TOPc, <<Index:128>>),
+    <<_:64>> = libdecaf_nif:tuak_f1(TUAKKey, TOPc, <<Index:128>>, <<Index:48>>, <<0:16>>),
+    badarg(fun() -> libdecaf_nif:tuak_f2345(TUAKKey, TOPc, <<Index:128>>, #{ck_length => 8}) end),
     Expected = crypto:hash(sha3_256, Input),
     Expected = libdecaf_nif:hash(sha3_256, [Input]),
     Hash = libdecaf_nif:hash_update(libdecaf_nif:hash_init(sha3_256), Input),

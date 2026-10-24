@@ -109,6 +109,9 @@
           "title": "Tuplehash",
           "type": "object"
         },
+        "tuak": {
+          "$ref": "#/$defs/TUAK"
+        },
         "xof": {
           "patternProperties": {
             "^[a-z][a-zA-Z0-9_]*$": {
@@ -120,6 +123,59 @@
         }
       },
       "title": "NIF",
+      "type": "object"
+    },
+    "TUAK": {
+      "additionalProperties": false,
+      "properties": {
+        "default_mac_length": {
+          "default": 8,
+          "enum": [
+            8,
+            16,
+            32
+          ],
+          "title": "Default Mac Length",
+          "type": "integer"
+        },
+        "default_res_length": {
+          "default": 8,
+          "enum": [
+            4,
+            8,
+            16,
+            32
+          ],
+          "title": "Default Res Length",
+          "type": "integer"
+        },
+        "default_ck_length": {
+          "default": 16,
+          "enum": [
+            16,
+            32
+          ],
+          "title": "Default Ck Length",
+          "type": "integer"
+        },
+        "default_ik_length": {
+          "default": 16,
+          "enum": [
+            16,
+            32
+          ],
+          "title": "Default Ik Length",
+          "type": "integer"
+        },
+        "default_iterations": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "maximum": 4294967295,
+          "title": "Default Iterations",
+          "type": "integer"
+        }
+      },
+      "title": "TUAK",
       "type": "object"
     },
     "XOF": {

@@ -12,6 +12,12 @@ nif:
   - ok
   - 'true'
   - undefined
+  tuak:
+    default_mac_length: 8
+    default_res_length: 8
+    default_ck_length: 16
+    default_ik_length: 16
+    default_iterations: 1
   hash:
     keccak_224:
       default_output_len: 28

@@ -1,0 +1,18 @@
+#ifndef LIBDECAF_NIF_TUAK_H
+#define LIBDECAF_NIF_TUAK_H
+
+#include "../libdecaf_nif.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+{% for function in ctx.tuak_functions %}
+extern ERL_NIF_TERM {{ function.c_name }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+{% endfor %}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

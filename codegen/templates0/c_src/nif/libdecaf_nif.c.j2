@@ -9,6 +9,7 @@
 #include "curve448/x448.h"
 #include "hash/hash.h"
 #include "xof/xof.h"
+#include "tuak/tuak.h"
 {% for family in ctx.crypto_families %}
 #include "{{ family.header }}"
 {% endfor %}
@@ -78,6 +79,10 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     /* Hash and XOF APIs. */
 {% for function in ctx.crypto_functions %}
     {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_NORMAL_JOB_BOUND},
+{% endfor %}
+    /* TUAK API. */
+{% for function in ctx.tuak_functions %}
+    {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_DIRTY_JOB_CPU_BOUND},
 {% endfor %}
     /* decaf/spongerng.h */
     {"spongerng_csprng_init_from_buffer", 2, libdecaf_nif_spongerng_csprng_init_from_buffer_2, ERL_NIF_DIRTY_JOB_CPU_BOUND},

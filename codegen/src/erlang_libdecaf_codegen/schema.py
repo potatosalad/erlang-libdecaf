@@ -52,6 +52,14 @@ class DerivedSponge(Model):
     rate: Literal[136, 168]
 
 
+class TUAK(Model):
+    default_mac_length: Literal[8, 16, 32] = 8
+    default_res_length: Literal[4, 8, 16, 32] = 8
+    default_ck_length: Literal[16, 32] = 16
+    default_ik_length: Literal[16, 32] = 16
+    default_iterations: int = Field(default=1, gt=0, le=4294967295)
+
+
 class NIF(Model):
     atoms: list[CIdentifier] = Field(default_factory=list)
     hash: dict[CIdentifier, Hash] = Field(default_factory=dict)
@@ -59,6 +67,7 @@ class NIF(Model):
     kmac: dict[CIdentifier, DerivedSponge] = Field(default_factory=dict)
     parallelhash: dict[CIdentifier, DerivedSponge] = Field(default_factory=dict)
     tuplehash: dict[CIdentifier, DerivedSponge] = Field(default_factory=dict)
+    tuak: TUAK = Field(default_factory=TUAK)
     xof: dict[CIdentifier, XOF] = Field(default_factory=dict)
 
     @model_validator(mode="after")

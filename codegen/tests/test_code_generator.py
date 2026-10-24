@@ -151,8 +151,9 @@ def test_erlang_native_bindings_match_the_c_registration_table():
     # Every NIF-shaped declaration in crypto component headers corresponds to
     # an exported Erlang NIF; private callbacks must stay inside their C file.
     from erlang_libdecaf_codegen.context.crypto import native_algorithms, api_functions
+    from erlang_libdecaf_codegen.context.tuak import functions as tuak_functions
 
-    headers = {a.family.header for a in native_algorithms(schema.nif)} | {"hash/hash.h", "xof/xof.h"}
+    headers = {a.family.header for a in native_algorithms(schema.nif)} | {"hash/hash.h", "xof/xof.h", "tuak/tuak.h"}
     declarations = set()
     for name in headers:
         header = (root / "c_src/nif" / name).read_text()
@@ -164,7 +165,7 @@ def test_erlang_native_bindings_match_the_c_registration_table():
                 header,
             )
         )
-    assert declarations == {(f.name, f.arity) for f in api_functions(schema.nif)}
+    assert declarations == {(f.name, f.arity) for f in (*api_functions(schema.nif), *tuak_functions())}
 
 
 def test_hash_default_output_cannot_exceed_maximum():
@@ -181,3 +182,12 @@ def test_xof_group_cannot_mix_parameter_contracts():
     config["nif"]["xof"]["cshake128"]["group"] = "sha3"
     with pytest.raises(ValidationError, match="same parameters"):
         Root.model_validate(config)
+
+
+@pytest.mark.parametrize(
+    "name,value",
+    [("mac_length", 4), ("res_length", 6), ("ck_length", 8), ("ik_length", 64), ("iterations", 0), ("iterations", 4294967296)],
+)
+def test_tuak_rejects_unsupported_defaults(name, value):
+    with pytest.raises(ValidationError):
+        Root.model_validate({"nif": {"tuak": {"default_" + name: value}}})
