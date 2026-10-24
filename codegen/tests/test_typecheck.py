@@ -25,7 +25,7 @@ def project(tmp_path_factory):
     directory = tmp_path_factory.mktemp("hash-typecheck")
     source = directory / "src"
     source.mkdir()
-    for module in ("libdecaf", "libdecaf_nif", "libdecaf_curve25519", "libdecaf_curve448"):
+    for module in ("libdecaf", "libdecaf_nif", "libdecaf_curve25519", "libdecaf_curve448", "libdecaf_tuak", "libdecaf_spongerng"):
         shutil.copy(root / "src" / f"{module}.erl", source)
     for fixture in Path(__file__).with_name("typecheck").glob("*.erl"):
         shutil.copy(fixture, source)
@@ -134,3 +134,34 @@ def test_eqwalizer_rejects_resource_as_encoded_signing_key(project):
     descriptions = "\n".join(item["description"] for item in diagnostics)
     assert "ed25519_signing_key" in descriptions, invalid.stdout
     assert "reference()" in descriptions and "binary()" in descriptions, invalid.stdout
+
+
+def test_dialyzer_checks_tuak_and_wrapped_prng(project, plt):
+    directory, dialyzer, _, _ = project
+    base = (
+        dialyzer,
+        "--plt",
+        str(plt),
+        "--no_check_plt",
+        "--src",
+        "src/libdecaf_nif.erl",
+        "src/libdecaf_tuak.erl",
+        "src/libdecaf_spongerng.erl",
+    )
+    valid = run(*base, "src/tuak_valid.erl", cwd=directory)
+    assert valid.returncode == 0, valid.stdout
+    invalid = run(*base, "src/tuak_invalid.erl", cwd=directory)
+    assert invalid.returncode == 2, invalid.stdout
+    assert "libdecaf_tuak:f1" in invalid.stdout and "breaks the contract" in invalid.stdout, invalid.stdout
+
+
+def test_eqwalizer_checks_tuak_and_wrapped_prng(project):
+    directory, _, elp, build_info = project
+    base = (elp, "eqwalize", "--project", build_info, "--no-connect", "--bail-on-error", "--format", "json")
+    valid = run(*base, "libdecaf_nif", "libdecaf_tuak", "libdecaf_spongerng", "tuak_valid", cwd=directory)
+    assert valid.returncode == 0, valid.stdout
+    invalid = run(*base, "tuak_invalid", cwd=directory)
+    assert invalid.returncode != 0, invalid.stdout
+    diagnostics = [json.loads(line) for line in invalid.stdout.splitlines() if line.startswith("{")]
+    descriptions = "\n".join(item["description"] for item in diagnostics)
+    assert "mac_length" in descriptions and "tuak" in descriptions, invalid.stdout

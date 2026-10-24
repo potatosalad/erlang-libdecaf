@@ -22,7 +22,8 @@ Exercise every TUAK test set in TS 35.232 and TS 35.233 Release 19 through the N
     defaults/1,
     invalid_arguments/1,
     output_domains/1,
-    concurrent/1
+    concurrent/1,
+    public_api/1
 ]).
 
 all() ->
@@ -33,7 +34,8 @@ all() ->
         defaults,
         invalid_arguments,
         output_domains,
-        concurrent
+        concurrent,
+        public_api
     ].
 
 groups() ->
@@ -62,13 +64,15 @@ vector_5(Config) -> vector(5, Config).
 vector_6(Config) -> vector(6, Config).
 
 vector(Index, Config) ->
-    V = lists:nth(Index, ?config(cases, Config)),
+    vector_case(lists:nth(Index, ?config(cases, Config)), fun call/2).
+
+vector_case(V, Call) ->
     Key = hex(key, V),
     TOP = hex(top, V),
     TOPc = hex(topc, V),
     RAND = hex(rand, V),
     Iterations = maps:with([iterations], V),
-    TOPc = call(topc, [Key, TOP, Iterations]),
+    TOPc = Call(topc, [Key, TOP, Iterations]),
     case maps:is_key(f1, V) of
         true ->
             SQN = hex(sqn, V),
@@ -76,8 +80,8 @@ vector(Index, Config) ->
             MACOptions = maps:with([mac_length, iterations], V),
             MAC_A = hex(f1, V),
             MAC_S = hex(f1_star, V),
-            MAC_A = call(f1, [Key, TOPc, RAND, SQN, AMF, MACOptions]),
-            MAC_S = call(f1_star, [Key, TOPc, RAND, SQN, AMF, MACOptions]);
+            MAC_A = Call(f1, [Key, TOPc, RAND, SQN, AMF, MACOptions]),
+            MAC_S = Call(f1_star, [Key, TOPc, RAND, SQN, AMF, MACOptions]);
         false ->
             ok
     end,
@@ -85,15 +89,15 @@ vector(Index, Config) ->
         true ->
             Options = maps:with([res_length, ck_length, ik_length, iterations], V),
             Expected = {hex(f2, V), hex(f3, V), hex(f4, V), hex(f5, V)},
-            Expected = call(f2345, [Key, TOPc, RAND, Options]),
+            Expected = Call(f2345, [Key, TOPc, RAND, Options]),
             lists:foreach(
                 fun({Function, Output}) ->
-                    Output = call(Function, [Key, TOPc, RAND, Options])
+                    Output = Call(Function, [Key, TOPc, RAND, Options])
                 end,
                 lists:zip([f2, f3, f4, f5], tuple_to_list(Expected))
             ),
             AKStar = hex(f5_star, V),
-            AKStar = call(f5_star, [Key, TOPc, RAND, Iterations]);
+            AKStar = Call(f5_star, [Key, TOPc, RAND, Iterations]);
         false ->
             ok
     end,
@@ -249,6 +253,19 @@ concurrent(_) ->
             end
         end,
         Workers
+    ).
+
+public_api(Config) ->
+    lists:foreach(
+        fun({_, Cases}) ->
+            lists:foreach(
+                fun(V) ->
+                    vector_case(V, fun(Function, Args) -> apply(libdecaf_tuak, Function, Args) end)
+                end,
+                Cases
+            )
+        end,
+        ?config(vectors, Config)
     ).
 
 inputs() ->

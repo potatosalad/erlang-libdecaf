@@ -19,6 +19,7 @@ Tested against the [RFC 8032](https://tools.ietf.org/html/rfc8032), [FIPS 180-4]
 | [Ed25519ph](#ed25519ph)     | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.1) |
 | [Ed448](#ed448)             | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.2) |
 | [Ed448ph](#ed448ph)         | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.2) |
+| [TUAK](#tuak) | [KECCAK](#keccak) | Authentication / Key Generation | [3GPP TS 35.231](https://www.etsi.org/deliver/etsi_ts/135200_135299/135231/19.00.00_60/ts_135231v190000p.pdf) |
 | [SPONGERNG](#spongerng)     | [KECCAK](#keccak) | Pseudo-Random | [`decaf/spongerng.h`](https://sourceforge.net/p/ed448goldilocks/code/ci/v1.0/tree/src/public_include/decaf/spongerng.h) |
 | [SHA2-512](#sha-2)          | [SHA-2](#sha-2)   | Hash          | [FIPS 180-4](http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf) |
 | [SHA3-224](#sha-3)          | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
@@ -348,6 +349,41 @@ Use the corresponding `ed448ph_*` functions on `libdecaf_curve448` for Ed448ph.
 Both initializers return the same signing state for `ed25519ph_sign_update/2`,
 `ed25519ph_sign_final/1`. Verification uses `ed25519ph_verify_init/2,3`,
 `ed25519ph_verify_update/2`, and `ed25519ph_verify_final/1`.
+
+### TUAK
+
+`libdecaf_tuak` provides the 3GPP TUAK authentication and key-generation functions:
+`topc/2,3`, `f1/5,6`, `f1_star/5,6`, `f2/3,4`, `f3/3,4`, `f4/3,4`, `f5/3,4`,
+`f5_star/3,4`, and the combined `f2345/3,4`. Matching `tuak_*` functions are
+available directly from `libdecaf_nif`.
+
+Inputs are fixed-size binaries in the published test-vector byte order. Subscriber
+keys contain 16 or 32 bytes, TOP/TOPc 32 bytes, RAND 16 bytes, SQN six bytes, and
+AMF two bytes. Derive TOPc once for a subscriber key and operator TOP, then reuse
+it with that key and the same iteration count.
+
+```erlang
+Key = binary:copy(<<16#AB>>, 16),
+TOP = binary:copy(<<16#55>>, 32),
+RAND = binary:copy(<<16#42>>, 16),
+SQN = binary:copy(<<16#11>>, 6),
+TOPc = libdecaf_tuak:topc(Key, TOP),
+MAC_A = libdecaf_tuak:f1(Key, TOPc, RAND, SQN, <<255, 255>>),
+<<"F9A54E6AEAA8618D">> = binary:encode_hex(MAC_A),
+{RES, CK, IK, AK} = libdecaf_tuak:f2345(Key, TOPc, RAND, #{res_length => 4}),
+<<"657ACD64">> = binary:encode_hex(RES).
+```
+
+Optional maps select `mac_length` (8/16/32 bytes), `res_length` (4/8/16/32),
+`ck_length` (16/32), `ik_length` (16/32), and positive `iterations`. Each operation
+accepts its applicable options only. Defaults are MAC=8, RES=8, CK=16, IK=16, and
+one complete Keccak-f[1600] iteration.
+
+The RES, CK, and IK lengths jointly select the `f2`–`f5` computation. Use matching
+options for individual calls, or obtain all four results together with `f2345`.
+The implementation is tested against all TUAK sets in the Release 19
+[implementers' data](https://www.etsi.org/deliver/etsi_ts/135200_135299/135232/19.00.00_60/ts_135232v190000p.pdf)
+and [conformance data](https://www.etsi.org/deliver/etsi_ts/135200_135299/135233/19.00.00_60/ts_135233v190000p.pdf).
 
 ### Ristretto255 and Decaf448
 

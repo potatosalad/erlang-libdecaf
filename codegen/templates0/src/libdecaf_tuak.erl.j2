@@ -1,0 +1,101 @@
+%%% % @format
+-module(libdecaf_tuak).
+-moduledoc """
+TUAK authentication and key generation from 3GPP TS 35.231.
+
+Derive the subscriber-specific `TOPc` from the subscriber key `Key` and the
+operator's configuration `TOP`, then reuse it for authentication and key
+agreement. Keys contain 16 or 32 bytes; TOP and TOPc contain 32 bytes. RAND
+contains 16 bytes, SQN six bytes, and AMF two bytes. All fields are binaries
+in the byte order printed in the 3GPP test vectors.
+
+`f1/5,6` returns the network authentication code MAC-A; `f1_star/5,6` returns
+the resynchronization code MAC-S. `f2345/3,4` computes `{RES, CK, IK, AK}`
+together, while `f2`, `f3`, `f4`, and `f5` return the individual components.
+`f5_star/3,4` produces the resynchronization anonymity key AK*.
+
+Options are maps with optional, named settings. Lengths are in **bytes**:
+MAC lengths are 8, 16, or 32; RES lengths are 4, 8, 16, or 32; CK and IK
+lengths are 16 or 32. Defaults are MAC=~J< ctx.schema.nif.tuak.default_mac_length >.,
+RES=~J< ctx.schema.nif.tuak.default_res_length >., CK=~J< ctx.schema.nif.tuak.default_ck_length >.,
+IK=~J< ctx.schema.nif.tuak.default_ik_length >., and iterations=~J< ctx.schema.nif.tuak.default_iterations >..
+
+Output-length choices participate in TUAK's domain separation. In particular,
+use the same `res_length`, `ck_length`, and `ik_length` with all the individual
+`f2`–`f5` calls that belong to one authentication exchange. Use the same positive
+iteration count for TOPc derivation and subsequent operations. Each iteration
+applies a complete 24-round Keccak-f[1600] permutation.
+
+This example uses test set 1 from the specification's conformance data:
+
+```erlang
+Key = binary:copy(<<16#AB>>, 16),
+TOP = binary:copy(<<16#55>>, 32),
+RAND = binary:copy(<<16#42>>, 16),
+SQN = binary:copy(<<16#11>>, 6),
+AMF = <<16#FF, 16#FF>>,
+TOPc = libdecaf_tuak:topc(Key, TOP),
+MAC_A = libdecaf_tuak:f1(Key, TOPc, RAND, SQN, AMF),
+<<"F9A54E6AEAA8618D">> = binary:encode_hex(MAC_A),
+{RES, CK, IK, AK} = libdecaf_tuak:f2345(Key, TOPc, RAND, #{res_length => 4}),
+<<"657ACD64">> = binary:encode_hex(RES),
+16 = byte_size(CK),
+16 = byte_size(IK),
+6 = byte_size(AK).
+```
+
+The implementation follows
+[TS 35.231 Release 19](https://www.etsi.org/deliver/etsi_ts/135200_135299/135231/19.00.00_60/ts_135231v190000p.pdf).
+Secrets and derived keys should be kept private; temporary native state is erased
+after each computation. Native calls use dirty CPU schedulers.
+""".
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
+-moduledoc #{copyright => "Andrew Bennett"}.
+-compile(warn_missing_spec_all).
+
+%% TUAK API
+-export([
+~J{ for function in ctx.tuak_public_functions }.
+    ~J< function.name >./~J< function.arity >.~J< ',' if not loop.last else '' >.
+~J{ endfor }.
+]).
+
+%% Types
+~J{ for name, definition, doc in ctx.tuak_types }.
+-doc """
+~J< doc >.
+""".
+-type ~J< name >.() :: libdecaf_nif:tuak_~J< name >.().
+~J{ endfor }.
+
+-export_type([
+~J{ for name, definition, doc in ctx.tuak_types }.
+    ~J< name >./0~J< ',' if not loop.last else '' >.
+~J{ endfor }.
+]).
+
+%%%=============================================================================
+%%% TUAK API functions
+%%%=============================================================================
+
+~J{ for function in ctx.tuak_public_functions }.
+~J{ set operation = ctx.tuak_operations | selectattr('name', 'equalto', function.name) | first }.
+-doc """
+~J< operation.doc >.
+~J{ if function.arity == operation.arity }.
+Use the configured defaults, equivalent to passing `#{}` to the next arity.
+~J{ else }.
+Accepted options: `~J< operation.options | join('`, `') >.`. Unknown keys,
+unsupported lengths, zero iterations, and incorrectly sized fields raise `badarg`.
+~J{ endif }.
+~J{ if function.name in ('f1', 'f1_star') }.
+The default MAC length is ~J< ctx.schema.nif.tuak.default_mac_length >. bytes. The same key, TOPc, iteration
+count, and input fields must be used when checking the received authentication code.
+~J{ endif }.
+""".
+-spec ~J< function.spec >..
+~J< function.name >.(~J< function.arguments | map(attribute='name') | join(', ') >.) ->
+    libdecaf_nif:tuak_~J< function.name >.(~J< function.arguments | map(attribute='name') | join(', ') >.).
+
+~J{ endfor }.

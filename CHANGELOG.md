@@ -9,6 +9,8 @@
   * Fix native dependency ordering and rebuilds, and update macOS linking flags.
   * Fix empty-message null-pointer contract violations in the vendored EdDSA and SHA-512 wrappers.
 * Library Support
+  * 3GPP TUAK TOPc derivation and f1, f1*, f2, f3, f4, f5, f5* authentication and key-generation functions, including combined f2345, both key sizes, all specified output lengths, and configurable Keccak iterations.
+    * Dedicated `libdecaf_tuak` API and `tuak_*` NIF functions, tested against all TUAK sets from TS 35.232 and TS 35.233 Release 19.
   * SP 800-185 KMAC, TupleHash, and ParallelHash at strengths 128 and 256, including their XOF variants, all 36 NIST sample vectors, and all 18 KMAC vectors from draft-ietf-ipsecme-sha3-02.
   * RFC 9861 HopMAC128 and HopMAC256 with keyed Hash and XOF lifecycles.
   * RFC 9861 KangarooTwelve KT128 and KT256 with one-shot and incremental customization support.
@@ -25,6 +27,7 @@
     * `libdecaf_ristretto255` and `libdecaf_decaf448` point and scalar APIs.
     * Uniform byte mapping and precomputed multiplication.
 * Enhancements
+  * Modernize `libdecaf_spongerng` with direct native calls, named typespecs, descriptive documentation, and runnable examples while preserving its wrapped-state API.
   * Add immutable advancing `absorb`/`squeeze` APIs for every XOF family, following the two-phase streaming interface in the SP 800-185 Revision 1 initial public draft.
   * Generate the deprecated `libdecaf_sha2`, `libdecaf_sha3`, and `libdecaf_keccak_sha3` compatibility modules, retaining wrapped states and directing callers to the hash and XOF APIs in `libdecaf`.
   * Add Docker and native ASan, LSan, and UBSan checks for ed448goldilocks and the NIF, including resource cleanup stress.
