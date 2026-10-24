@@ -9,7 +9,7 @@ libdecaf_nif_parallel_operation_dtor(ErlNifEnv *env, void *object)
     if (operation->work_env != NULL)
         enif_free_env(operation->work_env);
     if (operation->pool != NULL)
-        libdecaf_nif_parallel_pool_release(operation->pool);
+        libdecaf_nif_parallel_pool_release(operation->pool, operation->version != 0);
     decaf_bzero(operation, enif_sizeof_resource(operation));
 }
 
@@ -73,7 +73,9 @@ libdecaf_nif_parallel_operation_create(ErlNifEnv *env, ErlNifResourceType *type,
         operation->results[i].node.operation = operation;
         operation->results[i].node.index = i;
     }
-    operation->pool = enif_priv_data(env);
+    operation->version = 1;
+    operation->job_width = LIBDECAF_NIF_PARALLEL_JOB_LEAVES;
+    operation->pool = libdecaf_nif_parallel_pool_current(env);
     libdecaf_nif_parallel_pool_keep(operation->pool);
     operation->work_env = work_env;
     operation->state = retained_state;
@@ -147,23 +149,26 @@ libdecaf_nif_parallel_dispatch(ErlNifEnv *env, libdecaf_nif_parallel_operation_t
     size_t workers = 1 + (operation->count * operation->block_size - 1) / target_bytes;
     if (workers > pool->count)
         workers = pool->count;
-    if (workers > operation->count)
-        workers = operation->count;
+    size_t width = operation->job_width != 0 ? operation->job_width : 1;
+    size_t jobs = (operation->count + width - 1) / width;
+    if (workers > jobs)
+        workers = jobs;
     bool help = workers > 1 && enif_thread_type() == ERL_NIF_THR_DIRTY_CPU_SCHEDULER;
     unsigned int helper = (unsigned int)((first + workers - 1) % pool->count);
     atomic_store_explicit(&operation->notified, false, memory_order_relaxed);
-    for (size_t i = 0; i < operation->count; i++) {
-        size_t batch = i * workers / operation->count;
+    for (size_t i = 0; i < operation->count; i++)
+        atomic_store_explicit(&operation->results[i].ready, false, memory_order_relaxed);
+    for (size_t i = 0; i < operation->count; i += width) {
+        size_t batch = (i / width) * workers / jobs;
         unsigned int router = (unsigned int)((first + batch) % pool->count);
         libdecaf_nif_parallel_node_t *node = &operation->results[i].node;
-        atomic_store_explicit(&operation->results[i].ready, false, memory_order_relaxed);
         node->next = NULL;
         if (tails[router] == NULL)
             heads[router] = node;
         else
             tails[router]->next = node;
         tails[router] = node;
-        counts[router]++;
+        counts[router] += libdecaf_nif_parallel_job_size(node);
         enif_keep_resource(operation);
     }
     for (unsigned int i = 0; i < pool->count; i++) {

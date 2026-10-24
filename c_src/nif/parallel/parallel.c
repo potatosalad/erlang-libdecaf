@@ -3,6 +3,21 @@
 #include "leaf.h"
 #include <decaf/common.h>
 
+/* A new queue format must never be consumed by workers still executing the
+ * old shared library. Recognize the old raw-pool allocation and retire it on
+ * upgrade; existing operations keep it alive and drain it on their caller. */
+typedef struct {
+    atomic_size_t magic;
+    libdecaf_nif_parallel_pool_t pool;
+} libdecaf_nif_parallel_private_t;
+
+libdecaf_nif_parallel_pool_t *
+libdecaf_nif_parallel_pool_current(ErlNifEnv *env)
+{
+    libdecaf_nif_parallel_private_t *private = enif_priv_data(env);
+    return &private->pool;
+}
+
 static _Atomic(ERL_NIF_TERM) libdecaf_nif_parallel_worker_names[LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT];
 
 static void
@@ -22,27 +37,31 @@ libdecaf_nif_parallel_pool_keep(libdecaf_nif_parallel_pool_t *pool)
 }
 
 void
-libdecaf_nif_parallel_pool_release(libdecaf_nif_parallel_pool_t *pool)
+libdecaf_nif_parallel_pool_release(libdecaf_nif_parallel_pool_t *pool, bool wrapped)
 {
     if (atomic_fetch_sub_explicit(&pool->references, 1, memory_order_acq_rel) == 1) {
-        decaf_bzero(pool, sizeof(*pool));
-        enif_free(pool);
+        void *allocation = wrapped ? (void *)((char *)pool - offsetof(libdecaf_nif_parallel_private_t, pool)) : (void *)pool;
+        decaf_bzero(allocation, wrapped ? sizeof(libdecaf_nif_parallel_private_t) : sizeof(*pool));
+        enif_free(allocation);
     }
 }
 
 int
 libdecaf_nif_parallel_load(ErlNifEnv *env, void **priv_data, void *old_priv_data)
 {
-    if (old_priv_data != NULL) {
-        libdecaf_nif_parallel_worker_atoms(env, ((libdecaf_nif_parallel_pool_t *)old_priv_data)->count);
-        libdecaf_nif_parallel_pool_keep(old_priv_data);
-        *priv_data = old_priv_data;
+    if (old_priv_data != NULL && atomic_load_explicit((atomic_size_t *)old_priv_data, memory_order_relaxed) == SIZE_MAX) {
+        libdecaf_nif_parallel_private_t *private = old_priv_data;
+        libdecaf_nif_parallel_worker_atoms(env, private->pool.count);
+        libdecaf_nif_parallel_pool_keep(&private->pool);
+        *priv_data = private;
         return 0;
     }
-    libdecaf_nif_parallel_pool_t *pool = enif_alloc(sizeof(*pool));
-    if (pool == NULL)
+    libdecaf_nif_parallel_private_t *private = enif_alloc(sizeof(*private));
+    if (private == NULL)
         return -1;
-    decaf_bzero(pool, sizeof(*pool));
+    decaf_bzero(private, sizeof(*private));
+    atomic_init(&private->magic, SIZE_MAX);
+    libdecaf_nif_parallel_pool_t *pool = &private->pool;
     atomic_init(&pool->references, 1);
     atomic_init(&pool->next_router, 0);
     ErlNifSysInfo info;
@@ -54,7 +73,7 @@ libdecaf_nif_parallel_load(ErlNifEnv *env, void **priv_data, void *old_priv_data
         char name[sizeof("libdecaf_parallel_router_") + 20];
         int length = enif_snprintf(name, sizeof(name), "libdecaf_parallel_router_%llu", (unsigned long long)i + 1);
         if (length < 0 || (size_t)length >= sizeof(name)) {
-            enif_free(pool);
+            enif_free(private);
             return -1;
         }
         pool->names[i] = enif_make_atom(env, name);
@@ -63,7 +82,7 @@ libdecaf_nif_parallel_load(ErlNifEnv *env, void **priv_data, void *old_priv_data
         atomic_init(&pool->queues[i].cleanup, false);
         atomic_init(&pool->queues[i].size, 0);
     }
-    *priv_data = pool;
+    *priv_data = private;
     libdecaf_nif_parallel_worker_atoms(env, pool->count);
     return 0;
 }
@@ -72,7 +91,7 @@ void
 libdecaf_nif_parallel_unload(void *priv_data)
 {
     if (priv_data != NULL)
-        libdecaf_nif_parallel_pool_release(priv_data);
+        libdecaf_nif_parallel_pool_release(&((libdecaf_nif_parallel_private_t *)priv_data)->pool, true);
 }
 
 /* Producers publish a whole chain with one CAS. The consumer detaches incoming
@@ -97,7 +116,7 @@ libdecaf_nif_parallel_queue_pop(libdecaf_nif_parallel_queue_t *queue)
     libdecaf_nif_parallel_node_t *node = queue->pending;
     if (node != NULL) {
         queue->pending = node->next;
-        atomic_fetch_sub_explicit(&queue->size, 1, memory_order_relaxed);
+        atomic_fetch_sub_explicit(&queue->size, libdecaf_nif_parallel_job_size(node), memory_order_relaxed);
     }
     return node;
 }
@@ -118,7 +137,7 @@ libdecaf_nif_parallel_queue_cleanup(libdecaf_nif_parallel_queue_t *queue)
             while (node != NULL) {
                 libdecaf_nif_parallel_node_t *next = node->next;
                 if (atomic_load_explicit(&node->operation->cancelled, memory_order_acquire)) {
-                    atomic_fetch_sub_explicit(&queue->size, 1, memory_order_relaxed);
+                    atomic_fetch_sub_explicit(&queue->size, libdecaf_nif_parallel_job_size(node), memory_order_relaxed);
                     enif_release_resource(node->operation);
                 } else {
                     node->next = queue->pending;
@@ -136,6 +155,8 @@ libdecaf_nif_parallel_queue_cleanup(libdecaf_nif_parallel_queue_t *queue)
 bool
 libdecaf_nif_parallel_wakeup(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool, unsigned int router)
 {
+    if (pool != libdecaf_nif_parallel_pool_current(env))
+        return false;
     if (atomic_load_explicit(&pool->queues[router].size, memory_order_acquire) != 0) {
         ErlNifPid pid;
         ERL_NIF_TERM worker = atomic_load_explicit(&libdecaf_nif_parallel_worker_names[router], memory_order_acquire);
@@ -149,21 +170,15 @@ libdecaf_nif_parallel_wakeup(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool,
 }
 
 static const uint8_t *
-libdecaf_nif_parallel_leaf_input(const libdecaf_nif_parallel_node_t *node)
+libdecaf_nif_parallel_leaf_input(const libdecaf_nif_parallel_operation_t *operation, size_t index)
 {
-    const libdecaf_nif_parallel_operation_t *operation = node->operation;
-    return operation->input.data + operation->window_offset + node->index * operation->block_size;
+    return operation->input.data + operation->window_offset + index * operation->block_size;
 }
 
 static void
-libdecaf_nif_parallel_leaf_complete(ErlNifEnv *env, libdecaf_nif_parallel_node_t *node)
+libdecaf_nif_parallel_job_complete(ErlNifEnv *env, libdecaf_nif_parallel_operation_t *operation, size_t count)
 {
-    libdecaf_nif_parallel_operation_t *operation = node->operation;
-    size_t index = node->index;
-    if (!atomic_load_explicit(&operation->cancelled, memory_order_acquire)) {
-        atomic_store_explicit(&operation->results[index].ready, true, memory_order_release);
-    }
-    if (atomic_fetch_add_explicit(&operation->completed, 1, memory_order_acq_rel) + 1 == operation->count) {
+    if (atomic_fetch_add_explicit(&operation->completed, count, memory_order_acq_rel) + count == operation->count) {
         if (!atomic_load_explicit(&operation->cancelled, memory_order_acquire)) {
             ERL_NIF_TERM reference = enif_make_copy(env, operation->reference);
             (void)enif_send(env, &operation->owner, NULL, enif_make_tuple2(env, ATOM(libdecaf_parallel), reference));
@@ -183,39 +198,42 @@ libdecaf_nif_parallel_drain(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool, 
     while (max_rounds == 0 || processed < max_rounds) {
         if (!enif_is_current_process_alive(env) || atomic_flag_test_and_set_explicit(&queue->reader, memory_order_acquire))
             break;
-        libdecaf_nif_parallel_node_t *nodes[16];
-        size_t count = 0;
-        while (count < 16 && (max_rounds == 0 || count < max_rounds - processed)) {
-            libdecaf_nif_parallel_node_t *node = libdecaf_nif_parallel_queue_pop(queue);
-            if (node == NULL)
-                break;
-            nodes[count++] = node;
+        libdecaf_nif_parallel_node_t *node = libdecaf_nif_parallel_queue_pop(queue);
+        size_t count = node != NULL ? libdecaf_nif_parallel_job_size(node) : 0;
+        if (max_rounds != 0 && count > max_rounds - processed) {
+            /* Preserve the exact leaf budget, including limits smaller than one
+             * job. The remainder owns a separate reference before publication. */
+            size_t take = max_rounds - processed;
+            libdecaf_nif_parallel_node_t *rest = &node->operation->results[node->index + take].node;
+            enif_keep_resource(node->operation);
+            libdecaf_nif_parallel_queue_push(queue, rest, rest, count - take);
+            count = take;
         }
-        /* Claimed nodes retain their operations independently. Release the queue
-         * before hashing so idle workers can steal a short batch from it. */
+        /* A job retains its operation independently. Hash outside the reader
+         * claim so other workers can steal another short span from this queue. */
         atomic_flag_clear_explicit(&queue->reader, memory_order_release);
         if (atomic_load(&queue->cleanup))
             libdecaf_nif_parallel_queue_cleanup(queue);
-        if (count == 0)
+        if (node == NULL)
             break;
-        for (size_t i = 0; i < count; i++) {
-            libdecaf_nif_parallel_node_t *node = nodes[i];
-            libdecaf_nif_parallel_operation_t *operation = node->operation;
-            bool cancelled = atomic_load_explicit(&operation->cancelled, memory_order_acquire);
-            if (!cancelled && i + 1 < count && nodes[i + 1]->operation == operation) {
-                libdecaf_nif_parallel_node_t *second = nodes[++i];
-                libdecaf_nif_parallel_leaf_hash2(
-                    operation->leaf, libdecaf_nif_parallel_leaf_input(node), libdecaf_nif_parallel_leaf_input(second),
-                    operation->block_size, operation->results[node->index].chaining, operation->results[second->index].chaining);
-                libdecaf_nif_parallel_leaf_complete(env, node);
-                libdecaf_nif_parallel_leaf_complete(env, second);
-            } else {
-                if (!cancelled)
-                    libdecaf_nif_parallel_leaf_hash(operation->leaf, libdecaf_nif_parallel_leaf_input(node), operation->block_size,
-                                                    operation->results[node->index].chaining);
-                libdecaf_nif_parallel_leaf_complete(env, node);
+        libdecaf_nif_parallel_operation_t *operation = node->operation;
+        size_t end = node->index + count;
+        if (!atomic_load_explicit(&operation->cancelled, memory_order_acquire)) {
+            size_t index = node->index;
+            for (; index + 1 < end; index += 2) {
+                libdecaf_nif_parallel_leaf_hash2(operation->leaf, libdecaf_nif_parallel_leaf_input(operation, index),
+                                                 libdecaf_nif_parallel_leaf_input(operation, index + 1), operation->block_size,
+                                                 operation->results[index].chaining, operation->results[index + 1].chaining);
+                atomic_store_explicit(&operation->results[index].ready, true, memory_order_release);
+                atomic_store_explicit(&operation->results[index + 1].ready, true, memory_order_release);
+            }
+            if (index < end) {
+                libdecaf_nif_parallel_leaf_hash(operation->leaf, libdecaf_nif_parallel_leaf_input(operation, index),
+                                                operation->block_size, operation->results[index].chaining);
+                atomic_store_explicit(&operation->results[index].ready, true, memory_order_release);
             }
         }
+        libdecaf_nif_parallel_job_complete(env, operation, count);
         processed += count;
     }
     libdecaf_nif_parallel_wakeup(env, pool, router);
@@ -228,7 +246,7 @@ libdecaf_nif_parallel_router_info_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     (void)argv;
     if (argc != 0)
         return enif_make_badarg(env);
-    libdecaf_nif_parallel_pool_t *pool = enif_priv_data(env);
+    libdecaf_nif_parallel_pool_t *pool = libdecaf_nif_parallel_pool_current(env);
     size_t queued = 0;
     for (unsigned int i = 0; i < pool->count; i++)
         queued += atomic_load_explicit(&pool->queues[i].size, memory_order_relaxed);
@@ -244,7 +262,7 @@ libdecaf_nif_parallel_router_info_0(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 ERL_NIF_TERM
 libdecaf_nif_parallel_absorb_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    libdecaf_nif_parallel_pool_t *pool = enif_priv_data(env);
+    libdecaf_nif_parallel_pool_t *pool = libdecaf_nif_parallel_pool_current(env);
     unsigned int router;
     unsigned long max_rounds;
     if (argc != 2 || !enif_get_uint(env, argv[0], &router) || router == 0 || router > pool->count ||

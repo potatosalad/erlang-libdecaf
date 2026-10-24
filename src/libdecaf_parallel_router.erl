@@ -154,7 +154,7 @@ ready(EventType, EventContent, Data) ->
     EventType :: gen_statem:event_type(),
     EventContent :: dynamic(),
     Data :: data(),
-    HandleEventResult :: gen_statem:event_handler_result(starting, data()).
+    HandleEventResult :: gen_statem:event_handler_result(starting | ready | working, data()).
 working(info, wakeup, #data{pending = true}) ->
     keep_state_and_data;
 working(info, wakeup, Data) ->

@@ -5,6 +5,7 @@
 #include <stdatomic.h>
 
 #define LIBDECAF_NIF_PARALLEL_WINDOW (4096)
+#define LIBDECAF_NIF_PARALLEL_JOB_LEAVES (16)
 #define LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT (1024)
 
 typedef struct libdecaf_nif_parallel_node_s {
@@ -47,11 +48,30 @@ struct libdecaf_nif_parallel_operation_s {
     atomic_size_t completed;
     atomic_bool cancelled, notified;
     bool monitored, finished, finish;
+    uint8_t version, job_width;
     libdecaf_nif_parallel_result_t results[];
 };
 
+/* These bytes used to be zeroed padding. Keep old operation/resource layouts
+ * readable during NIF takeover; version zero uses one queued node per leaf. */
+_Static_assert(offsetof(libdecaf_nif_parallel_operation_t, results) ==
+                   ((offsetof(libdecaf_nif_parallel_operation_t, finish) + 1 +
+                     _Alignof(libdecaf_nif_parallel_result_t) - 1) /
+                    _Alignof(libdecaf_nif_parallel_result_t)) * _Alignof(libdecaf_nif_parallel_result_t),
+               "Parallel operation version must fit the legacy padding");
+
+static inline size_t
+libdecaf_nif_parallel_job_size(const libdecaf_nif_parallel_node_t *node)
+{
+    const libdecaf_nif_parallel_operation_t *operation = node->operation;
+    size_t width = operation->job_width != 0 ? operation->job_width : 1;
+    size_t count = width - node->index % width;
+    return count < operation->count - node->index ? count : operation->count - node->index;
+}
+
+extern libdecaf_nif_parallel_pool_t *libdecaf_nif_parallel_pool_current(ErlNifEnv *env);
 extern void libdecaf_nif_parallel_pool_keep(libdecaf_nif_parallel_pool_t *pool);
-extern void libdecaf_nif_parallel_pool_release(libdecaf_nif_parallel_pool_t *pool);
+extern void libdecaf_nif_parallel_pool_release(libdecaf_nif_parallel_pool_t *pool, bool wrapped);
 extern void libdecaf_nif_parallel_queue_push(libdecaf_nif_parallel_queue_t *queue, libdecaf_nif_parallel_node_t *head,
                                              libdecaf_nif_parallel_node_t *tail, size_t count);
 extern void libdecaf_nif_parallel_queue_cleanup(libdecaf_nif_parallel_queue_t *queue);
