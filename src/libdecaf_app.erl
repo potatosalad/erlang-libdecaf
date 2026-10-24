@@ -3,11 +3,13 @@
 -moduledoc """
 OTP application callback for libdecaf.
 
-Starts `m:libdecaf_sup`, including the parallel-hash worker pool by default.
-Set the `libdecaf` application environment key `phash` to `false` before
+Starts `m:libdecaf_sup`, including the parallel router pool by default.
+Set the `libdecaf` application environment key `parallel` to `false` before
 starting the application to disable the pool. Native cryptographic functions
-remain available independently of the worker pool.
+remain available independently of the router pool.
 """.
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
 -moduledoc #{copyright => "Andrew Bennett"}.
 -compile(warn_missing_spec_all).
 

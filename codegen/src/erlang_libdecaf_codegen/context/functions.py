@@ -75,15 +75,23 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         )
 
     add(
-        "phash_worker_info",
+        "parallel_absorb",
         [],
-        "phash_worker_info()",
-        "Return the native parallel-hash worker count, limit, and registered names.\n"
+        "ok",
+        "Run the parallel-absorb placeholder on a dirty CPU scheduler.\n"
+        "Currently sleeps for one second and returns `ok`; no input is absorbed.",
+        "Parallel API",
+    )
+    add(
+        "parallel_router_info",
+        [],
+        "parallel_router_info()",
+        "Return the native parallel router count, limit, and registered names.\n"
         "Names are numbered from one in scheduler order. The count uses the total\n"
         "normal scheduler count at NIF load time, capped by `limit`; it does not\n"
-        "change when schedulers are taken offline. Workers need not be running.",
-        "Parallel Hash Workers",
-        result_name="WorkerInfo",
+        "change when schedulers are taken offline. Routers need not be running.",
+        "Parallel API",
+        result_name="RouterInfo",
     )
 
     for group in PRIME_ORDER_GROUPS:
@@ -485,9 +493,9 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
 def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
     result = [
         (
-            "phash_worker_info",
+            "parallel_router_info",
             "#{count := pos_integer(), limit := pos_integer(), names := [atom()]}",
-            "Native worker configuration. `names` contains `count` registered names in ascending worker order.",
+            "Native router configuration. `names` contains `count` registered names in ascending router order.",
         ),
         ("hash_algorithm", " | ".join(sorted(schema.hash)) or "none()", "Configured fixed-output hash algorithms."),
         ("prehashed", "0 | 1", "Select an ordinary message (`0`) or an already computed 64-byte prehash (`1`)."),

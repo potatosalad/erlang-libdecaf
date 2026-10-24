@@ -27,7 +27,7 @@
     * `libdecaf_ristretto255` and `libdecaf_decaf448` point and scalar APIs.
     * Uniform byte mapping and precomputed multiplication.
 * Enhancements
-  * Add an OTP application supervision tree and numbered parallel-hash worker scaffolding, with native scheduler-based worker metadata, wakeup messages, and idle hibernation.
+  * Add scheduler-numbered parallel routers with `rest_for_one` absorb supervision, asynchronously prepared single-use processes, coalesced wakeups, and idle hibernation.
   * Add high-level EdDSA and ECDH APIs in `libdecaf`, with opaque algorithm-specific keypairs, explicit seed/signing-key formats, and immutable native Ed25519ph/Ed448ph streaming.
   * Modernize `libdecaf_spongerng` with direct native calls, named typespecs, descriptive documentation, and runnable examples while preserving its wrapped-state API.
   * Add immutable advancing `absorb`/`squeeze` APIs for every XOF family, following the two-phase streaming interface in the SP 800-185 Revision 1 initial public draft.

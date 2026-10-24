@@ -3,10 +3,12 @@
 -moduledoc """
 Root supervisor for libdecaf's background workers.
 
-The parallel-hash worker supervisor is enabled unless the application's
-`phash` environment key is `false`. Its worker count and registered names
-come from `libdecaf_nif:phash_worker_info/0`.
+The parallel router supervisor is enabled unless the application's
+`parallel` environment key is `false`. Its router count and registered names
+come from `libdecaf_nif:parallel_router_info/0`.
 """.
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
 -moduledoc #{copyright => "Andrew Bennett"}.
 -compile(warn_missing_spec_all).
 
@@ -45,8 +47,8 @@ child_spec() ->
     ChildSpecs :: [supervisor:child_spec()].
 child_specs() ->
     [
-        libdecaf_phash_workers_sup:child_spec()
-     || true == application:get_env(libdecaf, phash, true)
+        libdecaf_parallel_routers_sup:child_spec()
+     || true == application:get_env(libdecaf, parallel, true)
     ].
 
 -doc "Start the locally registered root supervisor.".

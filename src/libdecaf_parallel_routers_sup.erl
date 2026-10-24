@@ -1,11 +1,13 @@
 %%% % @format
--module(libdecaf_phash_workers_sup).
+-module(libdecaf_parallel_routers_sup).
 -moduledoc """
-Supervisor for the numbered parallel-hash workers.
+Supervisor for the numbered parallel routers.
 
-Starts one worker for each name reported by `libdecaf_nif:phash_worker_info/0`.
-Workers restart independently under their original registered names.
+Starts one router supervisor for each name reported by `libdecaf_nif:parallel_router_info/0`.
+Each router supervisor owns an absorb supervisor and its router.
 """.
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
 -moduledoc #{copyright => "Andrew Bennett"}.
 -compile(warn_missing_spec_all).
 
@@ -27,7 +29,7 @@ Workers restart independently under their original registered names.
 %%% OTP callbacks
 %%%=============================================================================
 
--doc "Return the parallel-hash worker supervisor's child specification.".
+-doc "Return the parallel router supervisor's child specification.".
 -spec child_spec() -> ChildSpec when ChildSpec :: supervisor:child_spec().
 child_spec() ->
     #{
@@ -39,21 +41,25 @@ child_spec() ->
         modules => [?MODULE]
     }.
 
--doc "Return child specifications in native worker-number order.".
+-doc "Return child specifications in native router-number order.".
 -spec child_specs() -> ChildSpecs when ChildSpecs :: [supervisor:child_spec()].
 child_specs() ->
-    #{count := WorkerCount} = libdecaf_nif:phash_worker_info(),
-    [libdecaf_phash_worker:child_spec(WorkerNumber) || WorkerNumber <- lists:seq(1, WorkerCount)].
+    #{count := RouterCount} = libdecaf_nif:parallel_router_info(),
+    [libdecaf_parallel_router_sup:child_spec(RouterNumber) || RouterNumber <- lists:seq(1, RouterCount)].
 
--doc "Start the locally registered parallel-hash worker supervisor.".
+-doc "Start the locally registered parallel router supervisor.".
 -spec start_link() -> StartResult when StartResult :: supervisor:startlink_ret().
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, {}).
 
--doc "Return the independent-worker restart policy.".
+-doc "Return the independent-router restart policy.".
 -spec sup_flags() -> SupFlags when SupFlags :: supervisor:sup_flags().
 sup_flags() ->
-    #{strategy => one_for_one, intensity => 1, period => 5}.
+    #{
+        strategy => one_for_one,
+        intensity => 1,
+        period => 5
+    }.
 
 %%%=============================================================================
 %%% supervisor callbacks
