@@ -74,6 +74,18 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
             Function(name, tuple(Argument(*argument) for argument in arguments), returns, doc, group, result_name=result_name)
         )
 
+    add(
+        "phash_worker_info",
+        [],
+        "phash_worker_info()",
+        "Return the native parallel-hash worker count, limit, and registered names.\n"
+        "Names are numbered from one in scheduler order. The count uses the total\n"
+        "normal scheduler count at NIF load time, capped by `limit`; it does not\n"
+        "change when schedulers are taken offline. Workers need not be running.",
+        "Parallel Hash Workers",
+        result_name="WorkerInfo",
+    )
+
     for group in PRIME_ORDER_GROUPS:
         name, byte_count, title = group.name, group.encoding_bytes, group.title
         point, scalar, table = f"{name}_point()", f"{name}_scalar()", f"{name}_precomputed()"
@@ -472,6 +484,11 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
 
 def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
     result = [
+        (
+            "phash_worker_info",
+            "#{count := pos_integer(), limit := pos_integer(), names := [atom()]}",
+            "Native worker configuration. `names` contains `count` registered names in ascending worker order.",
+        ),
         ("hash_algorithm", " | ".join(sorted(schema.hash)) or "none()", "Configured fixed-output hash algorithms."),
         ("prehashed", "0 | 1", "Select an ordinary message (`0`) or an already computed 64-byte prehash (`1`)."),
         (
