@@ -52,8 +52,7 @@ end_per_group(_, _) -> ok.
 group(ristretto255) ->
     {libdecaf_ristretto255, 32, (1 bsl 252) + 27742317777372353535851937790883648493};
 group(decaf448) ->
-    {libdecaf_decaf448, 56,
-        (1 bsl 446) - 13818066809895115352007386748515426880336692474882178609894547503885}.
+    {libdecaf_decaf448, 56, (1 bsl 446) - 13818066809895115352007386748515426880336692474882178609894547503885}.
 
 %% RFC 9496 A.1 and B.1: all 16 encodings, addition, and multiplication.
 multiples(Config) ->

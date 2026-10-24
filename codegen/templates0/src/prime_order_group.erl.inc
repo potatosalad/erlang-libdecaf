@@ -49,9 +49,12 @@ the single-map operation for protocols that specifically need it.
 processes, and are released automatically when no references remain. Ordinary
 operations return canonical binaries and do not mutate their inputs.
 """.
+-moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
+-moduledoc #{created => "2026-10-22", modified => "2026-10-23"}.
 -moduledoc #{copyright => "Andrew Bennett"}.
 -compile(warn_missing_spec_all).
 
+%% ~J< group.title >. API
 -export([
 ~J{ for name in names }.
 ~J{ if name == prefix + 'scalar_random' }.
@@ -62,32 +65,31 @@ operations return canonical binaries and do not mutate their inputs.
 ~J{ endif }.
 ~J{ endfor }.
 ]).
--export_type([
-    point/0,
-    precomputed/0,
-    scalar/0
-]).
 
-%%% Types
+%% Types
 
 -doc """
 A canonical ~J< group.encoding_bytes >.-byte ~J< group.title >. point encoding, including the identity.
 Use `point_is_valid/1` to check the encoded contents at runtime.
 """.
 -type point() :: <<_:~J< group.encoding_bytes * 8 >.>>.
-
 -doc """
 An immutable native multiplication table for a ~J< group.title >. point.
 Created by `precompute/1` and usable only with this group's `precomputed_scalarmul/2`.
 """.
 -opaque precomputed() :: erlang:nif_resource().
-
 -doc """
 A canonical ~J< group.encoding_bytes >.-byte unsigned little-endian integer smaller than `l`.
 Zero is valid. Use `scalar_is_canonical/1` to validate an encoding or
 `scalar_reduce/1` to reduce an integer into this field.
 """.
 -type scalar() :: <<_:~J< group.encoding_bytes * 8 >.>>.
+
+-export_type([
+    point/0,
+    precomputed/0,
+    scalar/0
+]).
 
 %%%=============================================================================
 %%% ~J< group.title >. API functions
