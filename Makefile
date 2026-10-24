@@ -150,7 +150,7 @@ format: $(ERLFMT)
 lint:: lint-format lint-eqwalizer lint-xref lint-dialyzer
 
 lint-dialyzer:
-	$(verbose) rebar3 dialyzer
+	$(verbose) rebar3 as test dialyzer
 
 lint-eqwalizer: eqwalize-all
 
