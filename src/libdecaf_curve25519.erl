@@ -100,10 +100,20 @@ key agreement follows [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748.html).
 -export([
     ed25519ph_keypair_sign/2,
     ed25519ph_keypair_sign/3,
+    ed25519ph_keypair_sign_init/1,
+    ed25519ph_keypair_sign_init/2,
     ed25519ph_sign/2,
     ed25519ph_sign/3,
+    ed25519ph_sign_init/1,
+    ed25519ph_sign_init/2,
+    ed25519ph_sign_update/2,
+    ed25519ph_sign_final/1,
     ed25519ph_verify/3,
-    ed25519ph_verify/4
+    ed25519ph_verify/4,
+    ed25519ph_verify_init/2,
+    ed25519ph_verify_init/3,
+    ed25519ph_verify_update/2,
+    ed25519ph_verify_final/1
 ]).
 % X25519
 -export([
@@ -113,20 +123,6 @@ key agreement follows [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748.html).
     x25519/2,
     x25519_keypair/0,
     x25519_keypair/1
-]).
-
-%% Streaming prehash EdDSA
--export([
-    ed25519ph_keypair_sign_init/1,
-    ed25519ph_keypair_sign_init/2,
-    ed25519ph_sign_init/1,
-    ed25519ph_sign_init/2,
-    ed25519ph_sign_update/2,
-    ed25519ph_sign_final/1,
-    ed25519ph_verify_init/2,
-    ed25519ph_verify_init/3,
-    ed25519ph_verify_update/2,
-    ed25519ph_verify_final/1
 ]).
 
 %%% Types
@@ -534,6 +530,35 @@ ed25519ph_keypair_sign(M, Keypair, C) when
     libdecaf_nif:ed25519_keypair_sign_prehash(Keypair, M, C).
 
 -doc """
+Start native Ed25519ph signing using a keypair resource.
+The state retains the keypair, so the caller does not need to keep another reference.
+Continue with `ed25519ph_sign_update/2` and `ed25519ph_sign_final/1`.
+The context defaults to `<<>>`.
+""".
+-spec ed25519ph_keypair_sign_init(Keypair) -> State when
+    Keypair :: keypair(), State :: ed25519ph_sign_state().
+ed25519ph_keypair_sign_init(Keypair) ->
+    libdecaf_nif:ed25519ph_keypair_sign_init(Keypair).
+
+-doc """
+Start native Ed25519ph signing using a keypair resource.
+The state retains the keypair, so the caller does not need to keep another reference.
+Continue with `ed25519ph_sign_update/2` and `ed25519ph_sign_final/1`.
+The context must contain at most 255 bytes. For example:
+
+```erlang
+Keypair = libdecaf_curve25519:keypair_random(),
+S0 = libdecaf_curve25519:ed25519ph_keypair_sign_init(Keypair, <<"example">>),
+S1 = libdecaf_curve25519:ed25519ph_sign_update(S0, [<<"hello ">>, <<"world">>]),
+Signature = libdecaf_curve25519:ed25519ph_sign_final(S1).
+```
+""".
+-spec ed25519ph_keypair_sign_init(Keypair, Context) -> State when
+    Keypair :: keypair(), Context :: context(), State :: ed25519ph_sign_state().
+ed25519ph_keypair_sign_init(Keypair, Context) ->
+    libdecaf_nif:ed25519ph_keypair_sign_init(Keypair, Context).
+
+-doc """
 Sign a binary message using an encoded signing key and Ed25519ph.
 The NIF verifies that its seed and public key match; a mismatch raises an error.
 Pass the original message; Ed25519ph computes its SHA-512 prehash internally.
@@ -560,6 +585,58 @@ ed25519ph_sign(M, <<Secret:?EdDSA_SECRET_BYTES/binary, PK:?EdDSA_PK_BYTES/binary
     libdecaf_nif:ed25519_sign_prehash(Secret, PK, M, C).
 
 -doc """
+Start native Ed25519ph signing using `<<Seed/binary, PublicKey/binary>>`.
+The NIF validates that both parts match and creates a retained native keypair;
+a mismatch raises an error.
+Continue with `ed25519ph_sign_update/2` and `ed25519ph_sign_final/1`.
+The context defaults to `<<>>`.
+""".
+-spec ed25519ph_sign_init(SigningKey) -> State when
+    SigningKey :: secret_key(), State :: ed25519ph_sign_state().
+ed25519ph_sign_init(SigningKey) ->
+    libdecaf_nif:ed25519ph_sign_init(SigningKey).
+
+-doc """
+Start native Ed25519ph signing using `<<Seed/binary, PublicKey/binary>>`.
+The NIF validates that both parts match and creates a retained native keypair;
+a mismatch raises an error.
+Continue with `ed25519ph_sign_update/2` and `ed25519ph_sign_final/1`.
+The context must contain at most 255 bytes. For example:
+
+```erlang
+{_PublicKey, SigningKey} = libdecaf_curve25519:eddsa_keypair(),
+S0 = libdecaf_curve25519:ed25519ph_sign_init(SigningKey, <<"example">>),
+S1 = libdecaf_curve25519:ed25519ph_sign_update(S0, [<<"hello ">>, <<"world">>]),
+Signature = libdecaf_curve25519:ed25519ph_sign_final(S1).
+```
+""".
+-spec ed25519ph_sign_init(SigningKey, Context) -> State when
+    SigningKey :: secret_key(), Context :: context(), State :: ed25519ph_sign_state().
+ed25519ph_sign_init(SigningKey, Context) ->
+    libdecaf_nif:ed25519ph_sign_init(SigningKey, Context).
+
+-doc """
+Prehash another chunk of the original message and return the next signing state.
+Both signing initializers use this function. The input state is unchanged, so it
+can be reused or branched. Large inputs yield; the chunk is released after the update.
+""".
+-spec ed25519ph_sign_update(State, Input) -> NextState when
+    State :: ed25519ph_sign_state(), Input :: iodata(), NextState :: ed25519ph_sign_state().
+ed25519ph_sign_update(State, Input) ->
+    libdecaf_nif:ed25519ph_sign_update(State, Input).
+
+-doc """
+Sign the accumulated message with the retained keypair and context.
+The result matches `ed25519ph_keypair_sign/3` for the same message, keypair,
+and context. Finalization leaves the state reusable and produces the same
+signature when repeated; it does not sign a caller-supplied digest.
+""".
+-spec ed25519ph_sign_final(State) -> Signature when
+    State :: ed25519ph_sign_state(), Signature :: signature().
+ed25519ph_sign_final(State) ->
+    libdecaf_nif:ed25519ph_sign_final(State).
+
+-doc """
 Verify a Ed25519ph signature over a binary message.
 Return `false` for a correctly sized signature that does not verify.
 Pass the original message; Ed25519ph computes its SHA-512 prehash internally.
@@ -584,6 +661,57 @@ ed25519ph_verify(<<Sig:?EdDSA_SIGN_BYTES/binary>>, M, <<PK:?EdDSA_PK_BYTES/binar
         byte_size(C) =< 255
 ->
     libdecaf_nif:ed25519_verify_prehash(Sig, PK, M, C).
+
+-doc """
+Start native Ed25519ph verification, retaining the signature and public key.
+The signature and public key must have 64 and 32 bytes respectively.
+Cryptographic verification happens in `ed25519ph_verify_final/1`.
+The context defaults to `<<>>`.
+""".
+-spec ed25519ph_verify_init(Signature, PublicKey) -> State when
+    Signature :: signature(), PublicKey :: public_key(), State :: ed25519ph_verify_state().
+ed25519ph_verify_init(Signature, PublicKey) ->
+    libdecaf_nif:ed25519ph_verify_init(Signature, PublicKey).
+
+-doc """
+Start native Ed25519ph verification, retaining the signature and public key.
+The signature and public key must have 64 and 32 bytes respectively.
+Cryptographic verification happens in `ed25519ph_verify_final/1`.
+The context must match the signing context and contain at most 255 bytes.
+
+```erlang
+Keypair = libdecaf_curve25519:keypair_random(),
+PublicKey = libdecaf_curve25519:keypair_extract_public_key(Keypair),
+Signature = libdecaf_curve25519:ed25519ph_keypair_sign(<<"hello world">>, Keypair, <<"example">>),
+V0 = libdecaf_curve25519:ed25519ph_verify_init(Signature, PublicKey, <<"example">>),
+V1 = libdecaf_curve25519:ed25519ph_verify_update(V0, [<<"hello ">>, <<"world">>]),
+true = libdecaf_curve25519:ed25519ph_verify_final(V1).
+```
+""".
+-spec ed25519ph_verify_init(Signature, PublicKey, Context) -> State when
+    Signature :: signature(), PublicKey :: public_key(), Context :: context(), State :: ed25519ph_verify_state().
+ed25519ph_verify_init(Signature, PublicKey, Context) ->
+    libdecaf_nif:ed25519ph_verify_init(Signature, PublicKey, Context).
+
+-doc """
+Prehash another chunk of the original message and return the next verification state.
+The input state is unchanged. Large updates yield; a signing state or state
+from another algorithm is rejected.
+""".
+-spec ed25519ph_verify_update(State, Input) -> NextState when
+    State :: ed25519ph_verify_state(), Input :: iodata(), NextState :: ed25519ph_verify_state().
+ed25519ph_verify_update(State, Input) ->
+    libdecaf_nif:ed25519ph_verify_update(State, Input).
+
+-doc """
+Verify the accumulated message against the retained signature, public key, and context.
+Return `false` if verification fails. The state remains reusable, so repeated
+finalization returns the same result.
+""".
+-spec ed25519ph_verify_final(State) -> Valid when
+    State :: ed25519ph_verify_state(), Valid :: boolean().
+ed25519ph_verify_final(State) ->
+    libdecaf_nif:ed25519ph_verify_final(State).
 
 % X25519
 
@@ -671,139 +799,3 @@ x25519_keypair(Secret) when
         byte_size(Secret) =:= ?X25519_PRIVATE_BYTES
 ->
     {x25519(Secret), Secret}.
-
-%%%===================================================================
-%%% Streaming prehash signatures
-%%%===================================================================
-
--doc """
-Start native Ed25519ph signing using a keypair resource.
-The state retains the keypair, so the caller does not need to keep another reference.
-Continue with `ed25519ph_sign_update/2` and `ed25519ph_sign_final/1`.
-The context defaults to `<<>>`.
-""".
--spec ed25519ph_keypair_sign_init(Keypair) -> State when
-    Keypair :: keypair(), State :: ed25519ph_sign_state().
-ed25519ph_keypair_sign_init(Keypair) ->
-    libdecaf_nif:ed25519ph_keypair_sign_init(Keypair).
-
--doc """
-Start native Ed25519ph signing using a keypair resource.
-The state retains the keypair, so the caller does not need to keep another reference.
-Continue with `ed25519ph_sign_update/2` and `ed25519ph_sign_final/1`.
-The context must contain at most 255 bytes. For example:
-
-```erlang
-Keypair = libdecaf_curve25519:keypair_random(),
-S0 = libdecaf_curve25519:ed25519ph_keypair_sign_init(Keypair, <<"example">>),
-S1 = libdecaf_curve25519:ed25519ph_sign_update(S0, [<<"hello ">>, <<"world">>]),
-Signature = libdecaf_curve25519:ed25519ph_sign_final(S1).
-```
-""".
--spec ed25519ph_keypair_sign_init(Keypair, Context) -> State when
-    Keypair :: keypair(), Context :: context(), State :: ed25519ph_sign_state().
-ed25519ph_keypair_sign_init(Keypair, Context) ->
-    libdecaf_nif:ed25519ph_keypair_sign_init(Keypair, Context).
-
--doc """
-Start native Ed25519ph signing using `<<Seed/binary, PublicKey/binary>>`.
-The NIF validates that both parts match and creates a retained native keypair;
-a mismatch raises an error.
-Continue with `ed25519ph_sign_update/2` and `ed25519ph_sign_final/1`.
-The context defaults to `<<>>`.
-""".
--spec ed25519ph_sign_init(SigningKey) -> State when
-    SigningKey :: secret_key(), State :: ed25519ph_sign_state().
-ed25519ph_sign_init(SigningKey) ->
-    libdecaf_nif:ed25519ph_sign_init(SigningKey).
-
--doc """
-Start native Ed25519ph signing using `<<Seed/binary, PublicKey/binary>>`.
-The NIF validates that both parts match and creates a retained native keypair;
-a mismatch raises an error.
-Continue with `ed25519ph_sign_update/2` and `ed25519ph_sign_final/1`.
-The context must contain at most 255 bytes. For example:
-
-```erlang
-{_PublicKey, SigningKey} = libdecaf_curve25519:eddsa_keypair(),
-S0 = libdecaf_curve25519:ed25519ph_sign_init(SigningKey, <<"example">>),
-S1 = libdecaf_curve25519:ed25519ph_sign_update(S0, [<<"hello ">>, <<"world">>]),
-Signature = libdecaf_curve25519:ed25519ph_sign_final(S1).
-```
-""".
--spec ed25519ph_sign_init(SigningKey, Context) -> State when
-    SigningKey :: secret_key(), Context :: context(), State :: ed25519ph_sign_state().
-ed25519ph_sign_init(SigningKey, Context) ->
-    libdecaf_nif:ed25519ph_sign_init(SigningKey, Context).
-
--doc """
-Prehash another chunk of the original message and return the next signing state.
-Both signing initializers use this function. The input state is unchanged, so it
-can be reused or branched. Large inputs yield; the chunk is released after the update.
-""".
--spec ed25519ph_sign_update(State, Input) -> NextState when
-    State :: ed25519ph_sign_state(), Input :: iodata(), NextState :: ed25519ph_sign_state().
-ed25519ph_sign_update(State, Input) ->
-    libdecaf_nif:ed25519ph_sign_update(State, Input).
-
--doc """
-Sign the accumulated message with the retained keypair and context.
-The result matches `ed25519ph_keypair_sign/3` for the same message, keypair,
-and context. Finalization leaves the state reusable and produces the same
-signature when repeated; it does not sign a caller-supplied digest.
-""".
--spec ed25519ph_sign_final(State) -> Signature when
-    State :: ed25519ph_sign_state(), Signature :: signature().
-ed25519ph_sign_final(State) ->
-    libdecaf_nif:ed25519ph_sign_final(State).
-
--doc """
-Start native Ed25519ph verification, retaining the signature and public key.
-The signature and public key must have 64 and 32 bytes respectively.
-Cryptographic verification happens in `ed25519ph_verify_final/1`.
-The context defaults to `<<>>`.
-""".
--spec ed25519ph_verify_init(Signature, PublicKey) -> State when
-    Signature :: signature(), PublicKey :: public_key(), State :: ed25519ph_verify_state().
-ed25519ph_verify_init(Signature, PublicKey) ->
-    libdecaf_nif:ed25519ph_verify_init(Signature, PublicKey).
-
--doc """
-Start native Ed25519ph verification, retaining the signature and public key.
-The signature and public key must have 64 and 32 bytes respectively.
-Cryptographic verification happens in `ed25519ph_verify_final/1`.
-The context must match the signing context and contain at most 255 bytes.
-
-```erlang
-Keypair = libdecaf_curve25519:keypair_random(),
-PublicKey = libdecaf_curve25519:keypair_extract_public_key(Keypair),
-Signature = libdecaf_curve25519:ed25519ph_keypair_sign(<<"hello world">>, Keypair, <<"example">>),
-V0 = libdecaf_curve25519:ed25519ph_verify_init(Signature, PublicKey, <<"example">>),
-V1 = libdecaf_curve25519:ed25519ph_verify_update(V0, [<<"hello ">>, <<"world">>]),
-true = libdecaf_curve25519:ed25519ph_verify_final(V1).
-```
-""".
--spec ed25519ph_verify_init(Signature, PublicKey, Context) -> State when
-    Signature :: signature(), PublicKey :: public_key(), Context :: context(), State :: ed25519ph_verify_state().
-ed25519ph_verify_init(Signature, PublicKey, Context) ->
-    libdecaf_nif:ed25519ph_verify_init(Signature, PublicKey, Context).
-
--doc """
-Prehash another chunk of the original message and return the next verification state.
-The input state is unchanged. Large updates yield; a signing state or state
-from another algorithm is rejected.
-""".
--spec ed25519ph_verify_update(State, Input) -> NextState when
-    State :: ed25519ph_verify_state(), Input :: iodata(), NextState :: ed25519ph_verify_state().
-ed25519ph_verify_update(State, Input) ->
-    libdecaf_nif:ed25519ph_verify_update(State, Input).
-
--doc """
-Verify the accumulated message against the retained signature, public key, and context.
-Return `false` if verification fails. The state remains reusable, so repeated
-finalization returns the same result.
-""".
--spec ed25519ph_verify_final(State) -> Valid when
-    State :: ed25519ph_verify_state(), Valid :: boolean().
-ed25519ph_verify_final(State) ->
-    libdecaf_nif:ed25519ph_verify_final(State).
