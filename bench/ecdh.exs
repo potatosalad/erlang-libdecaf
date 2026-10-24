@@ -3,6 +3,7 @@
 #   BENCH_TIME=10 elixir bench/ecdh.exs
 
 Mix.install([{:benchee, "~> 1.5.1"}])
+Code.require_file("support/grouped_console.exs", __DIR__)
 
 Code.prepend_path(Path.expand("../ebin", __DIR__))
 {:ok, _} = :libdecaf.start()
@@ -60,31 +61,5 @@ Benchee.run(jobs,
   time: time,
   warmup: 1,
   parallel: 1,
-  formatters: [
-    fn suite ->
-      IO.puts("\nECDH operations (higher ops/s is faster):")
-
-      IO.puts(
-        :io_lib.format("~-48s ~12s ~12s ~10s", [
-          "Operation / library",
-          "ops/s",
-          "us/op",
-          "Samples"
-        ])
-      )
-
-      for scenario <- Enum.sort_by(suite.scenarios, & &1.name) do
-        stats = scenario.run_time_data.statistics
-
-        IO.puts(
-          :io_lib.format("~-48s ~12.2f ~12.2f ~10B", [
-            scenario.name,
-            stats.ips,
-            stats.average / 1000,
-            stats.sample_size
-          ])
-        )
-      end
-    end
-  ]
+  formatters: [LibdecafBench.GroupedConsole]
 )
