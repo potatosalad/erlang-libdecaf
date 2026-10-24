@@ -151,14 +151,16 @@ libdecaf_nif_parallel_leaf(ErlNifEnv *env, libdecaf_nif_parallel_node_t *node)
         }
         decaf_bzero(&leaf, sizeof(leaf));
         atomic_store_explicit(&operation->results[index].ready, true, memory_order_release);
-        if (!atomic_exchange_explicit(&operation->notified, true, memory_order_acq_rel)) {
+    }
+    if (atomic_fetch_add_explicit(&operation->completed, 1, memory_order_acq_rel) + 1 == operation->count) {
+        if (!atomic_load_explicit(&operation->cancelled, memory_order_acquire)) {
             ERL_NIF_TERM reference = enif_make_copy(env, operation->reference);
             (void)enif_send(env, &operation->owner, NULL, enif_make_tuple2(env, ATOM(libdecaf_parallel), reference));
         }
+        /* Publish after sending so the collector can flush the only notification
+         * for this window without leaving a late message in its mailbox. */
+        atomic_store_explicit(&operation->notified, true, memory_order_release);
     }
-    /* Publication follows notification: the final collector can flush every
-     * completion message before returning, without a late-message race. */
-    atomic_fetch_add_explicit(&operation->completed, 1, memory_order_release);
     enif_release_resource(operation);
 }
 

@@ -130,8 +130,14 @@ libdecaf_nif_parallel_dispatch(ErlNifEnv *env, libdecaf_nif_parallel_operation_t
     decaf_bzero(counts, sizeof(counts));
     libdecaf_nif_parallel_pool_t *pool = operation->pool;
     size_t first = atomic_fetch_add_explicit(&pool->next_router, 1, memory_order_relaxed) % pool->count;
+    size_t workers = 1 + (operation->count * operation->block_size - 1) / (128 * 1024);
+    if (workers > pool->count)
+        workers = pool->count;
+    if (workers > operation->count)
+        workers = operation->count;
+    atomic_store_explicit(&operation->notified, false, memory_order_relaxed);
     for (size_t i = 0; i < operation->count; i++) {
-        unsigned int router = (unsigned int)((first + i) % pool->count);
+        unsigned int router = (unsigned int)((first + i * workers / operation->count) % pool->count);
         libdecaf_nif_parallel_node_t *node = &operation->results[i].node;
         atomic_store_explicit(&operation->results[i].ready, false, memory_order_relaxed);
         node->next = NULL;
@@ -146,7 +152,11 @@ libdecaf_nif_parallel_dispatch(ErlNifEnv *env, libdecaf_nif_parallel_operation_t
     for (unsigned int i = 0; i < pool->count; i++) {
         if (heads[i] != NULL) {
             libdecaf_nif_parallel_queue_push(&pool->queues[i], heads[i], tails[i], counts[i]);
-            libdecaf_nif_parallel_wakeup(env, pool, i);
+            ErlNifPid pid;
+            if (enif_whereis_pid(env, pool->names[i], &pid))
+                (void)enif_send(env, &pid, NULL, ATOM(wakeup));
+            else
+                libdecaf_nif_parallel_drain(env, pool, i, LIBDECAF_NIF_PARALLEL_WINDOW);
         }
     }
     if (atomic_load_explicit(&operation->cancelled, memory_order_acquire)) {
@@ -159,7 +169,7 @@ int
 libdecaf_nif_parallel_operation_step(ErlNifEnv *env, libdecaf_nif_parallel_operation_t *operation, void *context,
                                      const libdecaf_nif_parallel_algorithm_t *algorithm)
 {
-    atomic_store_explicit(&operation->notified, false, memory_order_release);
+    bool dispatched = false;
     for (;;) {
         if (atomic_load_explicit(&operation->cancelled, memory_order_acquire))
             return -1;
@@ -171,8 +181,10 @@ libdecaf_nif_parallel_operation_step(ErlNifEnv *env, libdecaf_nif_parallel_opera
                 decaf_bzero(operation->results[operation->joined].chaining, 64);
                 operation->joined++;
             }
-            if (operation->joined != operation->count ||
-                atomic_load_explicit(&operation->completed, memory_order_acquire) != operation->count) {
+            if (operation->joined != operation->count || !atomic_load_explicit(&operation->notified, memory_order_acquire)) {
+                if (dispatched)
+                    return 0;
+                size_t completed = atomic_load_explicit(&operation->completed, memory_order_acquire);
                 for (unsigned int i = 0; i < operation->pool->count; i++) {
                     ErlNifPid pid;
                     if (!enif_whereis_pid(env, operation->pool->names[i], &pid))
@@ -180,6 +192,8 @@ libdecaf_nif_parallel_operation_step(ErlNifEnv *env, libdecaf_nif_parallel_opera
                     else
                         libdecaf_nif_parallel_wakeup(env, operation->pool, i);
                 }
+                if (atomic_load_explicit(&operation->completed, memory_order_acquire) != completed)
+                    continue;
                 return 0;
             }
             operation->count = operation->joined = 0;
@@ -212,6 +226,7 @@ libdecaf_nif_parallel_operation_step(ErlNifEnv *env, libdecaf_nif_parallel_opera
             operation->count = LIBDECAF_NIF_PARALLEL_WINDOW;
         operation->offset += operation->count * block_size;
         libdecaf_nif_parallel_dispatch(env, operation);
+        dispatched = true;
     }
 }
 
