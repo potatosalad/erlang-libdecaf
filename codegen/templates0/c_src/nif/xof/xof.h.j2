@@ -3,6 +3,7 @@
 #define LIBDECAF_NIF_XOF_H
 
 #include "../libdecaf_nif.h"
+#include "../parallel/algorithm.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -24,7 +25,8 @@ typedef struct {
     size_t (*input_cost)(const void *context);
     void (*element)(void *context, size_t length);
     void (*suffix)(const void *context, const uint8_t **data, size_t *length);
-    libdecaf_nif_xof_entry_t init, compute;
+    libdecaf_nif_xof_entry_t init, compute, parallel_init;
+    const libdecaf_nif_parallel_algorithm_t *parallel;
 } libdecaf_nif_xof_algorithm_t;
 
 typedef struct libdecaf_nif_xof_state_s libdecaf_nif_xof_state_t;

@@ -285,6 +285,10 @@ int
 }
 {% endif %}
 
+{% if f.name in ('kt', 'hopmac', 'parallelhash') %}
+{% include 'c_src/nif/parallel/algorithm.c.inc' %}
+{% endif %}
+
 {% for algorithm in ctx.crypto_algorithms(f) %}
 {{ entry_points(f, algorithm) }}
 {% endfor %}

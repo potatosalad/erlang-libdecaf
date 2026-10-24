@@ -1,4 +1,4 @@
-{% macro body(f, a, function, mode) %}
+{% macro body(f, a, function, mode, parallel=false) %}
 {% set p=f.prefix %}
     if (argc != {{ function.arity }})
         return enif_make_badarg(env);
@@ -23,10 +23,22 @@
         return status == 0 ? EXCP_BADARG(env, "Invalid {{ f.name }} initialization parameters") :
                              EXCP_ERROR(env, "Can't allocate {{ f.name }} initialization data");
     }
+{% if parallel %}
+    ErlNifBinary prefix_binary;
+    if (!enif_inspect_iolist_as_binary(env, prefix, &prefix_binary)) {
+        enif_release_resource(resource);
+        return EXCP_BADARG(env, "Invalid initialization prefix");
+    }
+    {{ p }}_update(state, prefix_binary.data, prefix_binary.size);
+    ERL_NIF_TERM result = enif_make_resource(env, resource);
+    enif_release_resource(resource);
+    return result;
+{% else %}
     return libdecaf_nif_{{ mode }}_run(env, resource, prefix,
         {{ 'Input' if function.operation == 'once' else 'enif_make_list(env, 0)' }},
         LIBDECAF_NIF_{{ mode | upper }}_INPUT_{{ 'TUPLE' if f.name == 'tuplehash' and function.operation == 'once' else 'DATA' if function.operation == 'once' else 'NONE' }},
         {{ 'true' if function.operation == 'once' else 'false' }}{% if mode == 'xof' %}, false, {{ 'length' if function.operation == 'once' else '0' }}{% endif %});
+{% endif %}
 {% endmacro %}
 
 {% macro entry_points(f, a) %}
@@ -69,6 +81,27 @@ static ERL_NIF_TERM
 }
 {% endfor %}
 
+{% if f.name in ('kt', 'hopmac', 'parallelhash') %}
+{% for function in a.functions(mode, 'init') %}
+static ERL_NIF_TERM
+{{ a.symbol }}_parallel_{{ mode }}_init_{{ function.arity }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+{{ body(f, a, function, mode, true) }}
+}
+{% endfor %}
+static ERL_NIF_TERM
+{{ a.symbol }}_parallel_{{ mode }}_init_entry(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    switch (argc) {
+{% for function in a.functions(mode, 'init') %}
+    case {{ function.arity }}:
+        return {{ a.symbol }}_parallel_{{ mode }}_init_{{ function.arity }}(env, argc, argv);
+{% endfor %}
+    default:
+        return EXCP_BADARG(env, "Invalid parallel initialization parameters");
+    }
+}
+{% endif %}
 const libdecaf_nif_{{ mode }}_algorithm_t {{ a.symbol }}_{{ mode }}_algorithm = {
     .name = "{{ a.name }}",
     .context_size = sizeof({{ p }}_ctx_t),
@@ -89,6 +122,10 @@ const libdecaf_nif_{{ mode }}_algorithm_t {{ a.symbol }}_{{ mode }}_algorithm = 
     .suffix = {{ p + '_suffix' if f.name in ('kt', 'hopmac') else 'NULL' }},
     .init = {{ a.symbol }}_{{ mode }}_init_entry,
     .compute = {{ a.symbol }}_{{ mode }}_once_entry,
+{% if f.name in ('kt', 'hopmac', 'parallelhash') %}
+    .parallel_init = {{ a.symbol }}_parallel_{{ mode }}_init_entry,
+    .parallel = &{{ p }}_parallel_algorithm,
+{% endif %}
 };
 {% endif %}
 {% endfor %}

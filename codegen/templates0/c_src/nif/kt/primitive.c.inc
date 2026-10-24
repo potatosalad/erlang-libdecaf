@@ -29,6 +29,23 @@ void
 
 
 
+bool
+{{ p }}_raw_join({{ p }}_raw_ctx_t *ctx, const uint8_t *chaining_value)
+{
+    assert(!ctx->finalized && ctx->root_len == 8192 && ctx->leaf_len == 0);
+    if (ctx->chaining_count == SIZE_MAX)
+        return false;
+    if (!ctx->tree) {
+        static const uint8_t divider[8] = {0x03, 0, 0, 0, 0, 0, 0, 0};
+        libdecaf_nif_turboshake_absorb(&ctx->root, divider, sizeof(divider));
+        ctx->root.params->pad = 0x06;
+        ctx->tree = true;
+    }
+    libdecaf_nif_turboshake_absorb(&ctx->root, chaining_value, ctx->chaining_len);
+    ctx->chaining_count++;
+    return true;
+}
+
 static void
 {{ p }}_raw_emit_leaf({{ p }}_raw_ctx_t *ctx)
 {

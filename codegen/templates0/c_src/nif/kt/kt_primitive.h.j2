@@ -19,6 +19,7 @@ typedef struct libdecaf_nif_kt_raw_ctx_s {
 } libdecaf_nif_kt_raw_ctx_t;
 extern void libdecaf_nif_kt_raw_init(libdecaf_nif_kt_raw_ctx_t *state, size_t rate);
 extern void libdecaf_nif_kt_raw_update(libdecaf_nif_kt_raw_ctx_t *state, const uint8_t *input, size_t length);
+extern bool libdecaf_nif_kt_raw_join(libdecaf_nif_kt_raw_ctx_t *state, const uint8_t *chaining_value);
 extern void libdecaf_nif_kt_raw_output(libdecaf_nif_kt_raw_ctx_t *state, uint8_t *output, size_t length);
 #ifdef __cplusplus
 }
