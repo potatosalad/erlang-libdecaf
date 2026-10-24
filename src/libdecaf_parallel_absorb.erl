@@ -4,9 +4,13 @@
 Single-use parallel absorb process, started with `proc_lib`.
 
 Registers its readiness with its router, then waits for that router's work
-message. The placeholder NIF sleeps for one second on a dirty CPU scheduler;
+message. The NIF processes queued leaves on a dirty CPU scheduler;
 after it returns the process exits normally. An unused process exits if its
 router dies. Each process belongs to a temporary supervised child.
+
+The `parallel_absorb_rounds` application option defaults to 100 leaves per call.
+Set it to zero to drain until the queue becomes empty, even if producers keep
+the call running indefinitely.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
@@ -56,13 +60,13 @@ start_link(RouterNumber, RouterPid, Token) ->
 -doc false.
 -spec init(RouterNumber, RouterPid, Token) -> Result when
     RouterNumber :: libdecaf_parallel_router:router_number(), RouterPid :: pid(), Token :: reference(), Result :: ok.
-init(_RouterNumber, RouterPid, Token) ->
+init(RouterNumber, RouterPid, Token) ->
     RouterMonitor = monitor(process, RouterPid),
     ok = proc_lib:init_ack({ok, self()}),
     RouterPid ! {absorb_ready, self(), Token},
     receive
         {wakeup, Token} ->
-            libdecaf_nif:parallel_absorb();
+            libdecaf_nif:parallel_absorb(RouterNumber, application:get_env(libdecaf, parallel_absorb_rounds, 100));
         {absorb_rejected, Token} ->
             ok;
         {'DOWN', RouterMonitor, process, RouterPid, _Reason} ->

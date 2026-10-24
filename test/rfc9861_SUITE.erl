@@ -50,6 +50,9 @@ kt_vectors(Config) ->
             Data = input(Message),
             Custom = input(Customization),
             Expected = binary:decode_hex(Hex),
+            ParallelOutput = libdecaf:parallel_xof({Type, Custom}, Data, Length),
+            Expected = binary:part(ParallelOutput, Offset, byte_size(Expected)),
+            ParallelOutput = libdecaf:parallel_hash({Type, Length, Custom}, Data),
             lists:foreach(
                 fun(Module) ->
                     Output = Module:xof({Type, [Custom]}, Data, Length),

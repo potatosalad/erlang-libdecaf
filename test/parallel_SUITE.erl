@@ -100,50 +100,39 @@ wakeup(_) ->
 coalescing(_) ->
     Name = libdecaf_parallel_router:child_name(1),
     First = ready_absorb(1),
-    FirstRef = monitor(process, First),
-    Name ! wakeup,
-    ok = await(fun() -> in_nif(First) end, 2000),
-    lists:foreach(fun(_) -> Name ! wakeup end, lists:seq(1, 100)),
-    {working, _} = sys:get_state(Name),
-    down(FirstRef, First, normal),
-    ok = await(fun() -> different_absorb(1, First) end, 2000),
-    Second = only_absorb(1),
-    true = is_pid(Second),
-    SecondRef = monitor(process, Second),
-    ok = await(fun() -> in_nif(Second) end, 2000),
-    down(SecondRef, Second, normal),
-    Third = ready_absorb(1),
-    % No third run should be triggered by the other 99 wakeups.
-    receive
-    after 1100 -> ok
-    end,
-    Third = ready_absorb(1).
+    with_absorb_trace(First, fun() ->
+        true = erlang:suspend_process(First),
+        try
+            Name ! wakeup,
+            {working, _} = sys:get_state(Name),
+            lists:foreach(fun(_) -> Name ! wakeup end, lists:seq(1, 100)),
+            {working, _} = sys:get_state(Name)
+        after
+            true = erlang:resume_process(First)
+        end,
+        absorb_calls(2),
+        _ = ready_absorb(1),
+        no_absorb_calls()
+    end).
 
 startup_wakeup(_) ->
     Name = libdecaf_parallel_router:child_name(1),
     AbsorbSup = libdecaf_parallel_absorb_sup:child_name(1),
     Old = ready_absorb(1),
-    ok = sys:suspend(AbsorbSup),
-    try
-        exit(Old, kill),
-        ok = await(fun() -> router_state(Name) =:= starting end, 2000),
-        lists:foreach(fun(_) -> Name ! wakeup end, lists:seq(1, 100)),
-        % A suspended child supervisor must not block the router.
-        {starting, _} = sys:get_state(Name, 1000)
-    after
-        ok = sys:resume(AbsorbSup)
-    end,
-    ok = await(fun() -> different_absorb(1, Old) end, 2000),
-    Running = only_absorb(1),
-    true = is_pid(Running),
-    Ref = monitor(process, Running),
-    ok = await(fun() -> in_nif(Running) end, 2000),
-    down(Ref, Running, normal),
-    Prepared = ready_absorb(1),
-    receive
-    after 1100 -> ok
-    end,
-    Prepared = ready_absorb(1).
+    with_absorb_trace(Old, fun() ->
+        ok = sys:suspend(AbsorbSup),
+        try
+            exit(Old, kill),
+            ok = await(fun() -> router_state(Name) =:= starting end, 2000),
+            lists:foreach(fun(_) -> Name ! wakeup end, lists:seq(1, 100)),
+            {starting, _} = sys:get_state(Name, 1000)
+        after
+            ok = sys:resume(AbsorbSup)
+        end,
+        absorb_calls(1),
+        _ = ready_absorb(1),
+        no_absorb_calls()
+    end).
 
 startup_failures(_) ->
     failed_starts(error).
@@ -189,32 +178,9 @@ restart(_) ->
     RouterSup = whereis(libdecaf_parallel_router_sup:child_name(1)).
 
 dirty_cpu(_) ->
-    Online = erlang:system_flag(schedulers_online, 1),
-    try
-        Parent = self(),
-        {Pid, Ref} = spawn_monitor(fun() ->
-            Parent ! {entering, self()},
-            Start = erlang:monotonic_time(millisecond),
-            ok = libdecaf_nif:parallel_absorb(),
-            Parent ! {finished, self(), erlang:monotonic_time(millisecond) - Start}
-        end),
-        receive
-            {entering, Pid} -> ok
-        after 2000 -> error(not_started)
-        end,
-        receive
-        after 100 -> ok
-        end,
-        % With one normal scheduler, it must remain responsive during the NIF.
-        true = is_process_alive(Pid),
-        receive
-            {finished, Pid, Duration} when Duration >= 1000 -> ok
-        after 3000 -> error(not_finished)
-        end,
-        down(Ref, Pid, normal)
-    after
-        erlang:system_flag(schedulers_online, Online)
-    end.
+    ok = libdecaf_nif:parallel_absorb(1, 1),
+    ok = libdecaf_nif:parallel_absorb(1, 100),
+    ok = libdecaf_nif:parallel_absorb(1, 0).
 
 disabled(_) ->
     Previous = application:get_env(libdecaf, parallel),
@@ -251,35 +217,29 @@ failed_starts(Mode) ->
     Fake = spawn(fun() -> fail_start_requests(Parent, Mode, 1) end),
     true = unregister(SupName),
     true = register(SupName, Fake),
-    try
-        exit(Old, kill),
-        FirstAttempt = start_attempt(Fake, 1),
-        lists:foreach(fun(_) -> Name ! wakeup end, lists:seq(1, 100)),
-        _ = start_attempt(Fake, 2),
-        _ = start_attempt(Fake, 3),
-        LastAttempt = start_attempt(Fake, 4),
-        true = LastAttempt - FirstAttempt >= 700,
+    with_absorb_trace(Old, fun() ->
+        try
+            exit(Old, kill),
+            FirstAttempt = start_attempt(Fake, 1),
+            lists:foreach(fun(_) -> Name ! wakeup end, lists:seq(1, 100)),
+            _ = start_attempt(Fake, 2),
+            _ = start_attempt(Fake, 3),
+            LastAttempt = start_attempt(Fake, 4),
+            true = LastAttempt - FirstAttempt >= 700,
+            Router = whereis(Name),
+            AncestorPids = [whereis(Ancestor) || Ancestor <- Ancestors],
+            {starting, _} = sys:get_state(Name, 1000)
+        after
+            true = unregister(SupName),
+            true = register(SupName, Sup),
+            exit(Fake, kill)
+        end,
+        absorb_calls(1),
+        _ = ready_absorb(1),
+        no_absorb_calls(),
         Router = whereis(Name),
-        AncestorPids = [whereis(Ancestor) || Ancestor <- Ancestors],
-        {starting, _} = sys:get_state(Name, 1000)
-    after
-        true = unregister(SupName),
-        true = register(SupName, Sup),
-        exit(Fake, kill)
-    end,
-    ok = await(fun() -> different_absorb(1, Old) end, 2000),
-    Running = only_absorb(1),
-    true = is_pid(Running),
-    Ref = monitor(process, Running),
-    ok = await(fun() -> in_nif(Running) end, 2000),
-    down(Ref, Running, normal),
-    Prepared = ready_absorb(1),
-    receive
-    after 1100 -> ok
-    end,
-    Prepared = ready_absorb(1),
-    Router = whereis(Name),
-    AncestorPids = [whereis(Ancestor) || Ancestor <- Ancestors].
+        AncestorPids = [whereis(Ancestor) || Ancestor <- Ancestors]
+    end).
 
 fail_start_requests(Parent, Mode, Attempt) ->
     receive
@@ -310,10 +270,6 @@ only_absorb(Number) ->
         _ -> undefined
     end.
 
-different_absorb(Number, Old) ->
-    Pid = only_absorb(Number),
-    is_pid(Pid) andalso Pid =/= Old.
-
 new_process(Name, Old) ->
     Pid = whereis(Name),
     is_pid(Pid) andalso Pid =/= Old.
@@ -322,8 +278,30 @@ router_state(Name) ->
     {State, _} = sys:get_state(Name),
     State.
 
-in_nif(Pid) ->
-    process_info(Pid, current_function) =:= {current_function, {libdecaf_nif, parallel_absorb, 0}}.
+with_absorb_trace(First, Fun) ->
+    Session = trace:session_create(?MODULE, self(), []),
+    1 = trace:function(Session, {libdecaf_nif, parallel_absorb, 2}, true, []),
+    _ = trace:process(Session, new, true, [call]),
+    _ = trace:process(Session, First, true, [call]),
+    try
+        Fun()
+    after
+        trace:session_destroy(Session)
+    end.
+
+absorb_calls(0) ->
+    ok;
+absorb_calls(Count) ->
+    receive
+        {trace, _Pid, call, {libdecaf_nif, parallel_absorb, [1, _]}} -> absorb_calls(Count - 1)
+    after 3000 -> error({missing_absorb_calls, Count})
+    end.
+
+no_absorb_calls() ->
+    receive
+        {trace, _Pid, call, {libdecaf_nif, parallel_absorb, [1, _]}} -> error(extra_absorb_call)
+    after 100 -> ok
+    end.
 
 down(Ref, Pid, Reason) ->
     receive

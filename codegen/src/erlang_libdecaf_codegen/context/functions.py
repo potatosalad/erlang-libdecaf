@@ -76,10 +76,10 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
 
     add(
         "parallel_absorb",
-        [],
+        [("RouterNumber", "pos_integer()"), ("MaxRounds", "non_neg_integer()")],
         "ok",
-        "Run the parallel-absorb placeholder on a dirty CPU scheduler.\n"
-        "Currently sleeps for one second and returns `ok`; no input is absorbed.",
+        "Process up to MaxRounds queued leaves for RouterNumber on a dirty CPU scheduler.\n"
+        "Zero drains until the queue is empty, and can run indefinitely if producers keep adding leaves.",
         "Parallel API",
     )
     add(
@@ -484,6 +484,9 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
     ]
     for operation, arguments, returns, doc in rng:
         add(f"spongerng_csprng_{operation}", arguments, returns, doc, "Sponge PRNG")
+    from .parallel import functions as parallel_functions
+
+    result.extend(parallel_functions(schema))
     identifiers = [(function.name, function.arity) for function in result]
     if len(identifiers) != len(set(identifiers)):
         raise ValueError("Generated Erlang function names and arities must be unique")
@@ -494,7 +497,7 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
     result = [
         (
             "parallel_router_info",
-            "#{count := pos_integer(), limit := pos_integer(), names := [atom()]}",
+            "#{count := pos_integer(), limit := pos_integer(), names := [atom()], queued := non_neg_integer()}",
             "Native router configuration. `names` contains `count` registered names in ascending router order.",
         ),
         ("hash_algorithm", " | ".join(sorted(schema.hash)) or "none()", "Configured fixed-output hash algorithms."),
@@ -515,6 +518,9 @@ def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
 
     result = [entry for entry in result if entry[0] not in ("hash_algorithm", "hash_state")]
     result.extend(api_types(schema))
+    from .parallel import types as parallel_types
+
+    result.extend(parallel_types(schema))
     from .tuak import types as tuak_types
 
     result.extend(tuak_types(schema.tuak))

@@ -1,6 +1,7 @@
 /* clang-format off */ //-
 #include "hash.h"
 #include <decaf/common.h>
+#include "../parallel/operation.h"
 {% for family in ctx.crypto_families if family.hash_algorithms %}
 #include "../{{ family.header }}"
 {% endfor %}
@@ -109,3 +110,5 @@ libdecaf_nif_hash_final_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     return libdecaf_nif_hash_run(env, state, enif_make_list(env, 0), enif_make_list(env, 0), LIBDECAF_NIF_HASH_INPUT_NONE, true);
 }
 /* clang-format on */ //-
+
+{% include 'c_src/nif/hash/parallel.c.inc' %}

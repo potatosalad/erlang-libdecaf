@@ -165,7 +165,11 @@ def test_erlang_native_bindings_match_the_c_registration_table():
                 header,
             )
         )
-    assert declarations == {(f.name, f.arity) for f in (*api_functions(schema.nif), *tuak_functions())}
+    from erlang_libdecaf_codegen.context.parallel import functions as parallel_functions
+
+    assert declarations == {
+        (f.name, f.arity) for f in (*api_functions(schema.nif), *tuak_functions(), *parallel_functions(schema.nif))
+    }
 
 
 def test_hash_default_output_cannot_exceed_maximum():

@@ -1,6 +1,7 @@
 /* clang-format off */ //-
 #include "xof.h"
 #include <decaf/common.h>
+#include "../parallel/operation.h"
 {% for family in ctx.crypto_families if family.xof_algorithms %}
 #include "../{{ family.header }}"
 {% endfor %}
@@ -117,3 +118,5 @@ libdecaf_nif_xof_squeeze_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         LIBDECAF_NIF_XOF_INPUT_NONE, true, true, length);
 }
 /* clang-format on */ //-
+
+{% include 'c_src/nif/xof/parallel.c.inc' %}

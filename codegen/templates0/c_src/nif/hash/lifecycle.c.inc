@@ -12,6 +12,8 @@ static ErlNifResourceType *libdecaf_nif_hash_resource_type;
 static ErlNifResourceType *libdecaf_nif_hash_absorb_resource_type;
 static ErlNifResourceType *libdecaf_nif_hash_final_resource_type;
 
+static ErlNifResourceType *libdecaf_nif_parallel_hash_resource_type;
+
 typedef struct {
     libdecaf_nif_hash_state_t *state;
     ErlNifEnv *work_env;
@@ -77,7 +79,8 @@ libdecaf_nif_hash_load(ErlNifEnv *env)
         libdecaf_nif_hash_absorb_dtor, flags, NULL);
     libdecaf_nif_hash_final_resource_type = enif_open_resource_type(env, "libdecaf_nif", "hash_final",
         libdecaf_nif_hash_final_dtor, flags, NULL);
-    return libdecaf_nif_hash_resource_type != NULL && libdecaf_nif_hash_absorb_resource_type != NULL &&
+    libdecaf_nif_parallel_hash_resource_type = libdecaf_nif_parallel_operation_load(env, "parallel_hash_operation");
+    return libdecaf_nif_parallel_hash_resource_type != NULL && libdecaf_nif_hash_resource_type != NULL && libdecaf_nif_hash_absorb_resource_type != NULL &&
            libdecaf_nif_hash_final_resource_type != NULL ? 0 : -1;
 }
 

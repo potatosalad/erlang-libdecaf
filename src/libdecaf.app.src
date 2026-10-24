@@ -6,7 +6,7 @@
     {id, "git"},
     {registered, [libdecaf_sup, libdecaf_parallel_routers_sup]},
     {mod, {libdecaf_app, []}},
-    {env, [{parallel, true}]},
+    {env, [{parallel, true}, {parallel_absorb_rounds, 100}]},
     {applications, [
         kernel,
         stdlib,

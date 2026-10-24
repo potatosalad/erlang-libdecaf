@@ -26,6 +26,13 @@ Use the **XOF API** when you want to read output incrementally: initialize with
 `xof_squeeze/2` repeatedly, keeping the returned state. One-shot `xof/3` functions
 return bytes. Once squeezing starts, the returned state cannot absorb more input.
 
+Use `parallel_hash/2` or `parallel_xof/3` and their streaming counterparts to
+process KT, HopMAC, and ParallelHash leaves concurrently. They produce the same
+bytes as the serial APIs. Starting the application enables the router pool;
+without it, parallel calls complete on the caller's dirty scheduler. The
+`parallel_absorb_rounds` application option controls the worker budget, defaulting
+to 100 leaves. Zero drains a router's queue until it becomes empty.
+
 Hash and XOF states are opaque and belong to their corresponding lifecycle.
 They are immutable: keep each returned state to advance; reuse an older
 state to branch the input or repeat output. Lengths and ParallelHash block sizes
@@ -97,9 +104,47 @@ Digest = libdecaf:hash(sha3_256, <<"abc">>),
 -doc #{group => <<"~J< function.group >.">>}.
 -spec ~J< function.spec >..
 ~J< function.name >.(~J< function.arguments | map(attribute='name') | join(', ') >.) ->
+~J{ if function.operation in ('parallel_update', 'parallel_absorb', 'parallel_once') }.
+    parallel_wait(
+        libdecaf_nif:~J< function.name >.(~J< function.arguments | map(attribute='name') | join(', ') >.),
+        fun libdecaf_nif:parallel_~J< function.family >._continue/1,
+~J{ if function.family == 'hash' }.
+        fun(FinalState, _Length) -> libdecaf_nif:parallel_hash_final(FinalState) end
+~J{ else }.
+        fun(FinalState, Length) ->
+            {_Next, Output} = libdecaf_nif:parallel_xof_squeeze(FinalState, Length),
+            Output
+        end
+~J{ endif }.
+    ).
+~J{ else }.
     libdecaf_nif:~J< function.name >.(~J< function.arguments | map(attribute='name') | join(', ') >.).
+~J{ endif }.
 
 ~J{ endfor }.
 ~J{ endfor }.
 
 ~J{ include 'src/public_key_internal.erl.inc' }.
+
+-spec parallel_wait(Result, Continue, Finalize) -> Value when
+    Result :: dynamic(), Continue :: fun((dynamic()) -> dynamic()),
+    Finalize :: fun((dynamic(), non_neg_integer()) -> dynamic()), Value :: dynamic().
+parallel_wait({await, Reference, Operation}, Continue, Finalize) ->
+    receive
+        {libdecaf_parallel, Reference} -> ok
+    after 50 -> ok
+    end,
+    parallel_wait(Continue(Operation), Continue, Finalize);
+parallel_wait({done, Reference, State}, _Continue, _Finalize) ->
+    parallel_flush(Reference),
+    State;
+parallel_wait({finalize, Reference, State, Length}, _Continue, Finalize) ->
+    parallel_flush(Reference),
+    Finalize(State, Length).
+
+-spec parallel_flush(Reference) -> Result when Reference :: reference(), Result :: ok.
+parallel_flush(Reference) ->
+    receive
+        {libdecaf_parallel, Reference} -> parallel_flush(Reference)
+    after 0 -> ok
+    end.

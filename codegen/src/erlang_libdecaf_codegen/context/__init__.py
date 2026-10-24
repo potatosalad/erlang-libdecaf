@@ -38,6 +38,10 @@ class Context:
     @property
     def opaque_type_names(self) -> set[str]:
         return {
+            "parallel_hash_state",
+            "parallel_xof_state",
+            "parallel_hash_operation",
+            "parallel_xof_operation",
             "hash_state",
             "xof_state",
             "ed25519ph_sign_state",
@@ -60,7 +64,7 @@ class Context:
     def crypto_doc(self, function):
         from .crypto import public_doc
 
-        return public_doc(self.schema.nif, function)
+        return function.doc if function.name.startswith("parallel_") else public_doc(self.schema.nif, function)
 
     def crypto_algorithms(self, family=None):
         from .crypto import native_algorithms
@@ -75,13 +79,26 @@ class Context:
     def public_crypto_type_names(self):
         from .crypto import api_types
 
-        return {name for name, _, _ in api_types(self.schema.nif)}
+        from .parallel import types as parallel_types
+
+        return {
+            name
+            for name, _, _ in (*api_types(self.schema.nif), *parallel_types(self.schema.nif))
+            if not name.endswith("_operation")
+        }
 
     @property
     def public_crypto_functions(self):
         from .crypto import public_functions
 
-        return public_functions(self.schema.nif)
+        from .parallel import functions as parallel_functions
+
+        return tuple(
+            sorted(
+                (*public_functions(self.schema.nif), *parallel_functions(self.schema.nif, public=True)),
+                key=lambda f: (f.name, f.arity),
+            )
+        )
 
     @property
     def public_types(self):

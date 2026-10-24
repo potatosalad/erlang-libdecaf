@@ -132,6 +132,16 @@ check(Family, Type, Input, Parameters, Expected, Xof) ->
                 true -> Parameters;
                 false -> [Length | Parameters]
             end,
+    case Family of
+        F when F == parallelhash; F == hopmac ->
+            Expected =
+                case Xof of
+                    true -> libdecaf:parallel_xof(list_to_tuple(InitArgs), Input, Length);
+                    false -> libdecaf:parallel_hash(list_to_tuple(InitArgs), Input)
+                end;
+        _ ->
+            ok
+    end,
     lists:foreach(
         fun(Module) ->
             Expected =

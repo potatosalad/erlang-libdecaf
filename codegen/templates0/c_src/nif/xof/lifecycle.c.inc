@@ -13,6 +13,8 @@ static ErlNifResourceType *libdecaf_nif_xof_resource_type;
 static ErlNifResourceType *libdecaf_nif_xof_absorb_resource_type;
 static ErlNifResourceType *libdecaf_nif_xof_squeeze_resource_type;
 
+static ErlNifResourceType *libdecaf_nif_parallel_xof_resource_type;
+
 typedef struct {
     libdecaf_nif_xof_state_t *state;
     ErlNifEnv *work_env;
@@ -78,7 +80,8 @@ libdecaf_nif_xof_load(ErlNifEnv *env)
         libdecaf_nif_xof_absorb_dtor, flags, NULL);
     libdecaf_nif_xof_squeeze_resource_type = enif_open_resource_type(env, "libdecaf_nif", "xof_squeeze",
         libdecaf_nif_xof_squeeze_dtor, flags, NULL);
-    return libdecaf_nif_xof_resource_type != NULL && libdecaf_nif_xof_absorb_resource_type != NULL &&
+    libdecaf_nif_parallel_xof_resource_type = libdecaf_nif_parallel_operation_load(env, "parallel_xof_operation");
+    return libdecaf_nif_parallel_xof_resource_type != NULL && libdecaf_nif_xof_resource_type != NULL && libdecaf_nif_xof_absorb_resource_type != NULL &&
            libdecaf_nif_xof_squeeze_resource_type != NULL ? 0 : -1;
 }
 

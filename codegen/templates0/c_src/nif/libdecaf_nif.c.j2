@@ -21,7 +21,7 @@
 /* NIF Callbacks */
 
 static ErlNifFunc libdecaf_nif_funcs[] = {
-    {"parallel_absorb", 0, libdecaf_nif_parallel_absorb_0, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"parallel_absorb", 2, libdecaf_nif_parallel_absorb_2, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"parallel_router_info", 0, libdecaf_nif_parallel_router_info_0, ERL_NIF_NORMAL_JOB_BOUND},
 {% for group in ctx.prime_order_groups %}
 {% for function in ctx.nif.functions if function.name.startswith(group.name + '_') %}
@@ -81,7 +81,7 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
     {"x448", 2, libdecaf_nif_x448_2, ERL_NIF_NORMAL_JOB_BOUND},
     /* Hash and XOF APIs. */
 {% for function in ctx.crypto_functions %}
-    {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_NORMAL_JOB_BOUND},
+    {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, {{ "ERL_NIF_DIRTY_JOB_CPU_BOUND" if function.name.startswith("parallel_") else "ERL_NIF_NORMAL_JOB_BOUND" }}},
 {% endfor %}
     /* TUAK API. */
 {% for function in ctx.tuak_functions %}
@@ -102,12 +102,8 @@ static void libdecaf_nif_unload(ErlNifEnv *env, void *priv_data);
 static int
 libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
 {
-    int retval = 0;
     (void)priv_data;
     (void)load_info;
-    /* Initialize parallel router names. */
-    if (libdecaf_nif_parallel_load(env) != 0)
-        return -1;
     /* Load Resource Types */
     if (libdecaf_nif_csprng_load(env) != 0)
         return -1;
@@ -133,18 +129,14 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
 {% endfor %}
     /* Initialize common atoms */
     (void)libdecaf_nif_make_atoms(env);
-    return retval;
+    return libdecaf_nif_parallel_load(env, priv_data, NULL);
 }
 
 static int
 libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data, ERL_NIF_TERM load_info)
 {
-    int retval = 0;
     (void)old_priv_data;
     (void)load_info;
-    /* Initialize parallel router names. */
-    if (libdecaf_nif_parallel_load(env) != 0)
-        return -1;
     /* Upgrade Resource Types */
     if (libdecaf_nif_csprng_load(env) != 0)
         return -1;
@@ -170,14 +162,14 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
 {% endfor %}
     /* Initialize common atoms */
     (void)libdecaf_nif_make_atoms(env);
-    return retval;
+    return libdecaf_nif_parallel_load(env, new_priv_data, *old_priv_data);
 }
 
 static void
 libdecaf_nif_unload(ErlNifEnv *env, void *priv_data)
 {
     (void)env;
-    (void)priv_data;
+    libdecaf_nif_parallel_unload(priv_data);
     return;
 }
 
