@@ -84,6 +84,44 @@ class Context:
         return public_functions(self.schema.nif)
 
     @property
+    def public_types(self):
+        from .public_key import Type, types as public_key_types
+
+        aliases = (
+            Type(name, f"libdecaf_nif:{name}()", doc)
+            for name, _, doc in self.types
+            if name in self.public_crypto_type_names
+        )
+        return tuple(sorted((*aliases, *public_key_types()), key=lambda item: item.name))
+
+    @property
+    def public_key_functions(self):
+        from .public_key import functions
+
+        return functions()
+
+    def public_key_function(self, name, arity):
+        return next(f for f in self.public_key_functions if (f.name, f.arity) == (name, arity))
+
+    @property
+    def agreement_curves(self):
+        from .public_key import AGREEMENT_CURVES
+
+        return AGREEMENT_CURVES
+
+    @property
+    def signature_curves(self):
+        from .public_key import SIGNATURE_CURVES
+
+        return SIGNATURE_CURVES
+
+    @property
+    def signature_variants(self):
+        from .public_key import VARIANTS
+
+        return VARIANTS
+
+    @property
     def crypto_functions(self):
         return tuple(f for f in self.nif.functions if f.family in ("hash", "xof"))
 

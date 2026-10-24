@@ -1,7 +1,21 @@
 %%% % @format
 -module(libdecaf).
 -moduledoc """
-Hash messages, authenticate data, and read extensible output streams with libdecaf.
+Hash messages, authenticate data, sign messages, and agree on shared secrets with libdecaf.
+
+The **EdDSA API** selects signatures through `{Algorithm, Key}` or
+`{Algorithm, Key, Context}` parameters. `eddsa_keypair/1,2` returns an opaque
+native keypair; extraction returns the public key and original secret seed.
+Signing also accepts seeds, encoded `Seed || PublicKey` signing keys, and
+public/secret pairs from the curve modules. Ed25519ph and Ed448ph support native
+streaming through the `eddsa_sign_*` and `eddsa_verify_*` functions. Pass original
+message bytes; the prehash is computed internally. Contexts belong to each operation.
+
+The **ECDH API** generates X25519 or X448 keypairs with `ecdh_keypair/1,2`.
+`ecdh_shared_secret/3` takes the algorithm, local secret, and peer public key;
+either key argument may instead be a keypair. It returns raw shared-secret bytes
+or `error` for a rejected peer key. Extracted pairs use `{PublicKey, SecretKey}`
+order. EdDSA seeds and ECDH scalars are distinct key formats.
 
 Use the **Hash API** when you know the output length in advance: initialize with
 `hash_init/1`, add data with `hash_update/2`, and get bytes
@@ -36,9 +50,17 @@ Digest = libdecaf:hash(sha3_256, <<"abc">>),
 ```
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
--moduledoc #{created => "2016-02-06", modified => "2026-10-23"}.
+-moduledoc #{created => "2016-02-06", modified => "2026-10-24"}.
 -moduledoc #{copyright => "Andrew Bennett"}.
 
+~J{ for family, title in (('ecdh', 'ECDH'), ('eddsa', 'EdDSA')) }.
+%% ~J< title >. API
+-export([
+~J{ for function in ctx.public_key_functions if function.family == family }.
+    ~J< function.name >./~J< function.arity >.~J< ',' if not loop.last else '' >.
+~J{ endfor }.
+]).
+~J{ endfor }.
 ~J{ for family in ('hash', 'xof') }.
 %% ~J< 'Hash' if family == 'hash' else 'XOF' >. API
 -export([
@@ -47,22 +69,21 @@ Digest = libdecaf:hash(sha3_256, <<"abc">>),
 ~J{ endfor }.
 ]).
 ~J{ endfor }.
-
-
-
 %%% Types
-~J{ for name, definition, doc in ctx.types if name in ctx.public_crypto_type_names }.
+~J{ for type in ctx.public_types }.
 -doc """
-~J< doc >.
+~J< type.doc >.
 """.
--type ~J< name >.() :: libdecaf_nif:~J< name >.().
+-~J< 'opaque' if type.opaque else 'type' >. ~J< type.name >.() :: ~J< type.definition >..
 
 ~J{ endfor }.
 -export_type([
-~J{ for name, definition, doc in ctx.types if name in ctx.public_crypto_type_names }.
-    ~J< name >./0~J< ',' if not loop.last else '' >.
+~J{ for type in ctx.public_types }.
+    ~J< type.name >./0~J< ',' if not loop.last else '' >.
 ~J{ endfor }.
 ]).
+
+~J{ include 'src/public_key_api.erl.inc' }.
 
 ~J{ for family in ('hash', 'xof') }.
 %%%=============================================================================
@@ -80,3 +101,5 @@ Digest = libdecaf:hash(sha3_256, <<"abc">>),
 
 ~J{ endfor }.
 ~J{ endfor }.
+
+~J{ include 'src/public_key_internal.erl.inc' }.

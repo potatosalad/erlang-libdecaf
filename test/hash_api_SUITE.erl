@@ -100,7 +100,12 @@ parameters(_) ->
     ).
 
 exports(_) ->
-    Public = lists:sort(libdecaf:module_info(exports) -- [{module_info, 0}, {module_info, 1}]),
+    Public = lists:sort([
+        Export
+     || Export = {Name, _} <- libdecaf:module_info(exports) -- [{module_info, 0}, {module_info, 1}],
+        not lists:prefix("ecdh_", atom_to_list(Name)),
+        not lists:prefix("eddsa_", atom_to_list(Name))
+    ]),
     Public = lists:sort([
         {hash, 2},
         {hash_init, 1},

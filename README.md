@@ -111,6 +111,58 @@ native build on exit, including failures. Sanitized upstream objects use the
 separate `c_deps/ed448goldilocks-build-sanitizers/` directory. Docker builds and
 tests run inside the image and leave host build artifacts unchanged.
 
+### EdDSA and ECDH APIs
+
+Use `libdecaf` for algorithm selection, keypair management, and streaming prehash
+signatures. EdDSA keypairs wrap native resources; extraction returns the public
+key and original secret seed, in `{PublicKey, SecretKey}` order.
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed25519),
+PublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),
+Signature = libdecaf:eddsa_sign({ed25519, Keypair}, <<"message">>),
+true = libdecaf:eddsa_verify({ed25519, PublicKey}, Signature, <<"message">>).
+```
+
+Signing accepts an opaque keypair, a seed, an encoded `Seed || PublicKey` signing
+key, or an extracted/curve-module public-secret pair. Supplied public and secret
+parts must match. Verification accepts public keys and keypairs. Messages accept
+iodata. Select `ed25519`, `ed25519ctx`, `ed25519ph`, `ed448`, or `ed448ph`;
+variants other than pure Ed25519 accept an optional binary context of at most
+255 bytes as the third parameter-tuple element.
+
+Ed25519ph and Ed448ph can process original-message chunks incrementally:
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed448),
+S0 = libdecaf:eddsa_sign_init({ed448ph, Keypair, <<"protocol/v1">>}),
+S1 = libdecaf:eddsa_sign_update(S0, [<<"hello ">>, <<"world">>]),
+Signature = libdecaf:eddsa_sign_final(S1),
+V0 = libdecaf:eddsa_verify_init({ed448ph, Keypair, <<"protocol/v1">>}, Signature),
+V1 = libdecaf:eddsa_verify_update(V0, <<"hello world">>),
+true = libdecaf:eddsa_verify_final(V1).
+```
+
+States are immutable and specific to their curve and signing/verification
+lifecycle. The native state retains the keys, context, and prehash; callers
+should keep the state returned by each update.
+
+ECDH accepts `x25519` or `x448`, with the local secret first and peer public key
+second. Either argument can instead be a keypair:
+
+```erlang
+Alice = libdecaf:ecdh_keypair(x25519),
+Bob = libdecaf:ecdh_keypair(x25519),
+Shared = libdecaf:ecdh_shared_secret(x25519, Alice, Bob),
+Shared = libdecaf:ecdh_shared_secret(x25519, Bob, Alice).
+```
+
+`ecdh_shared_secret/3` returns raw bytes or `error` if the native operation rejects
+the peer. Apply the key derivation specified by your protocol to those bytes.
+Both keypair constructors accept existing secret bytes through their second
+arity. EdDSA secret seeds and ECDH scalars are distinct formats: Ed25519 uses a
+32-byte seed, Ed448 a 57-byte seed, X25519 a 32-byte scalar, and X448 a 56-byte scalar.
+
 ### Hash and XOF APIs
 
 `libdecaf` exposes the high-level `hash/2`, `hash_init/1`, `hash_update/2`,

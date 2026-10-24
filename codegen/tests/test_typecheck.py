@@ -165,3 +165,28 @@ def test_eqwalizer_checks_tuak_and_wrapped_prng(project):
     diagnostics = [json.loads(line) for line in invalid.stdout.splitlines() if line.startswith("{")]
     descriptions = "\n".join(item["description"] for item in diagnostics)
     assert "mac_length" in descriptions and "tuak" in descriptions, invalid.stdout
+
+
+def test_dialyzer_checks_public_key_dispatch(project, plt):
+    directory, dialyzer, _, _ = project
+    base = (dialyzer, "--plt", str(plt), "--no_check_plt", "--src", "src/libdecaf_nif.erl", "src/libdecaf.erl")
+    valid = run(*base, "src/public_key_valid.erl", cwd=directory)
+    assert valid.returncode == 0, valid.stdout
+    invalid = run(*base, "src/public_key_invalid.erl", cwd=directory)
+    assert invalid.returncode == 2, invalid.stdout
+    for function in ("ecdh_shared_secret", "eddsa_verify_final", "eddsa_sign", "eddsa_sign_init"):
+        assert function in invalid.stdout, invalid.stdout
+    assert "will never return" in invalid.stdout, invalid.stdout
+
+
+def test_eqwalizer_checks_public_key_dispatch(project):
+    directory, _, elp, build_info = project
+    base = (elp, "eqwalize", "--project", build_info, "--no-connect", "--bail-on-error", "--format", "json")
+    valid = run(*base, "libdecaf_nif", "libdecaf", "public_key_valid", cwd=directory)
+    assert valid.returncode == 0, valid.stdout
+    invalid = run(*base, "public_key_invalid", cwd=directory)
+    assert invalid.returncode != 0, invalid.stdout
+    diagnostics = [json.loads(line) for line in invalid.stdout.splitlines() if line.startswith("{")]
+    descriptions = "\n".join(item["description"] for item in diagnostics)
+    for kind in ("x448_keypair", "ed448_keypair_state", "ed25519ph_sign_state"):
+        assert kind in descriptions, invalid.stdout

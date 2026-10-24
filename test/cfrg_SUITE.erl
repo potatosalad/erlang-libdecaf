@@ -1008,7 +1008,8 @@ ed25519_vector({Secret, PK, Message, Signature}) ->
     KP = libdecaf_curve25519:keypair_derive(Secret),
     ?tv_ok(T3, libdecaf_curve25519, keypair_extract_private_key, [KP], Secret),
     ?tv_ok(T4, libdecaf_curve25519, keypair_extract_public_key, [KP], PK),
-    ?tv_ok(T5, libdecaf_curve25519, ed25519_keypair_sign, [Message, KP], Signature).
+    ?tv_ok(T5, libdecaf_curve25519, ed25519_keypair_sign, [Message, KP], Signature),
+    public_eddsa_vector(ed25519, ed25519, Secret, PK, Message, none, Signature).
 
 %% @private
 ed25519ctx_vector({Secret, PK, Message, Context, Signature}) ->
@@ -1019,7 +1020,8 @@ ed25519ctx_vector({Secret, PK, Message, Context, Signature}) ->
     KP = libdecaf_curve25519:keypair_derive(Secret),
     ?tv_ok(T3, libdecaf_curve25519, keypair_extract_private_key, [KP], Secret),
     ?tv_ok(T4, libdecaf_curve25519, keypair_extract_public_key, [KP], PK),
-    ?tv_ok(T5, libdecaf_curve25519, ed25519ctx_keypair_sign, [Message, KP, Context], Signature).
+    ?tv_ok(T5, libdecaf_curve25519, ed25519ctx_keypair_sign, [Message, KP, Context], Signature),
+    public_eddsa_vector(ed25519, ed25519ctx, Secret, PK, Message, Context, Signature).
 
 %% @private
 ed25519ph_vector({Secret, PK, Message, Signature}) ->
@@ -1031,7 +1033,8 @@ ed25519ph_vector({Secret, PK, Message, Signature}) ->
     ?tv_ok(T3, libdecaf_curve25519, keypair_extract_private_key, [KP], Secret),
     ?tv_ok(T4, libdecaf_curve25519, keypair_extract_public_key, [KP], PK),
     ?tv_ok(T5, libdecaf_curve25519, ed25519ph_keypair_sign, [Message, KP], Signature),
-    stream_vector(ed25519ph, KP, PK, Message, <<>>, Signature).
+    stream_vector(ed25519ph, KP, PK, Message, <<>>, Signature),
+    public_eddsa_vector(ed25519, ed25519ph, Secret, PK, Message, <<>>, Signature).
 
 %% @private
 ed448_vector({Secret, PK, Message, Signature}) ->
@@ -1042,7 +1045,8 @@ ed448_vector({Secret, PK, Message, Signature}) ->
     KP = libdecaf_curve448:keypair_derive(Secret),
     ?tv_ok(T3, libdecaf_curve448, keypair_extract_private_key, [KP], Secret),
     ?tv_ok(T4, libdecaf_curve448, keypair_extract_public_key, [KP], PK),
-    ?tv_ok(T5, libdecaf_curve448, ed448_keypair_sign, [Message, KP], Signature);
+    ?tv_ok(T5, libdecaf_curve448, ed448_keypair_sign, [Message, KP], Signature),
+    public_eddsa_vector(ed448, ed448, Secret, PK, Message, <<>>, Signature);
 ed448_vector({Secret, PK, Message, Context, Signature}) ->
     SK = <<Secret/binary, PK/binary>>,
     ?tv_ok(T0, libdecaf_curve448, eddsa_secret_to_pk, [Secret], PK),
@@ -1051,7 +1055,8 @@ ed448_vector({Secret, PK, Message, Context, Signature}) ->
     KP = libdecaf_curve448:keypair_derive(Secret),
     ?tv_ok(T3, libdecaf_curve448, keypair_extract_private_key, [KP], Secret),
     ?tv_ok(T4, libdecaf_curve448, keypair_extract_public_key, [KP], PK),
-    ?tv_ok(T5, libdecaf_curve448, ed448_keypair_sign, [Message, KP, Context], Signature).
+    ?tv_ok(T5, libdecaf_curve448, ed448_keypair_sign, [Message, KP, Context], Signature),
+    public_eddsa_vector(ed448, ed448, Secret, PK, Message, Context, Signature).
 
 %% @private
 ed448ph_vector({Secret, PK, Message, Signature}) ->
@@ -1063,7 +1068,8 @@ ed448ph_vector({Secret, PK, Message, Signature}) ->
     ?tv_ok(T3, libdecaf_curve448, keypair_extract_private_key, [KP], Secret),
     ?tv_ok(T4, libdecaf_curve448, keypair_extract_public_key, [KP], PK),
     ?tv_ok(T5, libdecaf_curve448, ed448ph_keypair_sign, [Message, KP], Signature),
-    stream_vector(ed448ph, KP, PK, Message, <<>>, Signature);
+    stream_vector(ed448ph, KP, PK, Message, <<>>, Signature),
+    public_eddsa_vector(ed448, ed448ph, Secret, PK, Message, <<>>, Signature);
 ed448ph_vector({Secret, PK, Message, Context, Signature}) ->
     SK = <<Secret/binary, PK/binary>>,
     ?tv_ok(T0, libdecaf_curve448, eddsa_secret_to_pk, [Secret], PK),
@@ -1073,7 +1079,28 @@ ed448ph_vector({Secret, PK, Message, Context, Signature}) ->
     ?tv_ok(T3, libdecaf_curve448, keypair_extract_private_key, [KP], Secret),
     ?tv_ok(T4, libdecaf_curve448, keypair_extract_public_key, [KP], PK),
     ?tv_ok(T5, libdecaf_curve448, ed448ph_keypair_sign, [Message, KP, Context], Signature),
-    stream_vector(ed448ph, KP, PK, Message, Context, Signature).
+    stream_vector(ed448ph, KP, PK, Message, Context, Signature),
+    public_eddsa_vector(ed448, ed448ph, Secret, PK, Message, Context, Signature).
+
+public_eddsa_vector(Curve, Algorithm, Seed, Public, Message, Context, Signature) ->
+    Keypair = libdecaf:eddsa_keypair(Curve, Seed),
+    {Public, Seed} = libdecaf:eddsa_keypair_extract(Keypair),
+    SignParameters = public_eddsa_parameters(Algorithm, Keypair, Context),
+    VerifyParameters = public_eddsa_parameters(Algorithm, Public, Context),
+    Signature = libdecaf:eddsa_sign(SignParameters, Message),
+    true = libdecaf:eddsa_verify(VerifyParameters, Signature, Message),
+    case Algorithm of
+        PH when PH =:= ed25519ph; PH =:= ed448ph ->
+            S0 = libdecaf:eddsa_sign_init(SignParameters),
+            Signature = libdecaf:eddsa_sign_final(libdecaf:eddsa_sign_update(S0, Message)),
+            V0 = libdecaf:eddsa_verify_init(VerifyParameters, Signature),
+            true = libdecaf:eddsa_verify_final(libdecaf:eddsa_verify_update(V0, Message));
+        _ ->
+            ok
+    end.
+
+public_eddsa_parameters(Algorithm, Key, none) -> {Algorithm, Key};
+public_eddsa_parameters(Algorithm, Key, Context) -> {Algorithm, Key, Context}.
 
 %% @private
 hexstr2bin(S) ->
@@ -1105,14 +1132,25 @@ x25519_vector({AliceSK, AlicePK, BobSK, BobPK, Shared}) ->
     ?tv_ok(T0, libdecaf_curve25519, x25519, [AliceSK], AlicePK),
     ?tv_ok(T1, libdecaf_curve25519, x25519, [BobSK], BobPK),
     ?tv_ok(T2, libdecaf_curve25519, x25519, [AliceSK, BobPK], Shared),
-    ?tv_ok(T3, libdecaf_curve25519, x25519, [BobSK, AlicePK], Shared).
+    ?tv_ok(T3, libdecaf_curve25519, x25519, [BobSK, AlicePK], Shared),
+    public_ecdh_vector(x25519, AliceSK, AlicePK, BobSK, BobPK, Shared).
 
 %% @private
 x448_vector({AliceSK, AlicePK, BobSK, BobPK, Shared}) ->
     ?tv_ok(T0, libdecaf_curve448, x448, [AliceSK], AlicePK),
     ?tv_ok(T1, libdecaf_curve448, x448, [BobSK], BobPK),
     ?tv_ok(T2, libdecaf_curve448, x448, [AliceSK, BobPK], Shared),
-    ?tv_ok(T3, libdecaf_curve448, x448, [BobSK, AlicePK], Shared).
+    ?tv_ok(T3, libdecaf_curve448, x448, [BobSK, AlicePK], Shared),
+    public_ecdh_vector(x448, AliceSK, AlicePK, BobSK, BobPK, Shared).
+
+public_ecdh_vector(Algorithm, AliceSK, AlicePK, BobSK, BobPK, Shared) ->
+    Alice = libdecaf:ecdh_keypair(Algorithm, AliceSK),
+    Bob = libdecaf:ecdh_keypair(Algorithm, BobSK),
+    {AlicePK, AliceSK} = libdecaf:ecdh_keypair_extract(Alice),
+    {BobPK, BobSK} = libdecaf:ecdh_keypair_extract(Bob),
+    Shared = libdecaf:ecdh_shared_secret(Algorithm, Alice, Bob),
+    Shared = libdecaf:ecdh_shared_secret(Algorithm, Bob, Alice),
+    Shared = libdecaf:ecdh_shared_secret(Algorithm, AliceSK, BobPK).
 
 %% RFC 7748 requires ignoring the high bit of an X25519 input coordinate.
 x25519_high_bit(_Config) ->
