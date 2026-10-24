@@ -13,6 +13,11 @@ libdecaf_nif_parallel_xof_progress(ErlNifEnv *env, libdecaf_nif_parallel_operati
         libdecaf_nif_parallel_operation_abort(env, operation);
         return EXCP_BADARG(env, "Parallel XOF context overflow or cancellation");
     }
+    if (status == 2) {
+        ERL_NIF_TERM argument = enif_make_resource(env, operation);
+        return enif_schedule_nif(env, "parallel_xof_continue", ERL_NIF_DIRTY_JOB_CPU_BOUND,
+                                   libdecaf_nif_parallel_xof_continue_1, 1, &argument);
+    }
     if (status == 0)
         return libdecaf_nif_parallel_operation_await(env, operation);
     return libdecaf_nif_parallel_operation_result(env, operation, state_term);

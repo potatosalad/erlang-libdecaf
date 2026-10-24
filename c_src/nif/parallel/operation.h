@@ -21,7 +21,8 @@ extern ERL_NIF_TERM libdecaf_nif_parallel_operation_state(ErlNifEnv *env, libdec
 extern void libdecaf_nif_parallel_operation_abort(ErlNifEnv *env, libdecaf_nif_parallel_operation_t *operation);
 extern ERL_NIF_TERM libdecaf_nif_parallel_operation_result(ErlNifEnv *env, libdecaf_nif_parallel_operation_t *operation,
                                                            ERL_NIF_TERM state);
-/* Returns 1 when finished, 0 while waiting, or -1 on an invalid/overflowed context. */
+/* Returns 1 when finished, 0 awaiting work, 2 while publishing its notification,
+ * or -1 on an invalid/overflowed context. */
 extern int libdecaf_nif_parallel_operation_step(ErlNifEnv *env, libdecaf_nif_parallel_operation_t *operation, void *context,
                                                 const libdecaf_nif_parallel_algorithm_t *algorithm);
 extern ERL_NIF_TERM libdecaf_nif_parallel_operation_await(ErlNifEnv *env, libdecaf_nif_parallel_operation_t *operation);

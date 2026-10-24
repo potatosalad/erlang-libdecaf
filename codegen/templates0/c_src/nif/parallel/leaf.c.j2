@@ -1,0 +1,165 @@
+/* The paired permutation follows the upstream Keccak-f[1600] implementation.
+ * Uses public domain code by Mathias Panzenbock and CC0 code by David Leon Gil.
+ * Copyright (c) 2015 Cryptography Research, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+#include "leaf.h"
+#include <keccak_internal.h>
+#include <portable_endian.h>
+#include "../turboshake/turboshake_primitive.h"
+#include <decaf/common.h>
+#include <string.h>
+
+void
+libdecaf_nif_parallel_leaf_hash(libdecaf_nif_parallel_leaf_t algorithm, const uint8_t *input, size_t length,
+                                uint8_t *chaining)
+{
+    decaf_keccak_sponge_s leaf;
+    if (algorithm.turbo) {
+        libdecaf_nif_turboshake_init(&leaf, algorithm.rate, 0x0B);
+        libdecaf_nif_turboshake_absorb(&leaf, input, length);
+        libdecaf_nif_turboshake_squeeze(&leaf, chaining, 200 - algorithm.rate);
+    } else {
+        decaf_kparams_s params = {0, 'A', (uint8_t)algorithm.rate, 0, 0x1F, 0x80, 0xFF, 0xFF};
+        decaf_sha3_init(&leaf, &params);
+        decaf_sha3_update(&leaf, input, length);
+        decaf_sha3_output(&leaf, chaining, 200 - algorithm.rate);
+    }
+    decaf_bzero(&leaf, sizeof(leaf));
+}
+
+#if (defined(__ARM_NEON) || defined(__SSE2__)) && (defined(__GNUC__) || defined(__clang__))
+
+/* Each vector lane is one independent sponge. This uses baseline NEON/SSE2,
+ * without requiring optional SHA-3 or AVX instructions at runtime. */
+typedef uint64_t libdecaf_nif_parallel_lane2_t __attribute__((vector_size(16)));
+
+static const uint64_t libdecaf_nif_parallel_round_constants[24] = {
+    UINT64_C(0x0000000000000001), UINT64_C(0x0000000000008082),
+    UINT64_C(0x800000000000808A), UINT64_C(0x8000000080008000),
+    UINT64_C(0x000000000000808B), UINT64_C(0x0000000080000001),
+    UINT64_C(0x8000000080008081), UINT64_C(0x8000000000008009),
+    UINT64_C(0x000000000000008A), UINT64_C(0x0000000000000088),
+    UINT64_C(0x0000000080008009), UINT64_C(0x000000008000000A),
+    UINT64_C(0x000000008000808B), UINT64_C(0x800000000000008B),
+    UINT64_C(0x8000000000008089), UINT64_C(0x8000000000008003),
+    UINT64_C(0x8000000000008002), UINT64_C(0x8000000000000080),
+    UINT64_C(0x000000000000800A), UINT64_C(0x800000008000000A),
+    UINT64_C(0x8000000080008081), UINT64_C(0x8000000000008080),
+    UINT64_C(0x0000000080000001), UINT64_C(0x8000000080008008)
+};
+
+static void
+libdecaf_nif_parallel_permute2(libdecaf_nif_parallel_lane2_t a[25], unsigned int start_round)
+{
+    libdecaf_nif_parallel_lane2_t b[5], t, u;
+    for (unsigned int round = start_round; round < 24; round++) {
+        /* Theta. */
+{% for x in range(5) %}
+        b[{{ x }}] = a[{{ x }}] ^ a[{{ x + 5 }}] ^ a[{{ x + 10 }}] ^ a[{{ x + 15 }}] ^ a[{{ x + 20 }}];
+{% endfor %}
+{% for x in range(5) %}
+        t = b[{{ (x + 4) % 5 }}] ^ ((b[{{ (x + 1) % 5 }}] << 1) | (b[{{ (x + 1) % 5 }}] >> 63));
+{% for y in range(5) %}
+        a[{{ x + 5*y }}] ^= t;
+{% endfor %}
+{% endfor %}
+        /* Rho and Pi. */
+        t = a[1];
+{% set pi = [10, 7, 11, 17, 18, 3, 5, 16, 8, 21, 24, 4, 15, 23, 19, 13, 12, 2, 20, 14, 22, 9, 6, 1] %}
+{% for destination in pi %}
+{% set rotation = (loop.index * (loop.index + 1) // 2) % 64 %}
+        u = a[{{ destination }}];
+        a[{{ destination }}] = (t << {{ rotation }}) | (t >> {{ 64 - rotation }});
+        t = u;
+{% endfor %}
+        /* Chi. */
+{% for y in range(5) %}
+{% for x in range(5) %}
+        b[{{ x }}] = a[{{ x + 5*y }}];
+{% endfor %}
+{% for x in range(5) %}
+        a[{{ x + 5*y }}] = b[{{ x }}] ^ ((~b[{{ (x+1) % 5 }}]) & b[{{ (x+2) % 5 }}]);
+{% endfor %}
+{% endfor %}
+        /* Iota. */
+        uint64_t rc = libdecaf_nif_parallel_round_constants[round];
+        a[0] ^= (libdecaf_nif_parallel_lane2_t){rc, rc};
+    }
+}
+
+static uint64_t
+libdecaf_nif_parallel_load64(const uint8_t *input)
+{
+    uint64_t word;
+    memcpy(&word, input, sizeof(word));
+    return le64toh(word);
+}
+
+void
+libdecaf_nif_parallel_leaf_hash2(libdecaf_nif_parallel_leaf_t algorithm, const uint8_t *input0,
+                                 const uint8_t *input1, size_t length, uint8_t *chaining0, uint8_t *chaining1)
+{
+    libdecaf_nif_parallel_lane2_t state[25];
+    decaf_bzero(state, sizeof(state));
+    unsigned int start_round = algorithm.turbo ? 12 : 0;
+    size_t rate = algorithm.rate;
+    while (length >= rate) {
+        for (size_t i = 0; i < rate / 8; i++) {
+            state[i] ^= (libdecaf_nif_parallel_lane2_t){libdecaf_nif_parallel_load64(input0 + 8*i),
+                                                       libdecaf_nif_parallel_load64(input1 + 8*i)};
+        }
+        libdecaf_nif_parallel_permute2(state, start_round);
+        input0 += rate;
+        input1 += rate;
+        length -= rate;
+    }
+    for (size_t i = 0; i < length / 8; i++) {
+        state[i] ^= (libdecaf_nif_parallel_lane2_t){libdecaf_nif_parallel_load64(input0 + 8*i),
+                                                   libdecaf_nif_parallel_load64(input1 + 8*i)};
+    }
+    uint64_t tail0 = 0, tail1 = 0;
+    for (size_t i = 0; i < length % 8; i++) {
+        tail0 |= (uint64_t)input0[length - length % 8 + i] << (8*i);
+        tail1 |= (uint64_t)input1[length - length % 8 + i] << (8*i);
+    }
+    uint64_t domain = (uint64_t)(algorithm.turbo ? 0x0B : 0x1F) << (8*(length % 8));
+    state[length / 8] ^= (libdecaf_nif_parallel_lane2_t){tail0 ^ domain, tail1 ^ domain};
+    state[rate / 8 - 1] ^= (libdecaf_nif_parallel_lane2_t){UINT64_C(0x8000000000000000), UINT64_C(0x8000000000000000)};
+    libdecaf_nif_parallel_permute2(state, start_round);
+    for (size_t i = 0; i < (200 - rate) / 8; i++) {
+        uint64_t word0 = htole64(state[i][0]), word1 = htole64(state[i][1]);
+        memcpy(chaining0 + 8*i, &word0, sizeof(word0));
+        memcpy(chaining1 + 8*i, &word1, sizeof(word1));
+    }
+    decaf_bzero(state, sizeof(state));
+}
+
+#else
+
+void
+libdecaf_nif_parallel_leaf_hash2(libdecaf_nif_parallel_leaf_t algorithm, const uint8_t *input0,
+                                 const uint8_t *input1, size_t length, uint8_t *chaining0, uint8_t *chaining1)
+{
+    libdecaf_nif_parallel_leaf_hash(algorithm, input0, length, chaining0);
+    libdecaf_nif_parallel_leaf_hash(algorithm, input1, length, chaining1);
+}
+
+#endif

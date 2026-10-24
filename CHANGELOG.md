@@ -30,6 +30,7 @@
 * Enhancements
   * Add parallel Hash and XOF APIs for KT, HopMAC, and ParallelHash with retained input slices, bulk native queues, ordered chaining-value assembly, and caller cancellation.
     * Configure worker budgets through `parallel_absorb(RouterNumber, MaxRounds)` or the `parallel_absorb_rounds` application option; zero drains until empty.
+    * Batch pairs of leaves with SIMD, coalesce completion notifications, and size worker fan-outs to amortize scheduling costs.
   * Add scheduler-numbered parallel routers with `rest_for_one` absorb supervision, asynchronously prepared single-use processes, coalesced wakeups, and idle hibernation.
   * Add high-level EdDSA and ECDH APIs in `libdecaf`, with opaque algorithm-specific keypairs, explicit seed/signing-key formats, and immutable native Ed25519ph/Ed448ph streaming.
   * Modernize `libdecaf_spongerng` with direct native calls, named typespecs, descriptive documentation, and runnable examples while preserving its wrapped-state API.

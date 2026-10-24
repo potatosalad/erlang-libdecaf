@@ -114,11 +114,18 @@ windows(_) ->
     ),
     lists:foreach(
         fun(Block) ->
-            Small = data(2001),
-            H = libdecaf:hash({parallelhash128, 32, Block}, Small),
-            H = libdecaf:parallel_hash({parallelhash128, 32, Block}, Small)
+            Small = data(4 * Block + 17),
+            lists:foreach(
+                fun({Hash, Xof}) ->
+                    H = libdecaf:hash({Hash, 32, Block}, Small),
+                    H = libdecaf:parallel_hash({Hash, 32, Block}, Small),
+                    X = libdecaf:xof({Xof, Block}, Small, 71),
+                    X = libdecaf:parallel_xof({Xof, Block}, Small, 71)
+                end,
+                [{parallelhash128, parallelhashxof128}, {parallelhash256, parallelhashxof256}]
+            )
         end,
-        [1, 7, 168, 8192]
+        [1, 7, 8, 9, 135, 136, 137, 167, 168, 169, 8192, 8193, 16384]
     ).
 
 concurrent_branches(_) ->
@@ -159,6 +166,15 @@ round_limits(_) ->
                 ok = libdecaf_nif:parallel_absorb(Number, 1),
                 After = queued(),
                 true = Before - After >= 0 andalso Before - After =< 1
+            end,
+            lists:seq(1, length(Names))
+        ),
+        lists:foreach(
+            fun(Number) ->
+                Before = queued(),
+                ok = libdecaf_nif:parallel_absorb(Number, 3),
+                After = queued(),
+                true = Before - After >= 0 andalso Before - After =< 3
             end,
             lists:seq(1, length(Names))
         ),

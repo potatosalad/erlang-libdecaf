@@ -1,7 +1,6 @@
 #include "parallel.h"
 #include "internal.h"
-#include <keccak_internal.h>
-#include "../turboshake/turboshake_primitive.h"
+#include "leaf.h"
 #include <decaf/common.h>
 
 void
@@ -130,26 +129,19 @@ libdecaf_nif_parallel_wakeup(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool,
     }
 }
 
+static const uint8_t *
+libdecaf_nif_parallel_leaf_input(const libdecaf_nif_parallel_node_t *node)
+{
+    const libdecaf_nif_parallel_operation_t *operation = node->operation;
+    return operation->input.data + operation->window_offset + node->index * operation->block_size;
+}
+
 static void
-libdecaf_nif_parallel_leaf(ErlNifEnv *env, libdecaf_nif_parallel_node_t *node)
+libdecaf_nif_parallel_leaf_complete(ErlNifEnv *env, libdecaf_nif_parallel_node_t *node)
 {
     libdecaf_nif_parallel_operation_t *operation = node->operation;
     size_t index = node->index;
     if (!atomic_load_explicit(&operation->cancelled, memory_order_acquire)) {
-        decaf_keccak_sponge_s leaf;
-        const uint8_t *input = operation->input.data + operation->window_offset + index * operation->block_size;
-        size_t chaining_length = 200 - operation->leaf.rate;
-        if (operation->leaf.turbo) {
-            libdecaf_nif_turboshake_init(&leaf, operation->leaf.rate, 0x0B);
-            libdecaf_nif_turboshake_absorb(&leaf, input, operation->block_size);
-            libdecaf_nif_turboshake_squeeze(&leaf, operation->results[index].chaining, chaining_length);
-        } else {
-            decaf_kparams_s params = {0, 'A', (uint8_t)operation->leaf.rate, 0, 0x1F, 0x80, 0xFF, 0xFF};
-            decaf_sha3_init(&leaf, &params);
-            decaf_sha3_update(&leaf, input, operation->block_size);
-            decaf_sha3_output(&leaf, operation->results[index].chaining, chaining_length);
-        }
-        decaf_bzero(&leaf, sizeof(leaf));
         atomic_store_explicit(&operation->results[index].ready, true, memory_order_release);
     }
     if (atomic_fetch_add_explicit(&operation->completed, 1, memory_order_acq_rel) + 1 == operation->count) {
@@ -176,7 +168,23 @@ libdecaf_nif_parallel_drain(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool, 
         libdecaf_nif_parallel_node_t *node = libdecaf_nif_parallel_queue_pop(queue);
         if (node == NULL)
             break;
-        libdecaf_nif_parallel_leaf(env, node);
+        libdecaf_nif_parallel_operation_t *operation = node->operation;
+        libdecaf_nif_parallel_node_t *second = queue->pending;
+        bool cancelled = atomic_load_explicit(&operation->cancelled, memory_order_acquire);
+        if (!cancelled && second != NULL && second->operation == operation && (max_rounds == 0 || round + 1 < max_rounds)) {
+            second = libdecaf_nif_parallel_queue_pop(queue);
+            libdecaf_nif_parallel_leaf_hash2(operation->leaf, libdecaf_nif_parallel_leaf_input(node),
+                                             libdecaf_nif_parallel_leaf_input(second), operation->block_size,
+                                             operation->results[node->index].chaining, operation->results[second->index].chaining);
+            libdecaf_nif_parallel_leaf_complete(env, node);
+            libdecaf_nif_parallel_leaf_complete(env, second);
+            round++;
+        } else {
+            if (!cancelled)
+                libdecaf_nif_parallel_leaf_hash(operation->leaf, libdecaf_nif_parallel_leaf_input(node), operation->block_size,
+                                                operation->results[node->index].chaining);
+            libdecaf_nif_parallel_leaf_complete(env, node);
+        }
     }
     atomic_flag_clear_explicit(&queue->reader, memory_order_release);
     if (atomic_load(&queue->cleanup))

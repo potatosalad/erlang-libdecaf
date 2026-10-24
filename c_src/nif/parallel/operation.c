@@ -130,7 +130,11 @@ libdecaf_nif_parallel_dispatch(ErlNifEnv *env, libdecaf_nif_parallel_operation_t
     decaf_bzero(counts, sizeof(counts));
     libdecaf_nif_parallel_pool_t *pool = operation->pool;
     size_t first = atomic_fetch_add_explicit(&pool->next_router, 1, memory_order_relaxed) % pool->count;
-    size_t workers = 1 + (operation->count * operation->block_size - 1) / (128 * 1024);
+    /* Small fan-outs amortize process startup and dirty scheduler transitions.
+     * TurboSHAKE's twelve rounds let each worker handle twice as much input.
+     * Assign contiguous leaves so workers do not share adjacent result lines. */
+    size_t target_bytes = operation->leaf.turbo ? 256 * 1024 : 128 * 1024;
+    size_t workers = 1 + (operation->count * operation->block_size - 1) / target_bytes;
     if (workers > pool->count)
         workers = pool->count;
     if (workers > operation->count)
@@ -182,6 +186,9 @@ libdecaf_nif_parallel_operation_step(ErlNifEnv *env, libdecaf_nif_parallel_opera
                 operation->joined++;
             }
             if (operation->joined != operation->count || !atomic_load_explicit(&operation->notified, memory_order_acquire)) {
+                if (operation->joined == operation->count &&
+                    atomic_load_explicit(&operation->completed, memory_order_acquire) == operation->count)
+                    return 2;
                 if (dispatched)
                     return 0;
                 size_t completed = atomic_load_explicit(&operation->completed, memory_order_acquire);
