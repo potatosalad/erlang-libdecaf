@@ -7,6 +7,8 @@ An absorb process is started asynchronously before work arrives. Sending
 `wakeup` dispatches it. While it is working, further wakeups set a single
 pending flag. When it exits, the router prepares a replacement and dispatches
 it if that flag is set. Startup wakeups are coalesced in the same way.
+Failed starts are retried after 250 milliseconds without restarting the router
+or discarding its pending wakeup.
 
 Routers hibernate after five idle seconds. Ready absorb processes wait for
 work without occupying a dirty scheduler.
@@ -42,15 +44,18 @@ RouterName ! wakeup.
     working/3
 ]).
 
+%% Records
 -record(data, {
     router_number :: router_number(),
     absorb_sup :: atom(),
+    starter_monitor :: reference() | undefined,
     token :: reference() | undefined,
     absorb_pid :: pid() | undefined,
     absorb_monitor :: reference() | undefined,
     pending = false :: boolean()
 }).
 
+%% Types
 -type data() :: #data{}.
 -doc "One-based index into the native router-name list.".
 -type router_number() :: pos_integer().
@@ -100,10 +105,10 @@ callback_mode() ->
 
 -doc false.
 -spec init(RouterNumber) -> InitResult when
-    RouterNumber :: router_number(), InitResult :: {ok, starting, data()}.
+    RouterNumber :: router_number(), InitResult :: {ok, starting, data(), [gen_statem:action()]}.
 init(RouterNumber) ->
     Data = #data{router_number = RouterNumber, absorb_sup = libdecaf_parallel_absorb_sup:child_name(RouterNumber)},
-    {ok, starting, start_absorb(Data)}.
+    {ok, starting, Data, [{next_event, internal, start_absorb}]}.
 
 %%%=============================================================================
 %%% gen_statem states
@@ -115,13 +120,16 @@ init(RouterNumber) ->
     EventContent :: dynamic(),
     Data :: data(),
     HandleEventResult :: gen_statem:event_handler_result(starting | ready | working, data()).
+starting(internal, start_absorb, Data) ->
+    start_absorb(Data);
+starting(state_timeout, retry_absorb, Data) ->
+    start_absorb(Data);
 starting(info, wakeup, #data{pending = true}) ->
     keep_state_and_data;
 starting(info, wakeup, Data) ->
     {keep_state, Data#data{pending = true}};
 starting(info, {absorb_ready, Pid, Token}, Data0 = #data{token = Token}) when is_pid(Pid) ->
-    Monitor = monitor(process, Pid),
-    Data = Data0#data{absorb_pid = Pid, absorb_monitor = Monitor},
+    Data = monitor_absorb(Pid, Data0),
     case Data#data.pending of
         true -> start_work(Data);
         false -> {next_state, ready, Data}
@@ -162,21 +170,68 @@ working(EventType, EventContent, Data) ->
     EventContent :: dynamic(),
     Data :: data(),
     HandleEventResult :: gen_statem:event_handler_result(starting, data()).
-handle_event(info, {'DOWN', Monitor, process, Pid, _Reason}, Data = #data{absorb_monitor = Monitor, absorb_pid = Pid}) ->
-    {next_state, starting, start_absorb(Data)};
+handle_event(
+    info, {'DOWN', Monitor, process, _Starter, {absorb_started, Pid}}, Data = #data{starter_monitor = Monitor}
+) when
+    is_reference(Monitor), is_pid(Pid)
+->
+    % Readiness can arrive before or after the starter's DOWN signal.
+    {keep_state, monitor_absorb(Pid, Data#data{starter_monitor = undefined})};
+handle_event(
+    info, {'DOWN', Monitor, process, _Starter, _Reason}, Data = #data{starter_monitor = Monitor, absorb_pid = undefined}
+) when
+    is_reference(Monitor)
+->
+    {keep_state, Data#data{starter_monitor = undefined}, [{state_timeout, 250, retry_absorb}]};
+handle_event(info, {'DOWN', Monitor, process, _Starter, _Reason}, Data = #data{starter_monitor = Monitor}) when
+    is_reference(Monitor)
+->
+    % A registered child can outlive a failed starter; keep using that child.
+    {keep_state, Data#data{starter_monitor = undefined}};
+handle_event(
+    info, {'DOWN', Monitor, process, Pid, _Reason}, Data = #data{absorb_monitor = Monitor, absorb_pid = Pid}
+) when
+    is_reference(Monitor)
+->
+    {next_state, starting, Data#data{absorb_pid = undefined, absorb_monitor = undefined}, [
+        {next_event, internal, start_absorb}
+    ]};
+handle_event(info, {absorb_ready, Pid, Token}, _Data) when is_pid(Pid), is_reference(Token) ->
+    % A late registration from an abandoned attempt must not leave an idle orphan.
+    Pid ! {absorb_rejected, Token},
+    keep_state_and_data;
 handle_event({call, From}, _Request, _Data) ->
-    {keep_state_and_data, [{reply, From, {error, bad_request}}]};
+    {keep_state_and_data, [{reply, From, ignored}]};
 handle_event(_EventType, _EventContent, _Data) ->
     keep_state_and_data.
 
--spec start_absorb(Data) -> NewData when Data :: data(), NewData :: data().
+-spec start_absorb(Data) -> HandleEventResult when
+    Data :: data(), HandleEventResult :: gen_statem:event_handler_result(starting, data()).
 start_absorb(Data = #data{absorb_sup = AbsorbSup}) ->
     Router = self(),
     Token = make_ref(),
-    % Keep supervisor calls outside the router so startup cannot block wakeups.
-    % A startup failure takes down the router and lets its supervisor recover.
-    _ = spawn_link(fun() -> {ok, _Pid} = supervisor:start_child(AbsorbSup, [Router, Token]) end),
-    Data#data{token = Token, absorb_pid = undefined, absorb_monitor = undefined}.
+    % A monitored helper keeps both blocking supervisor calls and startup failures
+    % outside the router. Its result travels in DOWN so a helper crash is handled too.
+    try
+        spawn_monitor(fun() ->
+            case supervisor:start_child(AbsorbSup, [Router, Token]) of
+                {ok, Pid} -> exit({absorb_started, Pid});
+                Result -> exit({absorb_start_failed, Result})
+            end
+        end)
+    of
+        {_Pid, Monitor} ->
+            {keep_state, Data#data{token = Token, starter_monitor = Monitor}}
+    catch
+        error:system_limit ->
+            {keep_state, Data#data{token = Token, starter_monitor = undefined}, [{state_timeout, 250, retry_absorb}]}
+    end.
+
+-spec monitor_absorb(Pid, Data) -> NewData when Pid :: pid(), Data :: data(), NewData :: data().
+monitor_absorb(Pid, Data = #data{absorb_pid = Pid}) ->
+    Data;
+monitor_absorb(Pid, Data = #data{absorb_pid = undefined}) ->
+    Data#data{absorb_pid = Pid, absorb_monitor = monitor(process, Pid)}.
 
 -spec start_work(Data) -> HandleEventResult when
     Data :: data(), HandleEventResult :: {next_state, working, data()}.

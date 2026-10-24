@@ -63,6 +63,8 @@ init(_RouterNumber, RouterPid, Token) ->
     receive
         {wakeup, Token} ->
             libdecaf_nif:parallel_absorb();
+        {absorb_rejected, Token} ->
+            ok;
         {'DOWN', RouterMonitor, process, RouterPid, _Reason} ->
             ok
     end.

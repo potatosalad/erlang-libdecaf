@@ -20,6 +20,8 @@ Parallel router supervision, asynchronous absorb startup, and wakeup coalescing.
     absorb_restart/1,
     coalescing/1,
     startup_wakeup/1,
+    startup_failures/1,
+    starter_crashes/1,
     dirty_cpu/1,
     disabled/1
 ]).
@@ -31,6 +33,8 @@ all() ->
         wakeup,
         coalescing,
         startup_wakeup,
+        startup_failures,
+        starter_crashes,
         absorb_restart,
         router_restart,
         restart,
@@ -141,6 +145,12 @@ startup_wakeup(_) ->
     end,
     Prepared = ready_absorb(1).
 
+startup_failures(_) ->
+    failed_starts(error).
+
+starter_crashes(_) ->
+    failed_starts(crash).
+
 absorb_restart(_) ->
     Name = libdecaf_parallel_router:child_name(1),
     Router = whereis(Name),
@@ -227,6 +237,66 @@ disabled(_) ->
         {ok, _} = application:ensure_all_started(libdecaf)
     end,
     workers([]).
+
+failed_starts(Mode) ->
+    Name = libdecaf_parallel_router:child_name(1),
+    Router = whereis(Name),
+    SupName = libdecaf_parallel_absorb_sup:child_name(1),
+    Sup = whereis(SupName),
+    true = is_pid(Sup),
+    Ancestors = [libdecaf_sup, libdecaf_parallel_routers_sup, libdecaf_parallel_router_sup:child_name(1)],
+    AncestorPids = [whereis(Ancestor) || Ancestor <- Ancestors],
+    Old = ready_absorb(1),
+    Parent = self(),
+    Fake = spawn(fun() -> fail_start_requests(Parent, Mode, 1) end),
+    true = unregister(SupName),
+    true = register(SupName, Fake),
+    try
+        exit(Old, kill),
+        FirstAttempt = start_attempt(Fake, 1),
+        lists:foreach(fun(_) -> Name ! wakeup end, lists:seq(1, 100)),
+        _ = start_attempt(Fake, 2),
+        _ = start_attempt(Fake, 3),
+        LastAttempt = start_attempt(Fake, 4),
+        true = LastAttempt - FirstAttempt >= 700,
+        Router = whereis(Name),
+        AncestorPids = [whereis(Ancestor) || Ancestor <- Ancestors],
+        {starting, _} = sys:get_state(Name, 1000)
+    after
+        true = unregister(SupName),
+        true = register(SupName, Sup),
+        exit(Fake, kill)
+    end,
+    ok = await(fun() -> different_absorb(1, Old) end, 2000),
+    Running = only_absorb(1),
+    true = is_pid(Running),
+    Ref = monitor(process, Running),
+    ok = await(fun() -> in_nif(Running) end, 2000),
+    down(Ref, Running, normal),
+    Prepared = ready_absorb(1),
+    receive
+    after 1100 -> ok
+    end,
+    Prepared = ready_absorb(1),
+    Router = whereis(Name),
+    AncestorPids = [whereis(Ancestor) || Ancestor <- Ancestors].
+
+fail_start_requests(Parent, Mode, Attempt) ->
+    receive
+        {'$gen_call', From = {Starter, _Tag}, {start_child, _Args}} ->
+            Parent ! {start_attempt, self(), Attempt, erlang:monotonic_time(millisecond)},
+            case Mode of
+                error -> gen_server:reply(From, {error, temporarily_unavailable});
+                crash -> exit(Starter, kill)
+            end,
+            fail_start_requests(Parent, Mode, Attempt + 1)
+    end.
+
+start_attempt(Fake, Attempt) ->
+    receive
+        {start_attempt, Fake, Attempt, Time} -> Time
+    after 2000 -> error({no_start_attempt, Attempt})
+    end.
 
 ready_absorb(Number) ->
     Name = libdecaf_parallel_router:child_name(Number),

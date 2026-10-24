@@ -3,6 +3,7 @@
 ## 3.0.0 (????-??-??)
 
 * Fixes
+  * Retry temporary parallel absorb startup failures without restarting routers or losing pending wakeups.
   * Fix ARM64 architecture detection on macOS to use the generic 64-bit implementation.
   * Erase temporary Ed25519 and Ed448 keypairs before returning mismatch errors.
   * Preserve legacy Keccak support in the NIF using the upstream sponge API.
