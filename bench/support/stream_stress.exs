@@ -17,7 +17,7 @@ defmodule LibdecafBench.StreamStress do
 
   def run(api) do
     gib = System.get_env("BENCH_GIB", "4") |> String.to_integer()
-    default_mib = if api in [:parallel_hash, :parallel_xof], do: "32", else: "4"
+    default_mib = if api in [:parallel_hash, :parallel_xof], do: "64", else: "4"
     mib = System.get_env("BENCH_MIB", default_mib) |> String.to_integer()
     rounds = System.get_env("BENCH_ROUNDS", "0") |> String.to_integer()
     callers = System.get_env("BENCH_CALLERS", "1") |> String.to_integer()

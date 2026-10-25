@@ -11,7 +11,7 @@ BENCH_GIB=16 BENCH_MIBS='16 32 64' elixir bench/parallel_hash_sweep.exs
 ```
 
 The general streaming benchmarks default to 4 MiB updates. The dedicated parallel
-benchmarks default to 32 MiB. The sweep covers 4, 8, 16, 32, 64 and 128 MiB.
+benchmarks default to 64 MiB. The sweep covers 4, 8, 16, 32, 64 and 128 MiB.
 Each scenario times complete initialization, updates and finalization, with input
 storage reused. It retains one timed pass; repeat runs on an otherwise idle
 machine before comparing medians. These numbers are not cold-memory bandwidth.
