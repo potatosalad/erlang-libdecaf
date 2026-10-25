@@ -243,33 +243,33 @@ and the ARM SHA3 backend. The parallel APIs reach **41 GB/s for KT128** and
 | HopMAC256 | 1940 MB/s | 31 GB/s | 16× |
 | ParallelHash128 | 1150 MB/s | 21 GB/s | 18× |
 | ParallelHashXOF128 | 1160 MB/s | 20 GB/s | 17× |
-| ParallelHashXOF256 | 930 MB/s | 16 GB/s | 17× |
-| ParallelHash256 | 920 MB/s | 16 GB/s | 17× |
+| ParallelHashXOF256 | 950 MB/s | 16 GB/s | 17× |
+| ParallelHash256 | 900 MB/s | 16 GB/s | 17× |
 | TurboSHAKE128 | 2450 MB/s | — | — |
 | TurboSHAKE256 | 2020 MB/s | — | — |
-| TupleHashXOF128 | 1180 MB/s | — | — |
 | Keccak-XOF-128 | 1180 MB/s | — | — |
+| KMAC128 | 1180 MB/s | — | — |
 | KMACXOF128 | 1180 MB/s | — | — |
 | SHAKE128 | 1180 MB/s | — | — |
 | TupleHash128 | 1180 MB/s | — | — |
-| KMAC128 | 1180 MB/s | — | — |
+| TupleHashXOF128 | 1180 MB/s | — | — |
 | cSHAKE128 | 1170 MB/s | — | — |
-| SHA3-224 | 1020 MB/s | — | — |
 | Keccak-224 | 1020 MB/s | — | — |
-| SHAKE256 | 960 MB/s | — | — |
-| TupleHashXOF256 | 960 MB/s | — | — |
-| KMAC256 | 960 MB/s | — | — |
+| SHA3-224 | 1020 MB/s | — | — |
+| cSHAKE256 | 950 MB/s | — | — |
 | Keccak-256 | 950 MB/s | — | — |
-| KMACXOF256 | 950 MB/s | — | — |
-| TupleHash256 | 950 MB/s | — | — |
-| SHA3-256 | 950 MB/s | — | — |
 | Keccak-XOF-256 | 950 MB/s | — | — |
-| cSHAKE256 | 940 MB/s | — | — |
-| Keccak-384 | 740 MB/s | — | — |
-| SHA3-384 | 730 MB/s | — | — |
-| SHA2-512 | 710 MB/s | — | — |
-| Keccak-512 | 510 MB/s | — | — |
-| SHA3-512 | 510 MB/s | — | — |
+| KMAC256 | 950 MB/s | — | — |
+| KMACXOF256 | 950 MB/s | — | — |
+| SHA3-256 | 950 MB/s | — | — |
+| SHAKE256 | 950 MB/s | — | — |
+| TupleHash256 | 950 MB/s | — | — |
+| TupleHashXOF256 | 950 MB/s | — | — |
+| Keccak-384 | 750 MB/s | — | — |
+| SHA3-384 | 750 MB/s | — | — |
+| SHA2-512 | 700 MB/s | — | — |
+| Keccak-512 | 500 MB/s | — | — |
+| SHA3-512 | 500 MB/s | — | — |
 
 Five warmed streaming passes, including initialization and finalization,
 with reused 64 MiB updates. Ordinary messages are 1 GiB; parallel messages are
