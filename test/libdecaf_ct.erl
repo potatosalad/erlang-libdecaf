@@ -18,7 +18,8 @@
     assert_badarg/3,
     call/3,
     registered_pid/1,
-    unicode_list/1
+    unicode_list/1,
+    halt/1
 ]).
 
 %% Macros
@@ -145,3 +146,26 @@ unicode_list(Text) ->
 -spec call(Module, Function, Arguments) -> Result when
     Module :: module(), Function :: atom(), Arguments :: [term()], Result :: term().
 call(Module, Function, Arguments) -> apply(Module, Function, Arguments).
+
+%% ct_run's counters omit failed end_per_suite/end_per_group callbacks.
+%% Surefire records them as failure elements, even when its totals say zero.
+-spec halt(Status) -> Result when Status :: non_neg_integer(), Result :: no_return().
+halt(0) ->
+    try
+        {ok, [[LogDir]]} = init:get_argument(logdir),
+        Report = filename:join(LogDir, "junit_report.xml"),
+        {Document, _} = xmerl_scan:file(Report, [{quiet, true}]),
+        case xmerl_xpath:string("//failure | //error", Document) of
+            [] ->
+                erlang:halt(0);
+            Failures ->
+                io:format(standard_error, "Common Test recorded ~B failures; see ~ts~n", [length(Failures), Report]),
+                erlang:halt(1)
+        end
+    catch
+        Class:Reason ->
+            io:format(standard_error, "Cannot verify Common Test results: ~p:~tp~n", [Class, Reason]),
+            erlang:halt(1)
+    end;
+halt(Status) ->
+    erlang:halt(Status).

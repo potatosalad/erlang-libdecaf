@@ -19,6 +19,9 @@ ELP and erlfmt are downloaded at pinned versions on first use. For an OTP 28 ELP
 installation, use `ELP_OTP_VERSION=28.5`; the default is its OTP 29.1 build.
 The first full test run downloads the SHA-512, SHA-3, and legacy Keccak vector
 sets. Other maintained conformance vectors are checked in under `test/`.
+Common Test writes `logs/junit_report.xml`; failed tests and failed setup or
+cleanup callbacks all fail the test command. CI retains the HTML and XML logs
+for successful and failed runs.
 
 GitHub CI builds and tests the latest OTP 28 and 29 releases. OTP 29 also runs
 all four lint targets and builds ExDoc, with the HTML available as a workflow

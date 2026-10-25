@@ -9,6 +9,7 @@ Historical libdecaf exports, raw streaming states, and deprecated API contracts.
 -export([
     all/0,
     init_per_suite/1,
+    end_per_suite/1,
     curves/1,
     exports_and_deprecation/1,
     fixed_hashes/1,
@@ -29,6 +30,11 @@ all() ->
 init_per_suite(Config) ->
     {module, libdecaf} = code:ensure_loaded(libdecaf),
     Config.
+
+-spec end_per_suite(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+end_per_suite(_Config) ->
+    _ = application:stop(libdecaf),
+    ok.
 
 -spec exports_and_deprecation(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 exports_and_deprecation(Config) ->
