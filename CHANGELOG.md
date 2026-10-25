@@ -1,58 +1,21 @@
 # Changelog
 
-## 3.0.0 (????-??-??)
+## 3.0.0 (2026-10-25)
 
-* Fixes
-  * Retry temporary parallel absorb startup failures without restarting routers or losing pending wakeups.
-  * Fix ARM64 architecture detection on macOS to use the generic 64-bit implementation.
-  * Erase temporary Ed25519 and Ed448 keypairs before returning mismatch errors.
-  * Preserve legacy Keccak support in the NIF using the upstream sponge API.
-  * Fix native dependency ordering and rebuilds, and update macOS linking flags.
-  * Fix empty-message null-pointer contract violations in the vendored EdDSA and SHA-512 wrappers.
 * Library Support
-  * 3GPP TUAK TOPc derivation and f1, f1*, f2, f3, f4, f5, f5* authentication and key-generation functions, including combined f2345, both key sizes, all specified output lengths, and configurable Keccak iterations.
-    * Dedicated `libdecaf_tuak` API and `tuak_*` NIF functions, tested against all TUAK sets from TS 35.232 and TS 35.233 Release 19.
-  * SP 800-185 KMAC, TupleHash, and ParallelHash at strengths 128 and 256, including their XOF variants, all 36 NIST sample vectors, and all 18 KMAC vectors from draft-ietf-ipsecme-sha3-02.
-  * RFC 9861 HopMAC128 and HopMAC256 with keyed Hash and XOF lifecycles.
-  * RFC 9861 KangarooTwelve KT128 and KT256 with one-shot and incremental customization support.
-  * RFC 9861 TurboSHAKE128 and TurboSHAKE256 with configurable domain separation bytes.
-  * cSHAKE128 and cSHAKE256 with SP 800-185 function-name and customization strings.
-    * `libdecaf:xof/3` and `libdecaf:xof_init/1`, using `cshake128` or `cshake256`.
-  * Original Keccak-XOF-128 and Keccak-XOF-256 through `libdecaf:xof/3` and the incremental XOF API.
-    * Algorithm names: `keccakxof_128` and `keccakxof_256`.
-  * Native streaming Ed25519ph and Ed448ph signing and verification with immutable, algorithm-specific resources.
-    * `ed25519ph_*` and `ed448ph_*` functions on the NIF and respective curve modules.
-    * Separate `*_keypair_sign_init/1,2` and `*_sign_init/1,2` constructors for native keypairs and encoded seed/public key pairs, with shared signing update/final functions.
-    * Native state retains the keypair and context; large prehash updates yield and cancelled updates release their private state.
-  * Ristretto255 and Decaf448 prime-order groups.
-    * `libdecaf_ristretto255` and `libdecaf_decaf448` point and scalar APIs.
-    * Uniform byte mapping and precomputed multiplication.
+  * [Ristretto255 and Decaf448](https://www.rfc-editor.org/rfc/rfc9496.html) group arithmetic.
+  * cSHAKE, KMAC, TupleHash, and ParallelHash, including their XOF variants, from [NIST SP 800-185](https://csrc.nist.gov/pubs/sp/800/185/final).
+  * TurboSHAKE, KangarooTwelve (KT128/KT256), and HopMAC from [RFC 9861](https://www.rfc-editor.org/rfc/rfc9861.html), plus original Keccak XOFs.
+  * [3GPP TUAK](https://www.etsi.org/deliver/etsi_ts/135200_135299/135231/19.00.00_60/ts_135231v190000p.pdf) authentication and key generation.
 * Enhancements
-  * Add parallel Hash and XOF APIs for KT, HopMAC, and ParallelHash with retained input slices, bulk native queues, ordered chaining-value assembly, and caller cancellation.
-    * Configure worker budgets through `parallel_absorb(RouterNumber, MaxRounds)` or the `parallel_absorb_rounds` application option; zero drains until empty.
-    * Batch leaves with runtime-selected two-, four-, or eight-state XKCP/K12 kernels, coalesce completion notifications, and size worker fan-outs to amortize scheduling costs.
-    * Keep full leaf absorb loops in SIMD registers, batch ordered chaining values into root updates, and reduce KT worker wakeups for larger inputs while preserving small-update fan-out.
-    * Overlap two native leaf windows, track readiness per job, and absorb packed chaining values directly into the root without intermediate copies.
-    * Reuse registered absorb workers, steal queued work in short batches, and grow dispatch storage with input up to 4096 leaves. The calling dirty scheduler computes a share of the leaves; bounded root collection runs on normal schedulers.
-    * Queue spans of 16 leaves to reduce resource references and completion atomics; retain exact worker leaf budgets when splitting jobs and safely retire legacy queues on NIF upgrades.
-  * Use pinned XKCP and K12 backends in ed448goldilocks for shared Keccak acceleration, with runtime ARM SHA3 and x86 SSSE3/AVX2/AVX-512 selection and portable fallback.
-    * Add `libdecaf_nif:keccak_info/0` to report the selected backend and parallelism.
-  * Add scheduler-numbered parallel routers with `rest_for_one` absorb supervision, asynchronously prepared reusable workers, coalesced wakeups, and idle hibernation.
-  * Add high-level EdDSA and ECDH APIs in `libdecaf`, with opaque algorithm-specific keypairs, explicit seed/signing-key formats, and immutable native Ed25519ph/Ed448ph streaming.
-  * Modernize `libdecaf_spongerng` with direct native calls, named typespecs, descriptive documentation, and runnable examples while preserving its wrapped-state API.
-  * Add `libdecaf:strong_rand_bytes/1` with automatically seeded thread-local native state, periodic reseeding, and a `crypto:strong_rand_bytes/1` entropy fallback. Warm requests use a normal-scheduler cache; large requests yield, and OS seeding uses dirty I/O schedulers.
-  * Add immutable advancing `absorb`/`squeeze` APIs for every XOF family, following the two-phase streaming interface in the SP 800-185 Revision 1 initial public draft.
-  * Generate the deprecated `libdecaf_sha2`, `libdecaf_sha3`, and `libdecaf_keccak_sha3` compatibility modules, retaining wrapped states and directing callers to the hash and XOF APIs in `libdecaf`.
-  * Add Docker and native ASan, LSan, and UBSan checks for ed448goldilocks and the NIF, including resource cleanup stress.
-  * Expose high-level `hash`/`xof` one-shot and streaming APIs in `libdecaf`, with algorithm-specific one-shot NIFs and explicit `_hash_init`/`_xof_init` constructors.
-  * Give Hash and XOF independent contexts, resource types, registries, dispatch, and trapping lifecycles under `hash/` and `xof/`, with each construction in its own component directory.
-  * Reuse the cSHAKE primitive in KMAC, TupleHash, and ParallelHash, the KT primitive in HopMAC, and TurboSHAKE in KT.
-  * Keep algorithm callbacks private and generate component headers with explicit extern declarations, named parameters, and C++ linkage guards.
-  * Generate opaque Hash and XOF states that retain initialization parameters, including chosen hash output lengths and KT customization, with human-friendly public documentation and runnable examples.
-  * Track C header dependencies so generated atom-table changes rebuild every affected native object.
-  * Upstream update to [`ed448goldilocks` version `features-20261022-v1.0.5`](https://github.com/potatosalad/ed448goldilocks/tree/features-20261022-v1.0.5), based on tag `v1.0.5` (vendored as part of `libdecaf` app).
-  * Add X25519 high-bit, non-canonical coordinate, and low-order input regression tests.
-  * Add RFC 9496 generator, invalid encoding, and uniform byte mapping test vectors.
+  * High-level ECDH, EdDSA, Hash, and XOF APIs, including streaming Ed25519ph/Ed448ph signatures and parallel hashing.
+  * Automatically seeded `libdecaf:strong_rand_bytes/1`.
+  * Runtime-selected XKCP/K12 acceleration for ARM64 and x86-64.
+  * Modern Erlang documentation, typespecs, ExDoc, formatting, type checks, and sanitizer coverage. CI targets OTP 28 and 29.
+  * Preserve historical APIs with deprecation guidance; see [Migrating to 3.0](guides/migrating-to-3.0.md).
+* Fixes
+  * Update ed448goldilocks to v1.0.5 with platform detection, empty-input, and native build fixes.
+  * Clean up temporary key material on errors and recover from parallel worker startup failures.
 
 ## 2.1.1 (2022-08-31)
 
@@ -126,10 +89,10 @@
     * `libdecaf:x448/2`
   * EdDSA
     * `libdecaf:ed25519_derive_public_key/1`
-    * `libdecaf:ed25519_sign/4`
-    * `libdecaf:ed25519_sign_prehash/3`
-    * `libdecaf:ed25519_verify/4`
-    * `libdecaf:ed25519_verify_prehash/3`
+    * [libdecaf:ed25519_sign/4](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.2/src/libdecaf.erl)
+    * [libdecaf:ed25519_sign_prehash/3](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.2/src/libdecaf.erl)
+    * [libdecaf:ed25519_verify/4](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.2/src/libdecaf.erl)
+    * [libdecaf:ed25519_verify_prehash/3](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.2/src/libdecaf.erl)
     * `libdecaf:ed448_derive_public_key/1`
     * `libdecaf:ed448_sign/5`
     * `libdecaf:ed448_sign_prehash/4`
@@ -147,17 +110,17 @@
 
 * Library Support
   * ECDH
-    * `libdecaf:decaf_x25519_base_scalarmul/1`
-    * `libdecaf:decaf_x25519_direct_scalarmul/2`
-    * `libdecaf:decaf_x448_base_scalarmul/1`
-    * `libdecaf:decaf_x448_direct_scalarmul/2`
+    * [libdecaf:decaf_x25519_base_scalarmul/1](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.1/src/libdecaf.erl)
+    * [libdecaf:decaf_x25519_direct_scalarmul/2](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.1/src/libdecaf.erl)
+    * [libdecaf:decaf_x448_base_scalarmul/1](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.1/src/libdecaf.erl)
+    * [libdecaf:decaf_x448_direct_scalarmul/2](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.1/src/libdecaf.erl)
   * EdDSA
-    * `libdecaf:decaf_255_eddsa_derive_public_key/1`
-    * `libdecaf:decaf_255_eddsa_sign/4`
-    * `libdecaf:decaf_255_eddsa_verify/4`
-    * `libdecaf:decaf_448_eddsa_derive_public_key/1`
-    * `libdecaf:decaf_448_eddsa_sign/5`
-    * `libdecaf:decaf_448_eddsa_verify/5`
+    * [libdecaf:decaf_255_eddsa_derive_public_key/1](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.1/src/libdecaf.erl)
+    * [libdecaf:decaf_255_eddsa_sign/4](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.1/src/libdecaf.erl)
+    * [libdecaf:decaf_255_eddsa_verify/4](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.1/src/libdecaf.erl)
+    * [libdecaf:decaf_448_eddsa_derive_public_key/1](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.1/src/libdecaf.erl)
+    * [libdecaf:decaf_448_eddsa_sign/5](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.1/src/libdecaf.erl)
+    * [libdecaf:decaf_448_eddsa_verify/5](https://github.com/potatosalad/erlang-libdecaf/blob/0.0.1/src/libdecaf.erl)
   * SHA-2
     * `libdecaf:sha2_512/2`
     * Streaming support

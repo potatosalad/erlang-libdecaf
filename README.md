@@ -1,121 +1,68 @@
-# libdecaf NIF
+# libdecaf
 
-[![Build Status](https://github.com/potatosalad/erlang-libdecaf/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/potatosalad/erlang-libdecaf/actions) [![Hex.pm](https://img.shields.io/hexpm/v/libdecaf.svg)](https://hex.pm/packages/libdecaf)
+[![CI](https://github.com/potatosalad/erlang-libdecaf/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/potatosalad/erlang-libdecaf/actions)
+[![Hex.pm](https://img.shields.io/hexpm/v/libdecaf.svg)](https://hex.pm/packages/libdecaf)
+[![HexDocs](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/libdecaf)
 
-[ed448goldilocks (libdecaf)](https://sourceforge.net/p/ed448goldilocks) NIF with timeslice reductions for Erlang and Elixir.
+Cryptographic signatures, key agreement, hashes, extendable-output functions (XOFs),
+and random bytes for Erlang and Elixir. Built on
+[ed448goldilocks](https://github.com/potatosalad/ed448goldilocks), with
+[XKCP](https://github.com/XKCP/XKCP) and [K12](https://github.com/XKCP/K12)
+acceleration selected at runtime on ARM64 and x86-64.
 
-See [&ldquo;Decaf: Eliminating cofactors through point compression&rdquo;](https://eprint.iacr.org/2015/673.pdf) by [Mike Hamburg](https://shiftleft.org/) for more information.
+Use `libdecaf` for the high-level API. Specialized modules provide group
+arithmetic, TUAK, and explicit PRNG state management.
 
-The timeslice reductions allow the NIF to perform certain operations on very large inputs without blocking the scheduler or requiring the Erlang VM to support dirty schedulers.  See the [bitwise](https://github.com/vinoski/bitwise) project from which the strategy was derived.
-
-Tested against the [RFC 8032](https://tools.ietf.org/html/rfc8032), [FIPS 180-4](http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf), [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf), and [RFC 7748](https://tools.ietf.org/html/rfc7748) test vectors.
-
-## Algorithm Support
-
-| Algorithm                   | Group             | Purpose       | Definition |
-| --------------------------- | ----------------- | ------------- | ---------- |
-| [Ed25519](#ed25519)         | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.1) |
-| [Ed25519ctx](#ed25519ctx)   | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.1) |
-| [Ed25519ph](#ed25519ph)     | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.1) |
-| [Ed448](#ed448)             | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.2) |
-| [Ed448ph](#ed448ph)         | [EdDSA](#eddsa)   | Signature     | [RFC 8032](https://tools.ietf.org/html/rfc8032#section-5.2) |
-| [TUAK](#tuak) | [KECCAK](#keccak) | Authentication / Key Generation | [3GPP TS 35.231](https://www.etsi.org/deliver/etsi_ts/135200_135299/135231/19.00.00_60/ts_135231v190000p.pdf) |
-| [SPONGERNG](#spongerng)     | [KECCAK](#keccak) | Pseudo-Random | [`decaf/spongerng.h`](https://sourceforge.net/p/ed448goldilocks/code/ci/v1.0/tree/src/public_include/decaf/spongerng.h) |
-| [SHA2-512](#sha-2)          | [SHA-2](#sha-2)   | Hash          | [FIPS 180-4](http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf) |
-| [SHA3-224](#sha-3)          | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [SHA3-256](#sha-3)          | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [SHA3-384](#sha-3)          | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [SHA3-512](#sha-3)          | [SHA-3](#sha-3)   | Hash          | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [KECCAK-224](#keccak-sha-3) | [KECCAK](#keccak) | Hash          | [Keccak submission (version 3)](https://keccak.team/files/Keccak-submission-3.pdf) |
-| [KECCAK-256](#keccak-sha-3) | [KECCAK](#keccak) | Hash          | [Keccak submission (version 3)](https://keccak.team/files/Keccak-submission-3.pdf) |
-| [KECCAK-384](#keccak-sha-3) | [KECCAK](#keccak) | Hash          | [Keccak submission (version 3)](https://keccak.team/files/Keccak-submission-3.pdf) |
-| [KECCAK-512](#keccak-sha-3) | [KECCAK](#keccak) | Hash          | [Keccak submission (version 3)](https://keccak.team/files/Keccak-submission-3.pdf) |
-| [SHAKE128](#sha-3)          | [SHA-3](#sha-3)   | XOF           | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [SHAKE256](#sha-3)          | [SHA-3](#sha-3)   | XOF           | [FIPS 202](http://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf) |
-| [X25519](#x25519)           | [ECDH](#ecdh)     | Key Exchange  | [RFC 7748](https://tools.ietf.org/html/rfc7748#section-5) |
-| [X448](#x448)               | [ECDH](#ecdh)     | Key Exchange  | [RFC 7748](https://tools.ietf.org/html/rfc7748#section-5) |
+[API reference](https://hexdocs.pm/libdecaf/3.0.0/) ·
+[Hash and XOF guide](guides/hash-and-xof.md) ·
+[Migrating to 3.0](guides/migrating-to-3.0.md) ·
+[Changelog](CHANGELOG.md)
 
 ## Installation
 
-Add `libdecaf` to your project's dependencies in `mix.exs`
+Erlang with Rebar3:
+
+```erlang
+{deps, [{libdecaf, "3.0.0"}]}.
+```
+
+Elixir:
 
 ```elixir
 defp deps do
-  [
-    {:libdecaf, "~> 2.1.1"}
-  ]
+  [{:libdecaf, "~> 3.0"}]
 end
 ```
 
-Add `libdecaf` to your project's dependencies in your `Makefile` for [`erlang.mk`](https://github.com/ninenines/erlang.mk) or the following to your `rebar.config`
+For erlang.mk, add `libdecaf` to `DEPS` and set
+`dep_libdecaf = hex 3.0.0`.
+
+Building requires Erlang/OTP 28 or later, GNU Make 4 or later, a C/C++ toolchain
+with C23/C++20 support, CMake 3.22 or later, and Python 3. CI covers the latest
+OTP 28 and OTP 29. The native dependency is included in the package.
+
+## Quick start
+
+Erlang:
 
 ```erlang
-{deps, [
-  {libdecaf, "2.1.1"}
-]}.
+{ok, _} = libdecaf:start(),
+Digest = libdecaf:hash(sha3_256, <<"abc">>),
+<<"3A985DA74FE225B2045C172D6BD390BD855F086E3E9D525B46BFE24511431532">> = binary:encode_hex(Digest),
+Token = libdecaf:strong_rand_bytes(32).
 ```
 
-## Building and testing
+Elixir calls the same Erlang API:
 
-Building from source requires Erlang/OTP 27 or later with development headers,
-GNU Make 4 or later, a C compiler and a C++14 compiler, CMake 3.22 or later, and Python 3.
-Git and `patch` are also required if the vendored C dependency needs to be fetched.
-
-```sh
-gmake
-gmake tests
+```elixir
+{:ok, _} = :libdecaf.start()
+digest = :libdecaf.hash(:sha3_256, "abc")
+token = :libdecaf.strong_rand_bytes(32)
 ```
 
-The native dependency in `c_deps/ed448goldilocks` is vendored from branch
-`features-20261022-v1.0.5`, based on upstream tag `v1.0.5` with an ARM64
-architecture detection fix. If `c_deps` is removed, the build fetches that branch
-automatically and reapplies the local empty-buffer fixes from `c_src/patches/`.
-The first test run downloads the SHA-2, SHA-3, and legacy Keccak
-test vectors. RFC 9496 group test vectors are included in the repository.
+## Signatures and key agreement
 
-## Usage
-
-### Developer tools
-
-The targets download erlfmt and ELP (including eqWAlizer) on demand.
-Building erlfmt uses the installed Rebar3, with a pinned download as a fallback:
-
-```sh
-gmake format      # Format C and Erlang sources
-gmake lint        # Check formatting and run Eqwalizer
-gmake eqwalize-all # Run only Eqwalizer
-```
-
-ELP defaults to its OTP 29.1 build. With OTP 28 or 27, set
-`ELP_OTP_VERSION=28.5` or `ELP_OTP_VERSION=27.3` when installing it.
-The checked-in `.elp.toml` also enables Eqwalizer for ELP editor integrations.
-
-Run the native sanitizer checks with Docker:
-
-```sh
-just sanitizers
-SANITIZERS_STRESS_ITERATIONS=50000 just sanitizers
-```
-
-This builds an ASan-enabled OTP 29 emulator, instruments both ed448goldilocks
-and the NIF with AddressSanitizer and UndefinedBehaviorSanitizer, and enables
-LeakSanitizer at runtime. It runs the upstream `decaf` tests, the current native
-component/hash/XOF Common Test suites, and 10,000 resource/error cleanup iterations.
-Alignment and non-null checks remain enabled. Only OTP's own leak suppressions
-are supplied. Logs and sanitizer reports are retained under `logs/sanitizers/`.
-
-`SANITIZERS_CT_SUITES`, `SANITIZERS_STRESS_ITERATIONS`, `SANITIZERS_JOBS`, and
-`SANITIZERS_COLOR` can customize the run. On Linux with an ASan OTP installation,
-`just sanitizers-native` runs the same checks locally and restores the normal
-native build on exit, including failures. Sanitized upstream objects use the
-separate `c_deps/ed448goldilocks-build-sanitizers/` directory. Docker builds and
-tests run inside the image and leave host build artifacts unchanged.
-
-### EdDSA and ECDH APIs
-
-Use `libdecaf` for algorithm selection, keypair management, and streaming prehash
-signatures. EdDSA keypairs wrap native resources; extraction returns the public
-key and original secret seed, in `{PublicKey, SecretKey}` order.
+Generate an Ed25519 keypair, sign a message, and verify it:
 
 ```erlang
 Keypair = libdecaf:eddsa_keypair(ed25519),
@@ -124,14 +71,8 @@ Signature = libdecaf:eddsa_sign({ed25519, Keypair}, <<"message">>),
 true = libdecaf:eddsa_verify({ed25519, PublicKey}, Signature, <<"message">>).
 ```
 
-Signing accepts an opaque keypair, a seed, an encoded `Seed || PublicKey` signing
-key, or an extracted/curve-module public-secret pair. Supplied public and secret
-parts must match. Verification accepts public keys and keypairs. Messages accept
-iodata. Select `ed25519`, `ed25519ctx`, `ed25519ph`, `ed448`, or `ed448ph`;
-variants other than pure Ed25519 accept an optional binary context of at most
-255 bytes as the third parameter-tuple element.
-
-Ed25519ph and Ed448ph can process original-message chunks incrementally:
+Ed25519ctx, Ed25519ph, Ed448, and Ed448ph accept an optional context in the
+parameter tuple. Ed25519ph and Ed448ph also support streaming:
 
 ```erlang
 Keypair = libdecaf:eddsa_keypair(ed448),
@@ -143,12 +84,9 @@ V1 = libdecaf:eddsa_verify_update(V0, <<"hello world">>),
 true = libdecaf:eddsa_verify_final(V1).
 ```
 
-States are immutable and specific to their curve and signing/verification
-lifecycle. The native state retains the keys, context, and prehash; callers
-should keep the state returned by each update.
+Pass original message bytes; the prehash is computed internally.
 
-ECDH accepts `x25519` or `x448`, with the local secret first and peer public key
-second. Either argument can instead be a keypair:
+For X25519 or X448 key agreement:
 
 ```erlang
 Alice = libdecaf:ecdh_keypair(x25519),
@@ -157,863 +95,125 @@ Shared = libdecaf:ecdh_shared_secret(x25519, Alice, Bob),
 Shared = libdecaf:ecdh_shared_secret(x25519, Bob, Alice).
 ```
 
-`ecdh_shared_secret/3` returns raw bytes or `error` if the native operation rejects
-the peer. Apply the key derivation specified by your protocol to those bytes.
-Both keypair constructors accept existing secret bytes through their second
-arity. EdDSA secret seeds and ECDH scalars are distinct formats: Ed25519 uses a
-32-byte seed, Ed448 a 57-byte seed, X25519 a 32-byte scalar, and X448 a 56-byte scalar.
+Shared secrets are raw bytes for your protocol's key derivation. A rejected
+peer key returns `error`. For curve-specific operations and encoded-key APIs,
+see `libdecaf_curve25519` and `libdecaf_curve448`.
 
-### Hash and XOF APIs
+## Hashes, authentication tags, and XOFs
 
-`libdecaf` exposes the high-level `hash/2`, `hash_init/1`, `hash_update/2`,
-`hash_final/1`, `xof/3`, `xof_init/1`, `xof_absorb/2`, and `xof_squeeze/2` functions.
-Initialization parameters are an algorithm atom or a tuple containing the algorithm
-and its options. All output lengths and ParallelHash block sizes are in bytes.
+Choose the algorithm and options when initializing a stream. Keep each returned
+state; states are immutable and can be reused to branch a computation. Input
+accepts iodata, and all lengths are in **bytes**.
 
 ```erlang
-Parameters = {parallelhash128, 32, 8192, <<"orders/v1">>},
-Digest = libdecaf:hash(Parameters, <<"invoice-42">>),
-H0 = libdecaf:hash_init(Parameters),
-H1 = libdecaf:hash_update(H0, [<<"invoice-">>, <<"42">>]),
-Digest = libdecaf:hash_final(H1).
+H0 = libdecaf:hash_init(sha3_256),
+H1 = libdecaf:hash_update(H0, <<"hello ">>),
+H2 = libdecaf:hash_update(H1, <<"world">>),
+Digest = libdecaf:hash_final(H2),
+Digest = libdecaf:hash(sha3_256, <<"hello world">>).
 ```
 
-Hash parameters put output length before keys, block sizes, or customization:
-
-| Algorithms | Parameter forms |
-| --- | --- |
-| SHA-2, SHA-3, fixed Keccak | `Algorithm`, `{Algorithm, Length}` |
-| SHAKE, Keccak XOF | `{Algorithm, Length}` |
-| cSHAKE | `{Algorithm, Length}`, `{Algorithm, Length, FunctionName, Customization}` |
-| KMAC, HopMAC | `{Algorithm, Length, Key}`, `{Algorithm, Length, Key, Customization}` |
-| KT | `Algorithm`, `{Algorithm, Length}`, `{Algorithm, Length, Customization}` |
-| TurboSHAKE | `Algorithm`, `{Algorithm, Length}`, `{Algorithm, Length, Domain}` |
-| TupleHash | `{Algorithm, Length}`, `{Algorithm, Length, Customization}` |
-| ParallelHash | `{Algorithm, Length, BlockSize}`, `{Algorithm, Length, BlockSize, Customization}` |
-
-XOF initialization leaves out the output length. `xof/3` takes the same
-initialization parameters, input, and an explicit output length:
+KMAC and HopMAC take a key and optional customization string:
 
 ```erlang
-X0 = libdecaf:xof_init({parallelhashxof128, 8192, <<"orders/v1">>}),
-X1 = libdecaf:xof_absorb(X0, <<"invoice-42">>),
+Key = libdecaf:strong_rand_bytes(32),
+Tag = libdecaf:hash({kmac128, 32, Key, <<"orders/v1">>}, <<"invoice-42">>).
+```
+
+XOFs let you read as much output as needed. Once squeezing starts, the returned
+state can keep squeezing but cannot absorb more input:
+
+```erlang
+X0 = libdecaf:xof_init(shake128),
+X1 = libdecaf:xof_absorb(X0, <<"abc">>),
 {X2, First} = libdecaf:xof_squeeze(X1, 16),
 {_X3, Second} = libdecaf:xof_squeeze(X2, 16),
 Output = <<First/binary, Second/binary>>,
-Output = libdecaf:xof({parallelhashxof128, 8192, <<"orders/v1">>}, <<"invoice-42">>, 32).
+Output = libdecaf:xof(shake128, <<"abc">>, 32).
 ```
 
-| XOF algorithms | Initialization parameters |
-| --- | --- |
-| `shake128`, `shake256`, `keccakxof_128`, `keccakxof_256` | `Algorithm` |
-| `cshake128`, `cshake256` | `Algorithm`, `{Algorithm, FunctionName, Customization}` |
-| `kmacxof128`, `kmacxof256`, `hopmac128`, `hopmac256` | `{Algorithm, Key}`, `{Algorithm, Key, Customization}` |
-| `kt128`, `kt256`, `tuplehashxof128`, `tuplehashxof256` | `Algorithm`, `{Algorithm, Customization}` |
-| `turboshake128`, `turboshake256` | `Algorithm`, `{Algorithm, Domain}` |
-| `parallelhashxof128`, `parallelhashxof256` | `{Algorithm, BlockSize}`, `{Algorithm, BlockSize, Customization}` |
-
-Input, keys, and customization accept iodata. TupleHash one-shot input is a list
-of separate elements; each update/absorb adds one whole element. Element boundaries
-change the result. ParallelHash's block size affects the digest; update chunk
-boundaries do not. Blocks are processed serially with constant memory.
-TurboSHAKE's domain is an integer in `1..127`, default `16#1F`. KT and TurboSHAKE
-hash defaults are 32 bytes at strength 128 and 64 at strength 256.
-
-KMAC, TupleHash, and ParallelHash bind the requested hash length into their result.
-Their XOF variants have different framing. Compute hashes at the required length;
-truncating a longer hash or taking the XOF prefix gives a different result.
-States are immutable: retain returned states to advance and reuse older states to
-branch. A squeezing state rejects absorption even after a zero-byte squeeze.
-Keep KMAC/HopMAC states private. Dialyzer checks Hash/XOF state separation;
-Eqwalizer checks selectors and parameter shapes but currently treats resource-backed
-opaque state types structurally. The NIF enforces lifecycle and phase separation.
-
-`libdecaf_nif` also exposes algorithm-specific one-shot functions and explicit
-`<algorithm>_hash_init` / `<algorithm>_xof_init` constructors where supported:
+KT, HopMAC, and ParallelHash can use the parallel APIs for large inputs:
 
 ```erlang
-H = libdecaf_nif:parallelhash128_hash_init(32, 8192, <<"orders/v1">>),
-X = libdecaf_nif:parallelhashxof128_xof_init(8192, <<"orders/v1">>).
+Input = binary:copy(<<"abc">>, 10000),
+Digest = libdecaf:parallel_hash(kt128, Input),
+Digest = libdecaf:hash(kt128, Input).
 ```
 
-They use the same generic lifecycle functions; there are no per-algorithm update,
-final, absorb, or squeeze exports. Each construction lives under its own native
-component directory, including both hash and XOF variants. `hash/` and `xof/` own
-separate context types, algorithm registries, dispatch, and trapping lifecycles.
-Each API accepts only its own native resource type. Algorithm implementations are
-shared through composition: KMAC, TupleHash, and ParallelHash call cSHAKE; HopMAC
-calls KT; KT calls TurboSHAKE.
+The parallel streaming APIs are `parallel_hash_init/1`,
+`parallel_hash_update/2`, `parallel_hash_final/1`, and the corresponding
+`parallel_xof_init/1`, `parallel_xof_absorb/2`, `parallel_xof_squeeze/2` functions.
+They produce the same output as the ordinary APIs.
 
-### ECDH
+See the [Hash and XOF guide](guides/hash-and-xof.md) for parameter forms,
+TupleHash element boundaries, customization, and parallel configuration.
 
-#### X25519
+## Supported algorithms
 
-```erlang
-%% X25519 (curve25519) Key Generation
-{AlicePK25519, AliceSK25519} = libdecaf_curve25519:x25519_keypair().
-% {<<155,64,184,119,41,134,146,219,250,18,4,67,204,130,43,123,254,96,68,174,200,23,238,126,79,238,85,159,186,4,120,75>>, <<32,212,161,45,202,186,28,152,196,19,74,127,44,14,73,165,194,228,179,252,108,220,81,163,201,183,167,144,143,160,212,206>>}
-{BobPK25519, BobSK25519} = libdecaf_curve25519:x25519_keypair().
-% {<<31,100,69,143,46,85,11,129,240,52,225,219,164,100,9,171,242,98,210,112,8,222,150,66,16,160,143,122,102,188,146,10>>, <<39,232,51,250,201,211,41,191,120,143,42,86,105,150,4,24,169,238,245,77,238,40,179,198,96,157,144,229,162,41,205,77>>}
+| Purpose | Algorithms | API |
+| --- | --- | --- |
+| Signatures | Ed25519, Ed25519ctx, Ed25519ph, Ed448, Ed448ph | `libdecaf:eddsa_*` |
+| Key agreement | X25519, X448 | `libdecaf:ecdh_*` |
+| Fixed-output hashes | SHA-512, SHA3-224/256/384/512, original Keccak-224/256/384/512 | `libdecaf:hash*` |
+| XOFs | SHAKE128/256, cSHAKE128/256, Keccak-XOF-128/256, TurboSHAKE128/256, KT128/256 | `libdecaf:hash*`, `libdecaf:xof*` |
+| Authentication | KMAC128/256, KMACXOF128/256, HopMAC128/256 | `libdecaf:hash*`, `libdecaf:xof*` |
+| Structured hashing | TupleHash128/256, ParallelHash128/256 and their XOF variants | `libdecaf:hash*`, `libdecaf:xof*` |
+| Prime-order groups | Ristretto255, Decaf448 | `libdecaf_ristretto255`, `libdecaf_decaf448` |
+| Mobile authentication | TUAK | `libdecaf_tuak` |
+| Random bytes | Automatically seeded SpongeRNG; explicit seeded streams | `libdecaf:strong_rand_bytes/1`, `libdecaf_spongerng` |
 
-%% X25519 Shared Secret
-SharedSecretX25519 = libdecaf_curve25519:x25519(AliceSK25519, BobPK25519).
-% <<83,191,246,24,100,87,227,192,3,237,26,132,143,40,62,213,67,232,33,97,240,8,73,139,64,160,13,107,150,146,246,30>>
-SharedSecretX25519 =:= libdecaf_curve25519:x25519(BobSK25519, AlicePK25519).
-% true
+Implementations are checked against published vectors from RFCs
+[7748](https://www.rfc-editor.org/rfc/rfc7748.html),
+[8032](https://www.rfc-editor.org/rfc/rfc8032.html),
+[9496](https://www.rfc-editor.org/rfc/rfc9496.html), and
+[9861](https://www.rfc-editor.org/rfc/rfc9861.html), NIST
+[FIPS 180-4](https://csrc.nist.gov/pubs/fips/180-4/upd1/final),
+[FIPS 202](https://csrc.nist.gov/pubs/fips/202/final),
+[SP 800-185](https://csrc.nist.gov/pubs/sp/800/185/final), and 3GPP TUAK conformance data.
+
+## Benchmark highlights
+
+Representative **unkeyed parallel hashing** throughput on an Apple M3 Max
+(14 schedulers, OTP 29, ARM SHA3 backend):
+
+| Algorithm | Throughput |
+| --- | ---: |
+| KT128 | 39 GB/s |
+| KT256 | 29 GB/s |
+| ParallelHash128 | 20 GB/s |
+| ParallelHash256 | 16 GB/s |
+
+Whole-number decimal GB/s, using the median of seven warmed passes with
+32 GiB messages, reused 64 MiB updates, 8 KiB ParallelHash blocks, and worker
+budget zero. These are completed hashes, including root processing. Results vary
+with CPU and input size; small messages favor the ordinary API. HopMAC adds
+keyed authentication to KT and is covered separately by the benchmark scripts.
+
+```sh
+elixir bench/parallel_hash_highlights.exs
+elixir bench/parallel_hash_stress.exs
+elixir bench/parallel_xof_stress.exs
 ```
 
-#### X448
+[Benchmark measurements](https://github.com/potatosalad/erlang-libdecaf/blob/3.0.0/bench/parallel_hash.md)
+include size sweeps and native leaf baselines.
 
-```erlang
-%% X448 (curve448) Key Generation
-{AlicePK448, AliceSK448} = libdecaf_curve448:x448_keypair().
-% {<<105,143,129,11,70,98,185,191,191,50,127,193,175,72,161,79,83,138,120,81,31,104,18,241,113,197,243,49,93,92,165,124,198,141,92,186,199,33,67,132,244,217,138,213,64,67,106,63,33,144,227,46,158,169,74,242>>, <<167,49,168,47,44,91,156,96,5,153,110,156,108,175,53,145,63,251,245,180,129,161,206,122,26,197,27,146,248,100,74,167,70,130,43,193,21,169,118,30,80,74,145,200,176,112,94,139,59,250,167,118,103,50,209,53>>}
-{BobPK448, BobSK448} = libdecaf_curve448:x448_keypair().
-% {<<83,3,128,166,199,125,249,189,28,86,204,99,239,204,162,180,230,199,198,77,55,120,44,169,165,153,238,230,47,255,223,187,18,7,65,152,205,235,76,65,152,93,38,236,177,36,70,199,146,235,67,245,226,142,27,24>>, <<90,248,1,221,137,251,205,121,215,99,121,204,122,92,97,157,88,173,213,171,171,83,64,140,72,156,96,242,230,239,89,242,76,190,148,109,13,145,159,138,105,240,246,86,169,137,144,80,241,224,91,73,108,165,156,31>>}
+## Building, testing, and documentation
 
-%% X448 Shared Secret
-SharedSecretX448 = libdecaf_curve448:x448(AliceSK448, BobPK448).
-% <<114,107,110,164,14,165,169,174,160,230,53,253,116,87,238,193,5,2,210,229,81,43,197,195,128,229,181,13,30,139,203,164,6,24,167,53,193,173,199,233,232,41,221,244,18,176,233,77,209,27,22,90,189,218,201,227>>
-SharedSecretX448 =:= libdecaf_curve448:x448(BobSK448, AlicePK448).
-% true
+```sh
+gmake
+gmake tests
+gmake lint
+gmake docs
 ```
 
-### EdDSA
+ExDoc writes the API reference and guides to `doc/index.html`, including source
+links for release `3.0.0`. `rebar3 ex_doc` builds the same documentation directly.
 
-```erlang
-%% EdDSA (edwards25519) Key Generation
-{PK25519, SK25519} = libdecaf_curve25519:eddsa_keypair().
-% {<<211,65,121,173,153,86,193,196,218,254,23,46,4,146,26,124,131,219,63,144,210,48,209,178,189,10,233,246,248,65,158,48>>, <<63,238,247,145,210,20,146,223,78,100,90,126,134,45,223,41,104,231,121,9,5,104,69,122,233,171,44,76,57,171,155,211,211,65,121,173,153,86,193,196,218,254,23,46,4,146,26,124,131,219,63,144,210,48,209,178,189,10,233,246,248,65,158,48>>}
+Use `gmake format` after editing C or Erlang sources. Generated files are
+maintained through `just codegen`. [Development](guides/development.md) covers
+code generation, selected test suites, sanitizers, and package checks.
 
-%% EdDSA (edwards448) Key Generation
-{PK448, SK448} = libdecaf_curve448:eddsa_keypair().
-% {<<241,233,41,181,164,174,226,117,24,66,133,47,149,210,164,224,28,126,128,72,91,188,104,161,195,124,68,135,92,239,242,16,54,103,127,106,169,175,41,108,92,133,176,221,9,217,123,174,85,37,243,51,184,123,208,112,0>>, <<208,201,124,71,171,63,19,141,159,70,248,214,101,209,110,44,221,16,92,150,231,227,56,223,39,52,47,163,35,76,103,204,158,103,184,236,28,255,121,25,147,183,188,212,197,107,37,71,183,104,96,32,107,139,114,245,155,241,233,41,181,164,174,226,117,24,66,133,47,149,210,164,224,28,126,128,72,91,188,104,161,195,124,68,135,92,239,242,16,54,103,127,106,169,175,41,108,92,133,176,221,9,217,123,174,85,37,243,51,184,123,208,112,0>>}
-```
+## License
 
-The following message `M` and context `C` will be used for all signature examples below.
-
-```erlang
-M = <<>>.       % Message used below for signing
-C = <<"test">>. % Context used below by Ed448 and Ed448ph
-```
-
-#### Ed25519
-
-```erlang
-%% Ed25519 Sign
-SigEd25519 = libdecaf_curve25519:ed25519_sign(M, SK25519).
-% <<206,59,70,86,114,42,116,11,30,183,149,16,90,90,105,162,112,182,99,62,90,20,207,102,102,98,230,18,23,175,212,150,146,27,83,120,107,135,209,56,75,214,152,204,24,205,48,128,129,191,174,137,11,189,75,14,7,242,3,255,122,176,182,2>>
-
-%% Ed25519 Verify
-libdecaf_curve25519:ed25519_verify(SigEd25519, M, PK25519).
-% true
-```
-
-#### Ed25519ctx
-
-```erlang
-%% Ed25519ctx Sign
-SigEd25519ctx = libdecaf_curve25519:ed25519ctx_sign(M, SK25519, C).
-% <<121,125,214,50,137,200,252,109,235,4,97,17,231,63,160,143,199,137,100,132,145,175,61,245,212,221,100,99,189,35,73,77,245,64,153,81,110,135,155,211,105,100,232,173,157,219,89,197,185,173,83,83,136,183,47,69,41,27,81,37,28,120,127,0>>
-
-%% Ed25519ctx Verify
-libdecaf_curve25519:ed25519ctx_verify(SigEd25519ctx, M, PK25519, C).
-% true
-```
-
-#### Ed25519ph
-
-```erlang
-%% Ed25519ph Sign
-SigEd25519ph = libdecaf_curve25519:ed25519ph_sign(M, SK25519).
-% <<38,138,35,252,20,194,155,187,120,255,150,145,241,64,155,210,107,134,239,171,190,219,2,221,254,79,19,187,208,183,18,156,190,45,181,85,100,10,19,108,180,189,207,24,244,9,44,13,69,215,88,57,227,71,72,50,84,134,211,28,160,175,164,15>>
-
-%% Ed25519ph Verify
-libdecaf_curve25519:ed25519ph_verify(SigEd25519ph, M, PK25519).
-% true
-```
-
-#### Ed448
-
-```erlang
-%% Ed448 Sign
-SigEd448 = libdecaf_curve448:ed448_sign(M, SK448).
-% <<119,207,247,95,201,79,152,97,43,180,45,185,35,106,183,196,49,213,79,187,29,138,177,18,179,169,69,199,186,168,245,4,237,201,28,60,238,248,239,35,24,16,96,225,82,210,43,71,15,26,235,67,34,209,41,34,0,196,180,145,251,47,102,57,80,10,3,131,169,40,130,129,165,20,33,208,230,218,127,231,61,84,146,237,77,239,56,241,73,165,24,89,55,149,175,238,154,238,27,88,206,242,238,5,161,22,157,229,47,171,26,168,6,0>>
-
-%% Ed448 Verify
-libdecaf_curve448:ed448_verify(SigEd448, M, PK448).
-% true
-
-%% Ed448 Sign with Context
-SigEd448C = libdecaf_curve448:ed448_sign(M, SK448, C).
-% <<198,30,160,202,201,28,194,205,148,240,61,130,243,165,24,200,41,118,93,214,56,253,177,171,146,176,149,237,247,108,171,59,123,218,127,48,4,191,227,3,193,177,33,211,120,44,104,86,71,202,97,76,109,41,178,54,0,214,106,192,185,186,130,72,187,199,95,189,203,25,173,26,36,89,1,91,220,192,18,141,7,168,190,107,76,243,251,56,248,121,183,193,138,72,130,96,119,44,97,69,224,186,129,29,205,60,242,222,247,123,130,7,54,0>>
-
-%% Ed448 Verify with Context
-libdecaf_curve448:ed448_verify(SigEd448C, M, PK448, C).
-% true
-```
-
-#### Ed448ph
-
-```erlang
-%% Ed448ph Sign
-SigEd448ph = libdecaf_curve448:ed448ph_sign(M, SK448).
-% <<61,28,185,125,227,93,73,177,186,177,224,87,60,237,63,115,204,239,209,169,157,197,155,42,67,29,32,148,120,33,52,6,40,207,172,33,82,122,134,20,59,153,62,159,69,229,218,26,163,145,20,237,15,54,164,101,128,204,197,240,72,160,203,235,124,201,33,215,72,197,140,53,203,165,55,190,209,166,212,90,29,69,89,136,159,83,55,110,11,22,45,222,98,164,8,237,166,57,180,150,63,126,227,124,239,6,131,62,140,135,234,94,20,0>>
-
-%% Ed448 Verify
-libdecaf_curve448:ed448ph_verify(SigEd448ph, M, PK448).
-% true
-
-%% Ed448ph Sign with Context
-SigEd448phC = libdecaf_curve448:ed448ph_sign(M, SK448, C).
-% <<231,37,236,141,234,175,12,81,19,66,127,155,15,245,146,181,254,95,216,109,5,90,94,219,70,51,211,22,42,172,96,248,227,95,109,101,142,17,76,5,71,111,73,138,157,28,214,114,69,126,50,44,234,241,25,142,128,199,224,67,223,66,203,103,92,103,153,207,116,200,158,81,228,140,64,67,69,143,112,128,92,229,218,76,149,33,31,79,55,242,221,19,168,143,31,197,73,95,148,73,143,107,18,217,63,136,43,25,218,20,124,118,37,0>>
-
-%% Ed448ph Verify with Context
-libdecaf_curve448:ed448ph_verify(SigEd448phC, M, PK448, C).
-% true
-```
-
-### Streaming prehash signatures
-
-`libdecaf_curve25519` and `libdecaf_curve448` expose native streaming
-Ed25519ph and Ed448ph signatures and verification. The NIF retains the keypair,
-context, and prehash state; message chunks are not kept between updates.
-Signing accepts either a keypair resource or an encoded seed/public key pair. Each update accepts iodata and returns a new immutable state;
-states can be reused, branched, finalized repeatedly, and shared between
-processes. Contexts are binaries of up to 255 bytes and default to `<<>>`.
-
-```erlang
-Keypair = libdecaf_curve25519:keypair_random(),
-PublicKey = libdecaf_curve25519:keypair_extract_public_key(Keypair),
-S0 = libdecaf_curve25519:ed25519ph_keypair_sign_init(Keypair, <<"example">>),
-S1 = libdecaf_curve25519:ed25519ph_sign_update(S0, <<"first chunk">>),
-S2 = libdecaf_curve25519:ed25519ph_sign_update(S1, [<<"second">>, <<" chunk">>]),
-Signature = libdecaf_curve25519:ed25519ph_sign_final(S2),
-
-V0 = libdecaf_curve25519:ed25519ph_verify_init(Signature, PublicKey, <<"example">>),
-V1 = libdecaf_curve25519:ed25519ph_verify_update(V0, <<"first chunksecond chunk">>),
-true = libdecaf_curve25519:ed25519ph_verify_final(V1).
-```
-
-Use the corresponding `ed448ph_*` functions on `libdecaf_curve448` for Ed448ph.
-`ed25519ph_keypair_sign_init/1,2` accepts a native keypair resource, while
-`ed25519ph_sign_init/1,2` accepts the encoded secret seed followed by its public key.
-Both initializers return the same signing state for `ed25519ph_sign_update/2`,
-`ed25519ph_sign_final/1`. Verification uses `ed25519ph_verify_init/2,3`,
-`ed25519ph_verify_update/2`, and `ed25519ph_verify_final/1`.
-
-### TUAK
-
-`libdecaf_tuak` provides the 3GPP TUAK authentication and key-generation functions:
-`topc/2,3`, `f1/5,6`, `f1_star/5,6`, `f2/3,4`, `f3/3,4`, `f4/3,4`, `f5/3,4`,
-`f5_star/3,4`, and the combined `f2345/3,4`. Matching `tuak_*` functions are
-available directly from `libdecaf_nif`.
-
-Inputs are fixed-size binaries in the published test-vector byte order. Subscriber
-keys contain 16 or 32 bytes, TOP/TOPc 32 bytes, RAND 16 bytes, SQN six bytes, and
-AMF two bytes. Derive TOPc once for a subscriber key and operator TOP, then reuse
-it with that key and the same iteration count.
-
-```erlang
-Key = binary:copy(<<16#AB>>, 16),
-TOP = binary:copy(<<16#55>>, 32),
-RAND = binary:copy(<<16#42>>, 16),
-SQN = binary:copy(<<16#11>>, 6),
-TOPc = libdecaf_tuak:topc(Key, TOP),
-MAC_A = libdecaf_tuak:f1(Key, TOPc, RAND, SQN, <<255, 255>>),
-<<"F9A54E6AEAA8618D">> = binary:encode_hex(MAC_A),
-{RES, CK, IK, AK} = libdecaf_tuak:f2345(Key, TOPc, RAND, #{res_length => 4}),
-<<"657ACD64">> = binary:encode_hex(RES).
-```
-
-Optional maps select `mac_length` (8/16/32 bytes), `res_length` (4/8/16/32),
-`ck_length` (16/32), `ik_length` (16/32), and positive `iterations`. Each operation
-accepts its applicable options only. Defaults are MAC=8, RES=8, CK=16, IK=16, and
-one complete Keccak-f[1600] iteration.
-
-The RES, CK, and IK lengths jointly select the `f2`–`f5` computation. Use matching
-options for individual calls, or obtain all four results together with `f2345`.
-The implementation is tested against all TUAK sets in the Release 19
-[implementers' data](https://www.etsi.org/deliver/etsi_ts/135200_135299/135232/19.00.00_60/ts_135232v190000p.pdf)
-and [conformance data](https://www.etsi.org/deliver/etsi_ts/135200_135299/135233/19.00.00_60/ts_135233v190000p.pdf).
-
-### Ristretto255 and Decaf448
-
-`libdecaf_ristretto255` and `libdecaf_decaf448` expose the prime-order groups
-defined in [RFC 9496](https://www.rfc-editor.org/rfc/rfc9496.html). Points and
-scalars use canonical little-endian binary encodings: 32 bytes for Ristretto255
-and 56 bytes for Decaf448. Identity points and zero scalars are accepted.
-
-```erlang
-Group = libdecaf_ristretto255,
-Scalar = Group:scalar_random(),
-Point = Group:base_scalarmul(Scalar),
-true = Group:point_is_valid(Point),
-Identity = Group:identity(),
-Identity = Group:point_add(Point, Group:point_negate(Point)),
-Table = Group:precompute(Point),
-Twice = Group:point_double(Point),
-Twice = Group:precomputed_scalarmul(Table, Group:scalar_reduce(<<2>>)).
-```
-
-Both modules provide the same operations:
-
-* `identity/0`, `base/0`, `point_is_valid/1`, and `point_eq/2`.
-* `point_add/2`, `point_sub/2`, `point_negate/1`, and `point_double/1`.
-* `point_scalarmul(Point, Scalar)`, `base_scalarmul(Scalar)`, and
-  `point_double_scalarmul(Point1, Scalar1, Point2, Scalar2)`.
-* `precompute(Point)` and `precomputed_scalarmul(Table, Scalar)`. Tables are
-  immutable resources and can be shared between processes.
-* `scalar_random/0`, `scalar_is_canonical/1`, `scalar_reduce/1`,
-  `scalar_add/2`, `scalar_sub/2`, `scalar_mul/2`, `scalar_negate/1`,
-  `scalar_halve/1`, and `scalar_invert/1`.
-
-`scalar_reduce/1` reduces an arbitrary-length little-endian integer modulo the
-group order. Other scalar operations require canonical inputs; invalid points,
-scalars, and resource types raise `badarg`. The validation functions return
-`false` for invalid inputs. Inverting the zero scalar returns `error`.
-
-`point_from_hash/1` implements RFC 9496 element derivation from **uniformly
-distributed bytes**: 64 bytes for Ristretto255 or 112 bytes for Decaf448.
-Hash or expand messages to the required length before calling this function.
-`point_from_hash_nonuniform/1` exposes the underlying single mapping with a
-32-byte or 56-byte input; its distribution differs from the uniform mapping.
-Point and scalar operations also have prefixed entry points on `libdecaf`, such
-as `libdecaf:ristretto255_point_add/2`.
-
-### KMAC
-
-`libdecaf:hash/2` implements SP 800-185 KMAC128 and KMAC256. Keys,
-messages, and optional customization accept iodata. Output lengths are in bytes
-and are bound into the tag: compute at the required length instead of truncating.
-
-```erlang
-Key = list_to_binary(lists:seq(16#40, 16#5F)),
-Tag = libdecaf:hash({kmac128, 32, Key}, <<0, 1, 2, 3>>),
-<<"E5780B0D3EA6F7D3A429C5706AA43A00FADBD7D49628839E3187243F456EE14E">> = binary:encode_hex(Tag).
-```
-
-For incremental input, use `hash_init/1`, `hash_update/2`, and `hash_final/1`.
-For KMACXOF, use `xof/3`, `xof_init/1`, `xof_absorb/2`, and `xof_squeeze/2`.
-States are immutable and contain keyed contexts; keep them private like the key.
-NIST-approved uses require at least 16 key bytes for KMAC128 or 32 for KMAC256.
-The primitive also permits shorter keys as defined by the standard.
-
-### HopMAC, TupleHash, and ParallelHash
-
-HopMAC128/256 follow [RFC 9861, Section 4](https://www.rfc-editor.org/rfc/rfc9861.html#section-4).
-Use `hash/2` for a chosen tag length or `xof/3` for output bytes;
-their initializers support incremental messages through the shared lifecycles.
-
-TupleHash and ParallelHash, including their XOF variants, follow
-[NIST SP 800-185](https://csrc.nist.gov/pubs/sp/800/185/final).
-The two-phase XOF interface also follows the
-[Revision 1 initial public draft](https://csrc.nist.gov/pubs/sp/800/185/r1/ipd).
-All six published sample vectors for each of KMAC, KMACXOF, TupleHash,
-TupleHashXOF, ParallelHash, and ParallelHashXOF are checked against the NIF and public API.
-
-```erlang
-TupleDigest = libdecaf:hash({tuplehash128, 32}, [<<"alice">>, <<"invoice-42">>]),
-ParallelDigest = libdecaf:hash({parallelhash128, 32, 8192}, <<"message">>).
-```
-
-### KECCAK
-
-#### XOF streams
-
-Every XOF family uses `xof_absorb/2` and `xof_squeeze/2`. Continue with
-the returned state to read consecutive output chunks. A squeezing state rejects
-further absorption, even after a zero-byte squeeze. The original state remains
-reusable.
-
-```erlang
-State = libdecaf:xof_absorb(libdecaf:xof_init(shake128), <<"abc">>),
-{Next, First} = libdecaf:xof_squeeze(State, 16),
-{_, Second} = libdecaf:xof_squeeze(Next, 16),
-Whole = libdecaf:xof(shake128, <<"abc">>, 32),
-Whole = <<First/binary, Second/binary>>.
-```
-
-##### SPONGERNG
-
-#### `libdecaf_spongerng:init_from_buffer/2`
-
-This function allows you to specify an initial seed buffer and whether the PRNG will be deterministic or not.
-
-```erlang
-%% Deterministic
-libdecaf_spongerng:init_from_buffer(<<>>, true).
-% {spongerng, #Ref<0.0.0.1>}
-%% Non-deterministic
-libdecaf_spongerng:init_from_buffer(<<>>, false).
-% {spongerng, #Ref<0.0.0.2>}
-```
-
-#### `libdecaf_spongerng:init_from_file/3`
-
-This function allows you specify an initial seed file up to the given length and whether the PRNG will be deterministic or not.
-
-```erlang
-%% Deterministic
-libdecaf_spongerng:init_from_file("seed.txt", 16, true).
-% {spongerng, #Ref<0.0.0.3>}
-%% Non-deterministic
-libdecaf_spongerng:init_from_file("seed.txt", 16, false).
-% {spongerng, #Ref<0.0.0.4>}
-```
-
-#### `libdecaf_spongerng:init_from_dev_urandom/0`
-
-This function reads an initial seed from `/dev/urandom` and is only allowed to be non-deterministic.
-
-```erlang
-%% Non-deterministic
-libdecaf_spongerng:init_from_dev_urandom().
-% {spongerng, #Ref<0.0.0.5>}
-```
-
-#### `libdecaf_spongerng:next/2`
-
-This function returns the next length of bytes from the sponge and returns the new sponge state.
-
-```erlang
-Sponge0 = libdecaf_spongerng:init_from_buffer(<<>>, true),
-{Sponge1, Output} = libdecaf_spongerng:next(Sponge0, 8).
-% {{spongerng, #Ref<0.0.0.6>}, <<99,190,253,62,125,162,80,150>>}
-```
-
-#### `libdecaf_spongerng:stir/2`
-
-This function modifies the sponge state (stirs the pot) with the given input.
-
-```erlang
-Sponge0 = libdecaf_spongerng:init_from_buffer(<<>>, true),
-Sponge1 = libdecaf_spongerng:stir(Sponge0, <<"test">>),
-{Sponge2, Output} = libdecaf_spongerng:next(Sponge1, 8).
-% {{spongerng, #Ref<0.0.0.7>}, <<168,214,5,0,60,110,186,33>>}
-```
-
-### KECCAK-SHA-3
-
-This compatibility module is deprecated. Use `libdecaf:hash/2`,
-`libdecaf:hash_init/1`, `libdecaf:hash_update/2`, and `libdecaf:hash_final/1`
-with the same `keccak_*` algorithm names. The replacement APIs use unwrapped states.
-
-#### `libdecaf_keccak_sha3:hash/2`
-
-This function can be used for the following hash algorithms:
-
- * KECCAK-224 (`keccak_224`)
- * KECCAK-256 (`keccak_256`)
- * KECCAK-384 (`keccak_384`)
- * KECCAK-512 (`keccak_512`)
-
-```erlang
-libdecaf_keccak_sha3:hash(keccak_224, <<"test">>).
-% <<59,227,10,159,246,79,52,165,134,17,22,197,25,137,135,173,120,1,101,248,54,110,103,175,244,118,11,94>>
-
-libdecaf_keccak_sha3:hash(keccak_256, <<"test">>).
-% <<156,34,255,95,33,240,184,27,17,62,99,247,219,109,169,79,237,239,17,178,17,155,64,136,184,150,100,251,154,60,182,88>>
-
-libdecaf_keccak_sha3:hash(keccak_384, <<"test">>).
-% <<83,208,186,19,115,7,212,194,249,182,103,76,131,237,189,88,183,12,15,67,64,19,62,208,173,198,251,161,210,71,138,106,3,183,120,130,41,231,117,210,222,138,232,192,117,157,5,39>>
-
-libdecaf_keccak_sha3:hash(keccak_512, <<"test">>).
-% <<30,46,159,194,0,43,0,45,117,25,139,117,3,33,12,5,161,186,172,69,96,145,106,60,109,147,188,206,58,80,215,240,15,211,149,191,22,71,185,171,184,209,175,204,156,118,194,137,176,201,56,59,163,134,169,86,218,75,56,147,68,23,120,158>>
-```
-
-#### `libdecaf_keccak_sha3:init/1`
-
-This function can be used for the following algorithms:
-
- * KECCAK-224 (`keccak_224`)
- * KECCAK-256 (`keccak_256`)
- * KECCAK-384 (`keccak_384`)
- * KECCAK-512 (`keccak_512`)
-
-##### KECCAK-224 (`keccak_224`)
-
-```erlang
-Sponge0 = libdecaf_keccak_sha3:init(keccak_224).
-% {keccak_224, #Ref<0.0.0.7>}
-```
-
-##### KECCAK-256 (`keccak_256`)
-
-```erlang
-Sponge0 = libdecaf_keccak_sha3:init(keccak_256).
-% {keccak_256, #Ref<0.0.0.8>}
-```
-
-##### KECCAK-384 (`keccak_384`)
-
-```erlang
-Sponge0 = libdecaf_keccak_sha3:init(keccak_384).
-% {keccak_384, #Ref<0.0.0.9>}
-```
-
-##### KECCAK-512 (`keccak_512`)
-
-```erlang
-Sponge0 = libdecaf_keccak_sha3:init(keccak_512).
-% {keccak_512, #Ref<0.0.0.10>}
-```
-
-#### `libdecaf_keccak_sha3:update/2`
-
-This function can be used for the following algorithms:
-
- * KECCAK-224 (`keccak_224`)
- * KECCAK-256 (`keccak_256`)
- * KECCAK-384 (`keccak_384`)
- * KECCAK-512 (`keccak_512`)
-
-The examples below use the `Sponge0` for each algorithm from the examples above for `libdecaf_keccak_sha3:init/1`.
-
-##### KECCAK-224 (`keccak_224`)
-
-```erlang
-Sponge1 = libdecaf_keccak_sha3:update(Sponge0, <<"test">>).
-% {keccak_224, #Ref<0.0.0.17>}
-```
-
-##### KECCAK-256 (`keccak_256`)
-
-```erlang
-Sponge1 = libdecaf_keccak_sha3:update(Sponge0, <<"test">>).
-% {keccak_256, #Ref<0.0.0.18>}
-```
-
-##### KECCAK-384 (`keccak_384`)
-
-```erlang
-Sponge1 = libdecaf_keccak_sha3:update(Sponge0, <<"test">>).
-% {keccak_384, #Ref<0.0.0.19>}
-```
-
-##### KECCAK-512 (`keccak_512`)
-
-```erlang
-Sponge1 = libdecaf_keccak_sha3:update(Sponge0, <<"test">>).
-% {keccak_512, #Ref<0.0.0.20>}
-```
-
-#### `libdecaf_keccak_sha3:final/1`
-
-This function can be used for the following hash algorithms:
-
- * KECCAK-224 (`keccak_224`)
- * KECCAK-256 (`keccak_256`)
- * KECCAK-384 (`keccak_384`)
- * KECCAK-512 (`keccak_512`)
-
-The examples below use the `Sponge1` for each algorithm from the examples above for `libdecaf_keccak_sha3:update/2`.
-
-##### KECCAK-224 (`keccak_224`)
-
-```erlang
-Out = libdecaf_keccak_sha3:final(Sponge1).
-% <<59,227,10,159,246,79,52,165,134,17,22,197,25,137,135,173,120,1,101,248,54,110,103,175,244,118,11,94>>
-```
-
-##### KECCAK-256 (`keccak_256`)
-
-```erlang
-Out = libdecaf_keccak_sha3:final(Sponge1).
-% <<156,34,255,95,33,240,184,27,17,62,99,247,219,109,169,79,237,239,17,178,17,155,64,136,184,150,100,251,154,60,182,88>>
-```
-
-##### KECCAK-384 (`keccak_384`)
-
-```erlang
-Out = libdecaf_keccak_sha3:final(Sponge1).
-% <<83,208,186,19,115,7,212,194,249,182,103,76,131,237,189,88,183,12,15,67,64,19,62,208,173,198,251,161,210,71,138,106,3,183,120,130,41,231,117,210,222,138,232,192,117,157,5,39>>
-```
-
-##### KECCAK-512 (`keccak_512`)
-
-```erlang
-Out = libdecaf_keccak_sha3:final(Sponge1).
-% <<30,46,159,194,0,43,0,45,117,25,139,117,3,33,12,5,161,186,172,69,96,145,106,60,109,147,188,206,58,80,215,240,15,211,149,191,22,71,185,171,184,209,175,204,156,118,194,137,176,201,56,59,163,134,169,86,218,75,56,147,68,23,120,158>>
-```
-
-### SHA-2
-
-This compatibility module is deprecated. Use `libdecaf:hash/2`,
-`libdecaf:hash_init/1`, `libdecaf:hash_update/2`, and `libdecaf:hash_final/1`
-with `sha2_512`. The replacement APIs use unwrapped states.
-
-#### `libdecaf_sha2:hash/2`
-
-This function can be used for the following algorithms:
-
- * SHA2-512 (`sha2_512`)
-
-##### SHA2-512 (`sha2_512`)
-
-```erlang
-libdecaf_sha2:hash(sha2_512, <<"test">>).
-% <<238,38,176,221,74,247,231,73,170,26,142,227,193,10,233,146,63,97,137,128,119,46,71,63,136,25,165,212,148,14,13,178,122,193,133,248,160,225,213,248,79,136,188,136,127,214,123,20,55,50,195,4,204,95,169,173,142,111,87,245,0,40,168,255>>
-```
-
-#### `libdecaf_sha2:init/1`
-
-This function can be used for the following algorithms:
-
- * SHA2-512 (`sha2_512`)
-
-##### SHA2-512 (`sha2_512`)
-
-```erlang
-Context0 = libdecaf_sha2:init(sha2_512).
-% {sha2_512, #Ref<0.0.0.1>}
-```
-
-#### `libdecaf_sha2:update/2`
-
-This function can be used for the following algorithms:
-
- * SHA2-512 (`sha2_512`)
-
-The examples below use the `Context0` for each algorithm from the examples above for `libdecaf_sha2:init/1`.
-
-##### SHA2-512 (`sha2_512`)
-
-```erlang
-Context1 = libdecaf_sha2:update(Context0, <<"test">>).
-% {sha2_512, #Ref<0.0.0.2>}
-```
-
-#### `libdecaf_sha2:final/2`
-
-This function can be used for the following algorithms:
-
- * SHA2-512 (`sha2_512`)
-
-The examples below use the `Context1` for each algorithm from the examples above for `libdecaf_sha2:update/2`.
-
-##### SHA2-512 (`sha2_512`)
-
-```erlang
-Out = libdecaf_sha2:final(Context1).
-% <<238,38,176,221,74,247,231,73,170,26,142,227,193,10,233,146,63,97,137,128,119,46,71,63,136,25,165,212,148,14,13,178,122,193,133,248,160,225,213,248,79,136,188,136,127,214,123,20,55,50,195,4,204,95,169,173,142,111,87,245,0,40,168,255>>
-```
-
-### SHA-3
-
-This compatibility module is deprecated. Use the `libdecaf:hash*` functions
-for `sha3_*` algorithms. For SHAKE, use `libdecaf:xof/3`,
-`libdecaf:xof_init/1`, `libdecaf:xof_absorb/2`, and
-`libdecaf:xof_squeeze/2`. The replacement APIs use unwrapped states.
-
-#### `libdecaf_sha3:hash/2`
-
-This function can be used for the following hash algorithms:
-
- * SHA3-224 (`sha3_224`)
- * SHA3-256 (`sha3_256`)
- * SHA3-384 (`sha3_384`)
- * SHA3-512 (`sha3_512`)
-
-```erlang
-libdecaf_sha3:hash(sha3_224, <<"test">>).
-% <<55,151,191,10,251,191,202,74,123,187,167,96,42,43,85,39,70,135,101,23,167,249,183,206,45,176,174,123>>
-
-libdecaf_sha3:hash(sha3_256, <<"test">>).
-% <<54,240,40,88,11,176,44,200,39,42,154,2,15,66,0,227,70,226,118,174,102,78,69,238,128,116,85,116,226,245,171,128>>
-
-libdecaf_sha3:hash(sha3_384, <<"test">>).
-% <<229,22,218,187,35,182,227,0,38,134,53,67,40,39,128,163,174,13,204,240,85,81,207,2,149,23,141,127,240,241,180,30,236,185,219,63,242,25,0,124,78,9,114,96,213,134,33,189>>
-
-libdecaf_sha3:hash(sha3_512, <<"test">>).
-% <<158,206,8,110,155,172,73,31,172,92,29,16,70,202,17,215,55,185,42,43,46,189,147,240,5,215,183,16,17,12,10,103,130,136,22,110,127,190,121,104,131,164,242,233,179,202,159,72,79,82,29,12,228,100,52,92,193,174,201,103,121,20,156,20>>
-```
-
-#### `libdecaf_sha3:xof/3`
-
-This function can be used for the following [eXtendable-Output Function (XOF)](https://csrc.nist.gov/glossary/term/extendable_output_function) algorithms:
-
- * SHAKE128 (`shake128`)
- * SHAKE256 (`shake256`)
-
-These algorithms can output arbitrary length digests, so an output length must be specified.
-
-```erlang
-libdecaf_sha3:xof(shake128, <<"test">>, 16).
-% <<211,176,170,156,216,183,37,86,34,206,188,99,30,134,125,64>>
-
-libdecaf_sha3:xof(shake256, <<"test">>, 16).
-% <<181,79,247,37,87,5,167,30,226,146,94,74,62,48,228,26>>
-```
-
-#### `libdecaf_sha3:init/1`
-
-This function can be used for the following algorithms:
-
- * SHA3-224 (`sha3_224`)
- * SHA3-256 (`sha3_256`)
- * SHA3-384 (`sha3_384`)
- * SHA3-512 (`sha3_512`)
- * SHAKE128 (`shake128`)
- * SHAKE256 (`shake256`)
-
-##### SHA3-224 (`sha3_224`)
-
-```erlang
-Sponge0 = libdecaf_sha3:init(sha3_224).
-% {sha3_224, #Ref<0.0.0.3>}
-```
-
-##### SHA3-256 (`sha3_256`)
-
-```erlang
-Sponge0 = libdecaf_sha3:init(sha3_256).
-% {sha3_256, #Ref<0.0.0.4>}
-```
-
-##### SHA3-384 (`sha3_384`)
-
-```erlang
-Sponge0 = libdecaf_sha3:init(sha3_384).
-% {sha3_384, #Ref<0.0.0.5>}
-```
-
-##### SHA3-512 (`sha3_512`)
-
-```erlang
-Sponge0 = libdecaf_sha3:init(sha3_512).
-% {sha3_512, #Ref<0.0.0.6>}
-```
-
-##### SHAKE128 (`shake128`)
-
-```erlang
-Sponge0 = libdecaf_sha3:init(shake128).
-% {shake128, #Ref<0.0.0.11>}
-```
-
-##### SHAKE256 (`shake256`)
-
-```erlang
-Sponge0 = libdecaf_sha3:init(shake256).
-% {shake256, #Ref<0.0.0.12>}
-```
-
-#### `libdecaf_sha3:update/2`
-
-This function can be used for the following algorithms:
-
- * SHA3-224 (`sha3_224`)
- * SHA3-256 (`sha3_256`)
- * SHA3-384 (`sha3_384`)
- * SHA3-512 (`sha3_512`)
- * SHAKE128 (`shake128`)
- * SHAKE256 (`shake256`)
-
-The examples below use the `Sponge0` for each algorithm from the examples above for `libdecaf_sha3:init/1`.
-
-##### SHA3-224 (`sha3_224`)
-
-```erlang
-Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_224, #Ref<0.0.0.13>}
-```
-
-##### SHA3-256 (`sha3_256`)
-
-```erlang
-Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_256, #Ref<0.0.0.14>}
-```
-
-##### SHA3-384 (`sha3_384`)
-
-```erlang
-Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_384, #Ref<0.0.0.15>}
-```
-
-##### SHA3-512 (`sha3_512`)
-
-```erlang
-Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {sha3_512, #Ref<0.0.0.16>}
-```
-
-##### SHAKE128 (`shake128`)
-
-```erlang
-Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {shake128, #Ref<0.0.0.21>}
-```
-
-##### SHAKE256 (`shake256`)
-
-```erlang
-Sponge1 = libdecaf_sha3:update(Sponge0, <<"test">>).
-% {shake256, #Ref<0.0.0.22>}
-```
-
-#### `libdecaf_sha3:final/1`
-
-This function can be used for the following hash algorithms:
-
- * SHA3-224 (`sha3_224`)
- * SHA3-256 (`sha3_256`)
- * SHA3-384 (`sha3_384`)
- * SHA3-512 (`sha3_512`)
-
-The examples below use the `Sponge1` for each algorithm from the examples above for `libdecaf_sha3:update/2`.
-
-##### SHA3-224 (`sha3_224`)
-
-```erlang
-Out = libdecaf_sha3:final(Sponge1).
-% <<55,151,191,10,251,191,202,74,123,187,167,96,42,43,85,39,70,135,101,23,167,249,183,206,45,176,174,123>>
-```
-
-##### SHA3-256 (`sha3_256`)
-
-```erlang
-Out = libdecaf_sha3:final(Sponge1).
-% <<54,240,40,88,11,176,44,200,39,42,154,2,15,66,0,227,70,226,118,174,102,78,69,238,128,116,85,116,226,245,171,128>>
-```
-
-##### SHA3-384 (`sha3_384`)
-
-```erlang
-Out = libdecaf_sha3:final(Sponge1).
-% <<229,22,218,187,35,182,227,0,38,134,53,67,40,39,128,163,174,13,204,240,85,81,207,2,149,23,141,127,240,241,180,30,236,185,219,63,242,25,0,124,78,9,114,96,213,134,33,189>>
-```
-
-##### SHA3-512 (`sha3_512`)
-
-```erlang
-Out = libdecaf_sha3:final(Sponge1).
-% <<158,206,8,110,155,172,73,31,172,92,29,16,70,202,17,215,55,185,42,43,46,189,147,240,5,215,183,16,17,12,10,103,130,136,22,110,127,190,121,104,131,164,242,233,179,202,159,72,79,82,29,12,228,100,52,92,193,174,201,103,121,20,156,20>>
-```
-
-#### `libdecaf_sha3:final/2`
-
-This function can be used for the following [eXtendable-Output Function (XOF)](https://csrc.nist.gov/glossary/term/extendable_output_function) algorithms:
-
- * SHAKE128 (`shake128`)
- * SHAKE256 (`shake256`)
-
-These algorithms can output arbitrary length digests, so an output length must be specified.
-
-The examples below use the `Sponge1` for each algorithm from the examples above for `libdecaf_sha3:update/2`.
-
-##### SHAKE128 (`shake128`)
-
-```erlang
-Out = libdecaf_sha3:final(Sponge1, 16).
-% <<211,176,170,156,216,183,37,86,34,206,188,99,30,134,125,64>>
-```
-
-##### SHAKE256 (`shake256`)
-
-```erlang
-Out = libdecaf_sha3:final(Sponge1, 16).
-% <<181,79,247,37,87,5,167,30,226,146,94,74,62,48,228,26>>
-```
+[MIT](LICENSE.md). Vendored dependencies retain their own license notices.

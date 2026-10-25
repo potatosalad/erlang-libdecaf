@@ -3,6 +3,7 @@
 
 # The directory make downloads the C dependencies sources to.
 /c_deps/ed448goldilocks-build/
+/c_deps/ed448goldilocks-build-asan/
 /c_deps/ed448goldilocks-build-sanitizers/
 !/c_deps/ed448goldilocks/
 

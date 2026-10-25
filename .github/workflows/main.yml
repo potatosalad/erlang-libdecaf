@@ -15,10 +15,14 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{ matrix.otp }}
+          rebar3-version: '3.27.0'
       - name: Build
         run: make -j2
       - name: Test
         run: make tests
+      - name: Documentation
+        if: matrix.otp == '29'
+        run: make docs
       - name: Logs
         uses: actions/upload-artifact@v7
         if: failure()

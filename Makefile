@@ -1,8 +1,18 @@
 PROJECT = libdecaf
-PROJECT_DESCRIPTION = libdecaf NIF for ECDH (X25519, X448), EdDSA (Ed25519, Ed25519ctx, Ed25519ph, Ed448, Ed448ph), curve25519, curve448, spongerng
-PROJECT_VERSION = 2.1.1
+PROJECT_DESCRIPTION = Cryptographic signatures, key agreement, hashes, XOFs, and random bytes for Erlang and Elixir
+PROJECT_VERSION = 3.0.0
+
+HEX_TARBALL_FILES = Makefile erlang.mk rebar.config rebar.lock ex_doc.config README.md CHANGELOG.md LICENSE.md \
+	$(shell git ls-files c_src c_deps/ed448goldilocks include src guides)
 
 include erlang.mk
+
+.PHONY: ex-doc
+
+docs:: ex-doc
+
+ex-doc: app
+	$(verbose) rebar3 ex_doc
 
 .PHONY: eqwalize eqwalize-all distclean-elp
 
@@ -162,7 +172,7 @@ lint-xref:
 
 .PHONY: docker-build docker-load docker-setup docker-save docker-shell docker-test
 
-DOCKER_OTP_VERSION ?= 25.0.4-alpine-3.16.1
+DOCKER_OTP_VERSION ?= 29.1.2-alpine-3.24.3
 
 docker-build::
 	$(gen_verbose) docker build \

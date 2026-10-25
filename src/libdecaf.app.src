@@ -1,8 +1,7 @@
 %%% % @format
 {application, libdecaf, [
-    {description,
-        "libdecaf NIF for ECDH (X25519, X448), EdDSA (Ed25519, Ed25519ctx, Ed25519ph, Ed448, Ed448ph), curve25519, curve448, spongerng"},
-    {vsn, "2.1.1"},
+    {description, "Cryptographic signatures, key agreement, hashes, XOFs, and random bytes for Erlang and Elixir"},
+    {vsn, "3.0.0"},
     {id, "git"},
     {registered, [libdecaf_sup, libdecaf_parallel_routers_sup]},
     {mod, {libdecaf_app, []}},
@@ -14,11 +13,22 @@
     ]},
     {modules, []},
     {licenses, ["MIT"]},
-    {links, [{"Github", "https://github.com/potatosalad/erlang-libdecaf"}]},
-    {include_paths, [
-        "build.config",
-        "erlang.mk",
+    {links, [{"GitHub", "https://github.com/potatosalad/erlang-libdecaf"}]},
+    {exclude_paths, ["c_src/env.mk", "c_deps/ed448goldilocks/.git"]},
+    {exclude_patterns, ["\\.d$", "\\.pyc$", "(^|/)__pycache__(/|$)"]},
+    {files, [
+        "src",
+        "include",
+        "c_src",
+        "c_deps/ed448goldilocks",
+        "guides",
         "Makefile",
-        "c_deps/ed448goldilocks/"
+        "erlang.mk",
+        "rebar.config",
+        "rebar.lock",
+        "ex_doc.config",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENSE.md"
     ]}
 ]}.
