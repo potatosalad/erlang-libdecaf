@@ -12,11 +12,12 @@ Fixed digest prefixes, default lengths, parameter tuples, and native dispatch.
     parameters/1,
     exports/1,
     xof_one_shot/1,
-    isolation/1
+    isolation/1,
+    exact_algorithm_atoms/1
 ]).
 
 -spec all() -> Result when Result :: [ct_suite:ct_test_def()].
-all() -> [fixed_hashes, defaults, parameters, exports, xof_one_shot, isolation].
+all() -> [fixed_hashes, defaults, parameters, exports, xof_one_shot, isolation, exact_algorithm_atoms].
 
 -spec fixed_hashes(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 fixed_hashes(_) ->
@@ -188,3 +189,20 @@ badarg(Fun) ->
         error:badarg -> ok;
         error:{badarg, _, _} -> ok
     end.
+
+-spec exact_algorithm_atoms(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+exact_algorithm_atoms(_) ->
+    HashAlias = binary_to_atom(<<"sha3_256", 0, "suffix">>, latin1),
+    XOFAlias = binary_to_atom(<<"shake128", 0, "suffix">>, latin1),
+    lists:foreach(
+        fun(Module) ->
+            libdecaf_ct:assert_badarg(Module, hash_init, [HashAlias]),
+            libdecaf_ct:assert_badarg(Module, hash, [HashAlias, <<>>]),
+            libdecaf_ct:assert_badarg(Module, xof_init, [XOFAlias]),
+            libdecaf_ct:assert_badarg(Module, xof, [XOFAlias, <<>>, 32]),
+            32 = byte_size(Module:hash(sha3_256, <<>>)),
+            32 = byte_size(Module:xof(shake128, <<>>, 32))
+        end,
+        [libdecaf, libdecaf_nif]
+    ),
+    ok.

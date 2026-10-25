@@ -6,31 +6,16 @@
 #include "../{{ family.header }}"
 {% endfor %}
 
-/* Atom tags identify algorithms across NIF upgrades without retaining pointers
- * into a previous library generation. */
-static const libdecaf_nif_hash_algorithm_t *const libdecaf_nif_hash_algorithms[] = {
-{% for algorithm in ctx.crypto_algorithms() if algorithm.functions("hash", "init") %}
-    &{{ algorithm.symbol }}_hash_algorithm,
-{% endfor %}
-};
-
-static int
-libdecaf_nif_hash_compare(const void *name, const void *entry)
-{
-    const libdecaf_nif_hash_algorithm_t *const *algorithm = entry;
-    return strcmp(name, (*algorithm)->name);
-}
-
+/* Atom tags identify algorithms exactly and remain stable across NIF upgrades. */
 static const libdecaf_nif_hash_algorithm_t *
 libdecaf_nif_hash_lookup(ErlNifEnv *env, ERL_NIF_TERM atom)
 {
-    char name[{{ (ctx.crypto_algorithms() | map(attribute='name') | map('length') | max) + 1 }}];
-    if (!enif_get_atom(env, atom, name, sizeof(name), ERL_NIF_LATIN1))
-        return NULL;
-    const libdecaf_nif_hash_algorithm_t *const *found = bsearch(name, libdecaf_nif_hash_algorithms,
-        sizeof(libdecaf_nif_hash_algorithms) / sizeof(libdecaf_nif_hash_algorithms[0]),
-        sizeof(libdecaf_nif_hash_algorithms[0]), libdecaf_nif_hash_compare);
-    return found != NULL ? *found : NULL;
+    (void)env;
+{% for algorithm in ctx.crypto_algorithms() if algorithm.functions("hash", "init") %}
+    if (atom == ATOM({{ algorithm.name }}))
+        return &{{ algorithm.symbol }}_hash_algorithm;
+{% endfor %}
+    return NULL;
 }
 
 {% include 'c_src/nif/hash/lifecycle.c.inc' %}

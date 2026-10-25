@@ -6,31 +6,16 @@
 #include "../{{ family.header }}"
 {% endfor %}
 
-/* Atom tags identify algorithms across NIF upgrades without retaining pointers
- * into a previous library generation. */
-static const libdecaf_nif_xof_algorithm_t *const libdecaf_nif_xof_algorithms[] = {
-{% for algorithm in ctx.crypto_algorithms() if algorithm.functions("xof", "init") %}
-    &{{ algorithm.symbol }}_xof_algorithm,
-{% endfor %}
-};
-
-static int
-libdecaf_nif_xof_compare(const void *name, const void *entry)
-{
-    const libdecaf_nif_xof_algorithm_t *const *algorithm = entry;
-    return strcmp(name, (*algorithm)->name);
-}
-
+/* Atom tags identify algorithms exactly and remain stable across NIF upgrades. */
 static const libdecaf_nif_xof_algorithm_t *
 libdecaf_nif_xof_lookup(ErlNifEnv *env, ERL_NIF_TERM atom)
 {
-    char name[{{ (ctx.crypto_algorithms() | map(attribute='name') | map('length') | max) + 1 }}];
-    if (!enif_get_atom(env, atom, name, sizeof(name), ERL_NIF_LATIN1))
-        return NULL;
-    const libdecaf_nif_xof_algorithm_t *const *found = bsearch(name, libdecaf_nif_xof_algorithms,
-        sizeof(libdecaf_nif_xof_algorithms) / sizeof(libdecaf_nif_xof_algorithms[0]),
-        sizeof(libdecaf_nif_xof_algorithms[0]), libdecaf_nif_xof_compare);
-    return found != NULL ? *found : NULL;
+    (void)env;
+{% for algorithm in ctx.crypto_algorithms() if algorithm.functions("xof", "init") %}
+    if (atom == ATOM({{ algorithm.name }}))
+        return &{{ algorithm.symbol }}_xof_algorithm;
+{% endfor %}
+    return NULL;
 }
 
 {% include 'c_src/nif/xof/lifecycle.c.inc' %}
