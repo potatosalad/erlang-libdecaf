@@ -81,6 +81,12 @@ jobs:
         if: matrix.lint
         run: make docs
 
+      - name: Hex package and publish dry run
+        if: matrix.lint
+        run: |
+          rebar3 hex build
+          rebar3 hex publish --dry-run --yes
+
       - name: Documentation artifact
         if: matrix.lint
         uses: actions/upload-artifact@v7

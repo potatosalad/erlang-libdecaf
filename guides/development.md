@@ -1,7 +1,8 @@
 # Development
 
-Build prerequisites are listed in the [README](../README.md). Rebar3 is also
-required for lint and ExDoc. Elixir is needed only for the benchmark scripts.
+Build prerequisites are listed in the [README](../README.md). Rebar3 3.28.0 or
+later is required for the development tools and Hex publishing. Elixir is needed
+only for the benchmark scripts.
 Python 3.13+, Poetry, and `just` are needed when changing generated code.
 
 ## Build and test
@@ -87,3 +88,27 @@ The dedicated parallel benchmarks use 64 MiB updates. Their size sweep and
 native leaf baseline help distinguish scheduling overhead from kernel limits.
 The package includes the native sources, vendored dependency, and public guides;
 build it locally to check its contents before publishing.
+
+## Publishing
+
+Use Rebar3 3.28.0 or later with the configured Hex plugin. Check the installed
+version and upgrade a local Rebar3 installation when needed:
+
+```sh
+rebar3 version
+rebar3 local upgrade
+```
+
+Build both package and documentation tarballs, then check the publish workflow
+without uploading anything:
+
+```sh
+rebar3 hex build
+rebar3 hex publish --dry-run --yes
+```
+
+Both tarballs are written under `_build/default/lib/libdecaf/hex/`. Check account
+access with `rebar3 hex user whoami`; use `rebar3 hex user auth` to authenticate
+when needed. After the release tag is in place, publish the package and docs with
+`rebar3 hex publish`. Documentation alone can be published with
+`rebar3 hex publish docs`.
