@@ -18,12 +18,21 @@ def main():
 @click.argument("output_path", type=click.Path())
 @click.argument("templates0_path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.argument("templates1_path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
-def generate(config_file: str, output_path: str, templates0_path: str, templates1_path: str):
+@click.argument("templates2_path", type=click.Path(exists=True, file_okay=False, dir_okay=True), required=False)
+@click.option("--stage", type=click.Choice(["sources", "docs"]), default="sources", show_default=True)
+@click.option("--check", is_flag=True, help="Verify generated documentation without changing files.")
+@click.option("--library-path", type=click.Path(exists=True, file_okay=False), help="Ebin directory of the built library.")
+def generate(config_file, output_path, templates0_path, templates1_path, templates2_path, stage, check, library_path):
     """Generate C and Erlang code from YAML configuration using Jinja2."""
 
-    code_generator: CodeGenerator = CodeGenerator(config_file, output_path, templates0_path, templates1_path)
+    code_generator = CodeGenerator(config_file, output_path, templates0_path, templates1_path, templates2_path)
 
-    code_generator.render()
+    if stage == "docs":
+        code_generator.render_docs(check=check, library_path=library_path)
+    else:
+        if check or library_path:
+            raise click.UsageError("--check and --library-path apply to --stage docs")
+        code_generator.render()
 
 
 @main.command("json-schema")
@@ -40,10 +49,11 @@ def json_schema(output_path: str):
 @click.argument("output_path", type=click.Path())
 @click.argument("templates0_path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.argument("templates1_path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
-def sign(config_file: str, output_path: str, templates0_path: str, templates1_path: str):
+@click.argument("templates2_path", type=click.Path(exists=True, file_okay=False, dir_okay=True), required=False)
+def sign(config_file: str, output_path: str, templates0_path: str, templates1_path: str, templates2_path):
     """Sign C and Erlang code from YAML configuration using Jinja2."""
 
-    code_generator: CodeGenerator = CodeGenerator(config_file, output_path, templates0_path, templates1_path)
+    code_generator = CodeGenerator(config_file, output_path, templates0_path, templates1_path, templates2_path)
 
     code_generator.sign()
 

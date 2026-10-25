@@ -109,6 +109,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Set up Erlang and Rebar3
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: '29'
+          rebar3-version: '3.28.0'
+
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
@@ -124,3 +130,9 @@ jobs:
 
       - name: Generator tests
         run: poetry run pytest
+
+      - name: Build library for documentation examples
+        run: make -C .. -j2
+
+      - name: Verify generated README
+        run: poetry run erlang_libdecaf_codegen generate --stage docs --check config.yaml .. templates0 templates1 templates2

@@ -35,6 +35,25 @@ Change the templates or configuration and run `just codegen`; generated C is
 committed so ordinary builds do not run the generator. Generated files carry a
 content signature applied after formatting, and repeated generation is stable.
 
+`templates2/` renders Markdown after `just codegen` builds the native library.
+It uses the same `~J{ ... }.` and `~J< ... >.` delimiters as the Erlang templates.
+`erlang("Expression")` inserts an Erlang value; `erlang("Expression", "hex")`
+inserts a binary's hexadecimal output. Expressions run against the built NIF.
+Every embedded Erlang code block is then executed with fresh variable bindings
+in a temporary directory. A failed expression prevents documentation replacement.
+Markdown carries its generated signature inside a GFM comment.
+
+To check committed documentation without changing it:
+
+```sh
+gmake
+cd codegen
+poetry run erlang_libdecaf_codegen generate --stage docs --check config.yaml .. templates0 templates1 templates2
+```
+
+`--library-path /path/to/ebin` selects another built library. Benchmark readings
+remain recorded inputs; normal generation does not rerun performance measurements.
+
 The first stage emits the native registration table, component implementations,
 and Erlang modules. `context/crypto.py` defines the Hash/XOF argument contracts;
 `config.yaml` supplies algorithms, rates, and output defaults. Functions, types,

@@ -1,0 +1,1230 @@
+# libdecaf
+
+[![CI](https://github.com/potatosalad/erlang-libdecaf/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/potatosalad/erlang-libdecaf/actions)
+[![Hex.pm](https://img.shields.io/hexpm/v/libdecaf.svg)](https://hex.pm/packages/libdecaf)
+[![HexDocs](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/libdecaf)
+
+Cryptographic signatures, key agreement, hashes, extendable-output functions (XOFs),
+and random bytes for Erlang and Elixir. Built on
+[ed448goldilocks](https://github.com/potatosalad/ed448goldilocks), with
+[XKCP](https://github.com/XKCP/XKCP) and [K12](https://github.com/XKCP/K12)
+acceleration selected at runtime on ARM64 and x86-64.
+
+Use `libdecaf` for the high-level API. Specialized modules provide group
+arithmetic, TUAK, and explicit PRNG state management.
+
+[API reference](https://hexdocs.pm/libdecaf/3.0.0/) ·
+[Hash and XOF guide](guides/hash-and-xof.md) ·
+[Migrating to 3.0](guides/migrating-to-3.0.md) ·
+[Changelog](CHANGELOG.md)
+
+## Algorithm Support
+
+| Algorithm | Group | Purpose | Definition |
+| --- | --- | --- | --- |
+| [Ed25519](#example-ed25519) | [EdDSA](#eddsa) | Signature | [RFC 8032][rfc8032] |
+| [Ed25519ctx](#example-ed25519ctx) | [EdDSA](#eddsa) | Signature | [RFC 8032][rfc8032] |
+| [Ed25519ph](#example-ed25519ph) | [EdDSA](#eddsa) | Signature | [RFC 8032][rfc8032] |
+| [Ed448](#example-ed448) | [EdDSA](#eddsa) | Signature | [RFC 8032][rfc8032] |
+| [Ed448ph](#example-ed448ph) | [EdDSA](#eddsa) | Signature | [RFC 8032][rfc8032] |
+| [X25519](#example-x25519) | [ECDH](#ecdh) | Key agreement | [RFC 7748][rfc7748] |
+| [X448](#example-x448) | [ECDH](#ecdh) | Key agreement | [RFC 7748][rfc7748] |
+| [Ristretto255](#example-ristretto255) | [Curve25519](#example-curve25519) | Prime-order group | [RFC 9496][rfc9496] |
+| [Decaf448](#example-decaf448) | [Curve448](#example-curve448) | Prime-order group | [RFC 9496][rfc9496] |
+| [SHA2-512 (SHA-512)](#example-sha2-512) | [SHA-2](#sha-2) | Hash | [FIPS 180-4][fips180] |
+| [SHA3-224](#example-sha3-224) | [SHA-3](#sha-3) | Hash | [FIPS 202][fips202] |
+| [SHA3-256](#example-sha3-256) | [SHA-3](#sha-3) | Hash | [FIPS 202][fips202] |
+| [SHA3-384](#example-sha3-384) | [SHA-3](#sha-3) | Hash | [FIPS 202][fips202] |
+| [SHA3-512](#example-sha3-512) | [SHA-3](#sha-3) | Hash | [FIPS 202][fips202] |
+| [SHAKE128](#example-shake128) | [SHA-3](#sha-3) | Hash / XOF | [FIPS 202][fips202] |
+| [SHAKE256](#example-shake256) | [SHA-3](#sha-3) | Hash / XOF | [FIPS 202][fips202] |
+| [cSHAKE128](#example-cshake128) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Hash / XOF | [SP 800-185r1][sp800185] |
+| [cSHAKE256](#example-cshake256) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Hash / XOF | [SP 800-185r1][sp800185] |
+| [KMAC128](#example-kmac128) | [SHA-3 Derived Functions](#sha-3-derived-functions) | MAC | [SP 800-185r1][sp800185] |
+| [KMAC256](#example-kmac256) | [SHA-3 Derived Functions](#sha-3-derived-functions) | MAC | [SP 800-185r1][sp800185] |
+| [KMACXOF128](#example-kmacxof128) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Keyed XOF | [SP 800-185r1][sp800185] |
+| [KMACXOF256](#example-kmacxof256) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Keyed XOF | [SP 800-185r1][sp800185] |
+| [ParallelHash128](#example-parallelhash128) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Parallel hash | [SP 800-185r1][sp800185] |
+| [ParallelHash256](#example-parallelhash256) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Parallel hash | [SP 800-185r1][sp800185] |
+| [ParallelHashXOF128](#example-parallelhashxof128) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Parallel XOF | [SP 800-185r1][sp800185] |
+| [ParallelHashXOF256](#example-parallelhashxof256) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Parallel XOF | [SP 800-185r1][sp800185] |
+| [TupleHash128](#example-tuplehash128) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Tuple hash | [SP 800-185r1][sp800185] |
+| [TupleHash256](#example-tuplehash256) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Tuple hash | [SP 800-185r1][sp800185] |
+| [TupleHashXOF128](#example-tuplehashxof128) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Tuple XOF | [SP 800-185r1][sp800185] |
+| [TupleHashXOF256](#example-tuplehashxof256) | [SHA-3 Derived Functions](#sha-3-derived-functions) | Tuple XOF | [SP 800-185r1][sp800185] |
+| [Keccak-224](#example-keccak-224) | [Keccak](#keccak) | Hash | [Keccak submission v3][keccak] |
+| [Keccak-256](#example-keccak-256) | [Keccak](#keccak) | Hash | [Keccak submission v3][keccak] |
+| [Keccak-384](#example-keccak-384) | [Keccak](#keccak) | Hash | [Keccak submission v3][keccak] |
+| [Keccak-512](#example-keccak-512) | [Keccak](#keccak) | Hash | [Keccak submission v3][keccak] |
+| [Keccak-XOF-128](#example-keccak-xof-128) | [Keccak](#keccak) | Hash / XOF | [Keccak submission v3][keccak] |
+| [Keccak-XOF-256](#example-keccak-xof-256) | [Keccak](#keccak) | Hash / XOF | [Keccak submission v3][keccak] |
+| [SpongeRNG](#example-spongerng) | [Keccak](#keccak) | Pseudorandom bytes | [Upstream SpongeRNG API][spongerng] |
+| [TUAK](#example-tuak) | [Keccak](#keccak) | Mobile authentication / key generation | [3GPP TS 35.231][tuak] |
+| [HopMAC128](#example-hopmac128) | [KangarooTwelve](#kangarootwelve) | Parallel MAC / keyed XOF | [RFC 9861][rfc9861] |
+| [HopMAC256](#example-hopmac256) | [KangarooTwelve](#kangarootwelve) | Parallel MAC / keyed XOF | [RFC 9861][rfc9861] |
+| [KT128 (KangarooTwelve)](#example-kt128) | [KangarooTwelve](#kangarootwelve) | Parallel hash / XOF | [RFC 9861][rfc9861] |
+| [KT256](#example-kt256) | [KangarooTwelve](#kangarootwelve) | Parallel hash / XOF | [RFC 9861][rfc9861] |
+| [TurboSHAKE128](#example-turboshake128) | [KangarooTwelve](#kangarootwelve) | Hash / XOF | [RFC 9861][rfc9861] |
+| [TurboSHAKE256](#example-turboshake256) | [KangarooTwelve](#kangarootwelve) | Hash / XOF | [RFC 9861][rfc9861] |
+
+[rfc8032]: https://www.rfc-editor.org/rfc/rfc8032
+[rfc7748]: https://www.rfc-editor.org/rfc/rfc7748
+[rfc9496]: https://www.rfc-editor.org/rfc/rfc9496
+[rfc9861]: https://www.rfc-editor.org/rfc/rfc9861
+[fips180]: https://csrc.nist.gov/pubs/fips/180-4/upd1/final
+[fips202]: https://csrc.nist.gov/pubs/fips/202/final
+[sp800185]: https://csrc.nist.gov/pubs/sp/800/185/r1/ipd
+[keccak]: https://keccak.team/files/Keccak-submission-3.pdf
+[tuak]: https://www.etsi.org/deliver/etsi_ts/135200_135299/135231/19.00.00_60/ts_135231v190000p.pdf
+[spongerng]: https://github.com/potatosalad/erlang-libdecaf/blob/main/c_deps/ed448goldilocks/src/public_include/decaf/spongerng.h
+
+## Installation
+
+Erlang with Rebar3:
+
+```erlang
+{deps, [{libdecaf, "3.0.0"}]}.
+```
+
+Elixir:
+
+```elixir
+defp deps do
+  [{:libdecaf, "~> 3.0"}]
+end
+```
+
+For erlang.mk, add `libdecaf` to `DEPS` and set
+`dep_libdecaf = hex 3.0.0`.
+
+Building requires Erlang/OTP 28 or later, GNU Make 4 or later, a C/C++ toolchain
+with C23/C++20 support, CMake 3.22 or later, and Python 3. CI covers the latest
+OTP 28 and OTP 29. The native dependency is included in the package.
+
+## Quick start
+
+Erlang:
+
+```erlang
+{ok, _} = libdecaf:start(),
+Digest = libdecaf:hash(sha3_256, <<"abc">>),
+<<"~J< erlang("{ok, _} = libdecaf:start(),\nDigest = libdecaf:hash(sha3_256, <<\"abc\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+Token = libdecaf:strong_rand_bytes(32).
+```
+
+Elixir calls the same Erlang API:
+
+```elixir
+{:ok, _} = :libdecaf.start()
+digest = :libdecaf.hash(:sha3_256, "abc")
+token = :libdecaf.strong_rand_bytes(32)
+```
+
+## Signatures and key agreement
+
+Generate an Ed25519 keypair, sign a message, and verify it:
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),
+PublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nPublicKey") >.
+Signature = libdecaf:eddsa_sign({ed25519, Keypair}, <<"message">>),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nSignature = libdecaf:eddsa_sign({ed25519, Keypair}, <<\"message\">>),\nSignature") >.
+true = libdecaf:eddsa_verify({ed25519, PublicKey}, Signature, <<"message">>).
+```
+
+Ed25519ctx, Ed25519ph, Ed448, and Ed448ph accept an optional context in the
+parameter tuple. Ed25519ph and Ed448ph also support streaming:
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed448, binary:copy(<<7>>, 57)),
+S0 = libdecaf:eddsa_sign_init({ed448ph, Keypair, <<"protocol/v1">>}),
+S1 = libdecaf:eddsa_sign_update(S0, [<<"hello ">>, <<"world">>]),
+Signature = libdecaf:eddsa_sign_final(S1),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed448, binary:copy(<<7>>, 57)),\nS0 = libdecaf:eddsa_sign_init({ed448ph, Keypair, <<\"protocol/v1\">>}),\nS1 = libdecaf:eddsa_sign_update(S0, [<<\"hello \">>, <<\"world\">>]),\nSignature = libdecaf:eddsa_sign_final(S1),\nSignature") >.
+V0 = libdecaf:eddsa_verify_init({ed448ph, Keypair, <<"protocol/v1">>}, Signature),
+V1 = libdecaf:eddsa_verify_update(V0, <<"hello world">>),
+true = libdecaf:eddsa_verify_final(V1).
+```
+
+Pass original message bytes; the prehash is computed internally.
+
+For X25519 or X448 key agreement:
+
+```erlang
+Alice = libdecaf:ecdh_keypair(x25519, binary:copy(<<7>>, 32)),
+Bob = libdecaf:ecdh_keypair(x25519, binary:copy(<<19>>, 32)),
+Shared = libdecaf:ecdh_shared_secret(x25519, Alice, Bob),
+% ~J< erlang("Alice = libdecaf:ecdh_keypair(x25519, binary:copy(<<7>>, 32)),\nBob = libdecaf:ecdh_keypair(x25519, binary:copy(<<19>>, 32)),\nShared = libdecaf:ecdh_shared_secret(x25519, Alice, Bob),\nShared") >.
+Shared = libdecaf:ecdh_shared_secret(x25519, Bob, Alice).
+% ~J< erlang("Alice = libdecaf:ecdh_keypair(x25519, binary:copy(<<7>>, 32)),\nBob = libdecaf:ecdh_keypair(x25519, binary:copy(<<19>>, 32)),\nShared = libdecaf:ecdh_shared_secret(x25519, Alice, Bob),\nShared = libdecaf:ecdh_shared_secret(x25519, Bob, Alice),\nShared") >.
+```
+
+Shared secrets are raw bytes for your protocol's key derivation. A rejected
+peer key returns `error`. For curve-specific operations and encoded-key APIs,
+see `libdecaf_curve25519` and `libdecaf_curve448`.
+
+## Hashes, authentication tags, and XOFs
+
+Choose the algorithm and options when initializing a stream. Keep each returned
+state; states are immutable and can be reused to branch a computation. Input
+accepts iodata, and all lengths are in **bytes**.
+
+```erlang
+H0 = libdecaf:hash_init(sha3_256),
+H1 = libdecaf:hash_update(H0, <<"hello ">>),
+H2 = libdecaf:hash_update(H1, <<"world">>),
+Digest = libdecaf:hash_final(H2),
+Digest = libdecaf:hash(sha3_256, <<"hello world">>).
+```
+
+KMAC and HopMAC take a key and optional customization string:
+
+```erlang
+Key = libdecaf:strong_rand_bytes(32),
+Tag = libdecaf:hash({kmac128, 32, Key, <<"orders/v1">>}, <<"invoice-42">>).
+```
+
+XOFs let you read as much output as needed. Once squeezing starts, the returned
+state can keep squeezing but cannot absorb more input:
+
+```erlang
+X0 = libdecaf:xof_init(shake128),
+X1 = libdecaf:xof_absorb(X0, <<"abc">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Output = <<First/binary, Second/binary>>,
+Output = libdecaf:xof(shake128, <<"abc">>, 32).
+```
+
+KT, HopMAC, and ParallelHash can use the parallel APIs for large inputs:
+
+```erlang
+Input = binary:copy(<<"abc">>, 10000),
+Digest = libdecaf:parallel_hash(kt128, Input),
+Digest = libdecaf:hash(kt128, Input).
+```
+
+The parallel streaming APIs are `parallel_hash_init/1`,
+`parallel_hash_update/2`, `parallel_hash_final/1`, and the corresponding
+`parallel_xof_init/1`, `parallel_xof_absorb/2`, `parallel_xof_squeeze/2` functions.
+They produce the same output as the ordinary APIs.
+
+See the [Hash and XOF guide](guides/hash-and-xof.md) for parameter forms,
+TupleHash element boundaries, customization, and parallel configuration.
+
+## Specialized modules
+
+`libdecaf_ristretto255` and `libdecaf_decaf448` provide prime-order group arithmetic.
+`libdecaf_tuak` exposes TUAK authentication and key generation. Use
+`libdecaf:strong_rand_bytes/1` for automatically seeded random bytes, or
+`libdecaf_spongerng` for explicit seeded streams.
+
+Implementations are checked against published vectors from RFCs
+[7748](https://www.rfc-editor.org/rfc/rfc7748.html),
+[8032](https://www.rfc-editor.org/rfc/rfc8032.html),
+[9496](https://www.rfc-editor.org/rfc/rfc9496.html), and
+[9861](https://www.rfc-editor.org/rfc/rfc9861.html), NIST
+[FIPS 180-4](https://csrc.nist.gov/pubs/fips/180-4/upd1/final),
+[FIPS 202](https://csrc.nist.gov/pubs/fips/202/final),
+[SP 800-185](https://csrc.nist.gov/pubs/sp/800/185/final), and 3GPP TUAK conformance data.
+
+## Benchmark highlights
+
+Bulk throughput on an Apple M3 Max with 14 schedulers, OTP 29,
+and the ARM SHA3 backend. The parallel APIs reach **41 GB/s for KT128** and
+**21 GB/s for ParallelHash128**, about **17×** and **18×** their ordinary APIs:
+
+| Algorithm | Ordinary API | Parallel API | Speedup |
+| --- | ---: | ---: | ---: |
+| KT128 | 2410 MB/s | 41 GB/s | 17× |
+| HopMAC128 | 2400 MB/s | 41 GB/s | 17× |
+| KT256 | 1950 MB/s | 31 GB/s | 16× |
+| HopMAC256 | 1940 MB/s | 31 GB/s | 16× |
+| ParallelHash128 | 1150 MB/s | 21 GB/s | 18× |
+| ParallelHashXOF128 | 1160 MB/s | 20 GB/s | 17× |
+| ParallelHashXOF256 | 930 MB/s | 16 GB/s | 17× |
+| ParallelHash256 | 920 MB/s | 16 GB/s | 17× |
+| TurboSHAKE128 | 2450 MB/s | — | — |
+| TurboSHAKE256 | 2020 MB/s | — | — |
+| TupleHashXOF128 | 1180 MB/s | — | — |
+| Keccak-XOF-128 | 1180 MB/s | — | — |
+| KMACXOF128 | 1180 MB/s | — | — |
+| SHAKE128 | 1180 MB/s | — | — |
+| TupleHash128 | 1180 MB/s | — | — |
+| KMAC128 | 1180 MB/s | — | — |
+| cSHAKE128 | 1170 MB/s | — | — |
+| SHA3-224 | 1020 MB/s | — | — |
+| Keccak-224 | 1020 MB/s | — | — |
+| SHAKE256 | 960 MB/s | — | — |
+| TupleHashXOF256 | 960 MB/s | — | — |
+| KMAC256 | 960 MB/s | — | — |
+| Keccak-256 | 950 MB/s | — | — |
+| KMACXOF256 | 950 MB/s | — | — |
+| TupleHash256 | 950 MB/s | — | — |
+| SHA3-256 | 950 MB/s | — | — |
+| Keccak-XOF-256 | 950 MB/s | — | — |
+| cSHAKE256 | 940 MB/s | — | — |
+| Keccak-384 | 740 MB/s | — | — |
+| SHA3-384 | 730 MB/s | — | — |
+| SHA2-512 | 710 MB/s | — | — |
+| Keccak-512 | 510 MB/s | — | — |
+| SHA3-512 | 510 MB/s | — | — |
+
+Five warmed streaming passes, including initialization and finalization,
+with reused 64 MiB updates. Ordinary messages are 1 GiB; parallel messages are
+32 GiB to measure sustained worker-pool throughput. ParallelHash uses 8 KiB blocks;
+workers drain their queues until idle. Ordinary API rates use rounded decimal MB/s; parallel rates use rounded decimal GB/s. Speedups use the unrounded measurements.
+KMACXOF128, KMACXOF256, TupleHashXOF128, TupleHashXOF256, ParallelHashXOF128,
+and ParallelHashXOF256 use the XOF API; other rows use the Hash API. Small messages favor the ordinary API.
+
+[Full measurements and methodology](https://github.com/potatosalad/erlang-libdecaf/blob/main/bench/hash_highlights.md)
+and [parallel size sweeps and native baselines](https://github.com/potatosalad/erlang-libdecaf/blob/main/bench/parallel_hash.md)
+are available for comparison.
+
+## Building, testing, and documentation
+
+```sh
+gmake
+gmake tests
+gmake lint
+gmake docs
+```
+
+ExDoc writes the API reference and guides to `doc/index.html`, including source
+links for release `3.0.0`. `rebar3 ex_doc` builds the same documentation directly.
+
+Use `gmake format` after editing C or Erlang sources. Generated files are
+maintained through `just codegen`. [Development](guides/development.md) covers
+code generation, selected test suites, sanitizers, and package checks.
+
+## Usage
+
+Each example is independent and can be pasted into an Erlang shell.
+
+### ECDH
+
+<a id="example-x25519"></a>
+
+#### X25519
+
+Generate two keypairs and derive the same shared secret from either side:
+
+```erlang
+Alice = libdecaf:ecdh_keypair(x25519, binary:copy(<<7>>, 32)),
+Bob = libdecaf:ecdh_keypair(x25519, binary:copy(<<19>>, 32)),
+{AlicePK, AliceSK} = libdecaf:ecdh_keypair_extract(Alice),
+{BobPK, BobSK} = libdecaf:ecdh_keypair_extract(Bob),
+Shared = libdecaf:ecdh_shared_secret(x25519, AliceSK, BobPK),
+% ~J< erlang("Alice = libdecaf:ecdh_keypair(x25519, binary:copy(<<7>>, 32)),\nBob = libdecaf:ecdh_keypair(x25519, binary:copy(<<19>>, 32)),\n{AlicePK, AliceSK} = libdecaf:ecdh_keypair_extract(Alice),\n{BobPK, BobSK} = libdecaf:ecdh_keypair_extract(Bob),\nShared = libdecaf:ecdh_shared_secret(x25519, AliceSK, BobPK),\nShared") >.
+Shared = libdecaf:ecdh_shared_secret(x25519, BobSK, AlicePK),
+% ~J< erlang("Alice = libdecaf:ecdh_keypair(x25519, binary:copy(<<7>>, 32)),\nBob = libdecaf:ecdh_keypair(x25519, binary:copy(<<19>>, 32)),\n{AlicePK, AliceSK} = libdecaf:ecdh_keypair_extract(Alice),\n{BobPK, BobSK} = libdecaf:ecdh_keypair_extract(Bob),\nShared = libdecaf:ecdh_shared_secret(x25519, AliceSK, BobPK),\nShared = libdecaf:ecdh_shared_secret(x25519, BobSK, AlicePK),\nShared") >.
+Shared = libdecaf:ecdh_shared_secret(x25519, Alice, Bob).
+% ~J< erlang("Alice = libdecaf:ecdh_keypair(x25519, binary:copy(<<7>>, 32)),\nBob = libdecaf:ecdh_keypair(x25519, binary:copy(<<19>>, 32)),\n{AlicePK, AliceSK} = libdecaf:ecdh_keypair_extract(Alice),\n{BobPK, BobSK} = libdecaf:ecdh_keypair_extract(Bob),\nShared = libdecaf:ecdh_shared_secret(x25519, AliceSK, BobPK),\nShared = libdecaf:ecdh_shared_secret(x25519, BobSK, AlicePK),\nShared = libdecaf:ecdh_shared_secret(x25519, Alice, Bob),\nShared") >.
+```
+
+<a id="example-x448"></a>
+
+#### X448
+
+Generate two keypairs and derive the same shared secret from either side:
+
+```erlang
+Alice = libdecaf:ecdh_keypair(x448, binary:copy(<<7>>, 56)),
+Bob = libdecaf:ecdh_keypair(x448, binary:copy(<<19>>, 56)),
+{AlicePK, AliceSK} = libdecaf:ecdh_keypair_extract(Alice),
+{BobPK, BobSK} = libdecaf:ecdh_keypair_extract(Bob),
+Shared = libdecaf:ecdh_shared_secret(x448, AliceSK, BobPK),
+% ~J< erlang("Alice = libdecaf:ecdh_keypair(x448, binary:copy(<<7>>, 56)),\nBob = libdecaf:ecdh_keypair(x448, binary:copy(<<19>>, 56)),\n{AlicePK, AliceSK} = libdecaf:ecdh_keypair_extract(Alice),\n{BobPK, BobSK} = libdecaf:ecdh_keypair_extract(Bob),\nShared = libdecaf:ecdh_shared_secret(x448, AliceSK, BobPK),\nShared") >.
+Shared = libdecaf:ecdh_shared_secret(x448, BobSK, AlicePK),
+% ~J< erlang("Alice = libdecaf:ecdh_keypair(x448, binary:copy(<<7>>, 56)),\nBob = libdecaf:ecdh_keypair(x448, binary:copy(<<19>>, 56)),\n{AlicePK, AliceSK} = libdecaf:ecdh_keypair_extract(Alice),\n{BobPK, BobSK} = libdecaf:ecdh_keypair_extract(Bob),\nShared = libdecaf:ecdh_shared_secret(x448, AliceSK, BobPK),\nShared = libdecaf:ecdh_shared_secret(x448, BobSK, AlicePK),\nShared") >.
+Shared = libdecaf:ecdh_shared_secret(x448, Alice, Bob).
+% ~J< erlang("Alice = libdecaf:ecdh_keypair(x448, binary:copy(<<7>>, 56)),\nBob = libdecaf:ecdh_keypair(x448, binary:copy(<<19>>, 56)),\n{AlicePK, AliceSK} = libdecaf:ecdh_keypair_extract(Alice),\n{BobPK, BobSK} = libdecaf:ecdh_keypair_extract(Bob),\nShared = libdecaf:ecdh_shared_secret(x448, AliceSK, BobPK),\nShared = libdecaf:ecdh_shared_secret(x448, BobSK, AlicePK),\nShared = libdecaf:ecdh_shared_secret(x448, Alice, Bob),\nShared") >.
+```
+
+### EdDSA
+
+<a id="example-ed25519"></a>
+
+#### Ed25519
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),
+PublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nPublicKey") >.
+Signature = libdecaf:eddsa_sign({ed25519, Keypair}, <<"message">>),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nSignature = libdecaf:eddsa_sign({ed25519, Keypair}, <<\"message\">>),\nSignature") >.
+true = libdecaf:eddsa_verify({ed25519, PublicKey}, Signature, <<"message">>),
+false = libdecaf:eddsa_verify({ed25519, PublicKey}, Signature, <<"changed">>).
+```
+
+<a id="example-ed25519ctx"></a>
+
+#### Ed25519ctx
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),
+PublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nPublicKey") >.
+Signature = libdecaf:eddsa_sign({ed25519ctx, Keypair, <<"protocol/v1">>}, <<"message">>),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nSignature = libdecaf:eddsa_sign({ed25519ctx, Keypair, <<\"protocol/v1\">>}, <<\"message\">>),\nSignature") >.
+true = libdecaf:eddsa_verify({ed25519ctx, PublicKey, <<"protocol/v1">>}, Signature, <<"message">>),
+false = libdecaf:eddsa_verify({ed25519ctx, PublicKey, <<"protocol/v1">>}, Signature, <<"changed">>).
+```
+
+<a id="example-ed25519ph"></a>
+
+#### Ed25519ph
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),
+PublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nPublicKey") >.
+Signature = libdecaf:eddsa_sign({ed25519ph, Keypair, <<"protocol/v1">>}, <<"message">>),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nSignature = libdecaf:eddsa_sign({ed25519ph, Keypair, <<\"protocol/v1\">>}, <<\"message\">>),\nSignature") >.
+true = libdecaf:eddsa_verify({ed25519ph, PublicKey, <<"protocol/v1">>}, Signature, <<"message">>),
+false = libdecaf:eddsa_verify({ed25519ph, PublicKey, <<"protocol/v1">>}, Signature, <<"changed">>).
+```
+
+The prehash variant also supports signing and verifying incremental input:
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),
+S0 = libdecaf:eddsa_sign_init({ed25519ph, Keypair, <<"protocol/v1">>}),
+S1 = libdecaf:eddsa_sign_update(S0, <<"first chunk">>),
+S2 = libdecaf:eddsa_sign_update(S1, [<<"second">>, <<" chunk">>]),
+Signature = libdecaf:eddsa_sign_final(S2),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed25519, binary:copy(<<7>>, 32)),\nS0 = libdecaf:eddsa_sign_init({ed25519ph, Keypair, <<\"protocol/v1\">>}),\nS1 = libdecaf:eddsa_sign_update(S0, <<\"first chunk\">>),\nS2 = libdecaf:eddsa_sign_update(S1, [<<\"second\">>, <<\" chunk\">>]),\nSignature = libdecaf:eddsa_sign_final(S2),\nSignature") >.
+V0 = libdecaf:eddsa_verify_init({ed25519ph, Keypair, <<"protocol/v1">>}, Signature),
+V1 = libdecaf:eddsa_verify_update(V0, <<"first chunksecond chunk">>),
+true = libdecaf:eddsa_verify_final(V1).
+```
+
+<a id="example-ed448"></a>
+
+#### Ed448
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed448, binary:copy(<<7>>, 57)),
+PublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed448, binary:copy(<<7>>, 57)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nPublicKey") >.
+Signature = libdecaf:eddsa_sign({ed448, Keypair, <<"protocol/v1">>}, <<"message">>),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed448, binary:copy(<<7>>, 57)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nSignature = libdecaf:eddsa_sign({ed448, Keypair, <<\"protocol/v1\">>}, <<\"message\">>),\nSignature") >.
+true = libdecaf:eddsa_verify({ed448, PublicKey, <<"protocol/v1">>}, Signature, <<"message">>),
+false = libdecaf:eddsa_verify({ed448, PublicKey, <<"protocol/v1">>}, Signature, <<"changed">>).
+```
+
+<a id="example-ed448ph"></a>
+
+#### Ed448ph
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed448, binary:copy(<<7>>, 57)),
+PublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed448, binary:copy(<<7>>, 57)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nPublicKey") >.
+Signature = libdecaf:eddsa_sign({ed448ph, Keypair, <<"protocol/v1">>}, <<"message">>),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed448, binary:copy(<<7>>, 57)),\nPublicKey = libdecaf:eddsa_keypair_extract_public_key(Keypair),\nSignature = libdecaf:eddsa_sign({ed448ph, Keypair, <<\"protocol/v1\">>}, <<\"message\">>),\nSignature") >.
+true = libdecaf:eddsa_verify({ed448ph, PublicKey, <<"protocol/v1">>}, Signature, <<"message">>),
+false = libdecaf:eddsa_verify({ed448ph, PublicKey, <<"protocol/v1">>}, Signature, <<"changed">>).
+```
+
+The prehash variant also supports signing and verifying incremental input:
+
+```erlang
+Keypair = libdecaf:eddsa_keypair(ed448, binary:copy(<<7>>, 57)),
+S0 = libdecaf:eddsa_sign_init({ed448ph, Keypair, <<"protocol/v1">>}),
+S1 = libdecaf:eddsa_sign_update(S0, <<"first chunk">>),
+S2 = libdecaf:eddsa_sign_update(S1, [<<"second">>, <<" chunk">>]),
+Signature = libdecaf:eddsa_sign_final(S2),
+% ~J< erlang("Keypair = libdecaf:eddsa_keypair(ed448, binary:copy(<<7>>, 57)),\nS0 = libdecaf:eddsa_sign_init({ed448ph, Keypair, <<\"protocol/v1\">>}),\nS1 = libdecaf:eddsa_sign_update(S0, <<\"first chunk\">>),\nS2 = libdecaf:eddsa_sign_update(S1, [<<\"second\">>, <<\" chunk\">>]),\nSignature = libdecaf:eddsa_sign_final(S2),\nSignature") >.
+V0 = libdecaf:eddsa_verify_init({ed448ph, Keypair, <<"protocol/v1">>}, Signature),
+V1 = libdecaf:eddsa_verify_update(V0, <<"first chunksecond chunk">>),
+true = libdecaf:eddsa_verify_final(V1).
+```
+
+### SHA-2
+
+<a id="example-sha2-512"></a>
+
+#### SHA2-512
+
+```erlang
+Digest = libdecaf:hash(sha2_512, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash(sha2_512, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init(sha2_512),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+### SHA-3
+
+SHA3-224, SHA3-256, SHA3-384, SHA3-512, SHAKE128, and SHAKE256 follow FIPS 202.
+
+<a id="example-sha3-224"></a>
+
+#### SHA3-224
+
+```erlang
+Digest = libdecaf:hash(sha3_224, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash(sha3_224, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init(sha3_224),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-sha3-256"></a>
+
+#### SHA3-256
+
+```erlang
+Digest = libdecaf:hash(sha3_256, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash(sha3_256, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init(sha3_256),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-sha3-384"></a>
+
+#### SHA3-384
+
+```erlang
+Digest = libdecaf:hash(sha3_384, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash(sha3_384, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init(sha3_384),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-sha3-512"></a>
+
+#### SHA3-512
+
+```erlang
+Digest = libdecaf:hash(sha3_512, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash(sha3_512, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init(sha3_512),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-shake128"></a>
+
+#### SHAKE128
+
+```erlang
+Digest = libdecaf:hash({shake128, 32}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({shake128, 32}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({shake128, 32}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+X0 = libdecaf:xof_init(shake128),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof(shake128, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+<a id="example-shake256"></a>
+
+#### SHAKE256
+
+```erlang
+Digest = libdecaf:hash({shake256, 64}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({shake256, 64}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({shake256, 64}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+X0 = libdecaf:xof_init(shake256),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof(shake256, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+### SHA-3 Derived Functions
+
+cSHAKE128, cSHAKE256, KMAC128, KMAC256, KMACXOF128, KMACXOF256,
+TupleHash128, TupleHash256, TupleHashXOF128, TupleHashXOF256, ParallelHash128,
+ParallelHash256, ParallelHashXOF128, and ParallelHashXOF256 follow
+[SP 800-185r1][sp800185]. Streaming XOFs use `xof_init/1`, `xof_absorb/2`,
+and `xof_squeeze/2`. The implementation is checked against the published NIST
+sample vectors.
+
+<a id="example-cshake128"></a>
+
+#### cSHAKE128
+
+```erlang
+Digest = libdecaf:hash({cshake128, 32, <<>>, <<"orders/v1">>}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({cshake128, 32, <<>>, <<\"orders/v1\">>}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({cshake128, 32, <<>>, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+X0 = libdecaf:xof_init({cshake128, <<>>, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof({cshake128, <<>>, <<"orders/v1">>}, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+<a id="example-cshake256"></a>
+
+#### cSHAKE256
+
+```erlang
+Digest = libdecaf:hash({cshake256, 64, <<>>, <<"orders/v1">>}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({cshake256, 64, <<>>, <<\"orders/v1\">>}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({cshake256, 64, <<>>, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+X0 = libdecaf:xof_init({cshake256, <<>>, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof({cshake256, <<>>, <<"orders/v1">>}, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+<a id="example-kmac128"></a>
+
+#### KMAC128
+
+```erlang
+Key = binary:copy(<<42>>, 32),
+Digest = libdecaf:hash({kmac128, 32, Key, <<"orders/v1">>}, <<"test">>),
+<<"~J< erlang("Key = binary:copy(<<42>>, 32),\nDigest = libdecaf:hash({kmac128, 32, Key, <<\"orders/v1\">>}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({kmac128, 32, Key, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-kmac256"></a>
+
+#### KMAC256
+
+```erlang
+Key = binary:copy(<<42>>, 32),
+Digest = libdecaf:hash({kmac256, 64, Key, <<"orders/v1">>}, <<"test">>),
+<<"~J< erlang("Key = binary:copy(<<42>>, 32),\nDigest = libdecaf:hash({kmac256, 64, Key, <<\"orders/v1\">>}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({kmac256, 64, Key, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-kmacxof128"></a>
+
+#### KMACXOF128
+
+```erlang
+Key = binary:copy(<<42>>, 32),
+Output = libdecaf:xof({kmacxof128, Key, <<"orders/v1">>}, <<"test">>, 32),
+<<"~J< erlang("Key = binary:copy(<<42>>, 32),\nOutput = libdecaf:xof({kmacxof128, Key, <<\"orders/v1\">>}, <<\"test\">>, 32),\nOutput", "hex") >.">> = binary:encode_hex(Output),
+X0 = libdecaf:xof_init({kmacxof128, Key, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"te">>),
+X2 = libdecaf:xof_absorb(X1, <<"st">>),
+{X3, First} = libdecaf:xof_squeeze(X2, 16),
+{_X4, Second} = libdecaf:xof_squeeze(X3, 16),
+Output = <<First/binary, Second/binary>>.
+```
+
+<a id="example-kmacxof256"></a>
+
+#### KMACXOF256
+
+```erlang
+Key = binary:copy(<<42>>, 32),
+Output = libdecaf:xof({kmacxof256, Key, <<"orders/v1">>}, <<"test">>, 64),
+<<"~J< erlang("Key = binary:copy(<<42>>, 32),\nOutput = libdecaf:xof({kmacxof256, Key, <<\"orders/v1\">>}, <<\"test\">>, 64),\nOutput", "hex") >.">> = binary:encode_hex(Output),
+X0 = libdecaf:xof_init({kmacxof256, Key, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"te">>),
+X2 = libdecaf:xof_absorb(X1, <<"st">>),
+{X3, First} = libdecaf:xof_squeeze(X2, 32),
+{_X4, Second} = libdecaf:xof_squeeze(X3, 32),
+Output = <<First/binary, Second/binary>>.
+```
+
+<a id="example-parallelhash128"></a>
+
+#### ParallelHash128
+
+The block size is 8192 bytes in this example. It is part of the algorithm and affects the result.
+
+```erlang
+Digest = libdecaf:hash({parallelhash128, 32, 8192, <<"orders/v1">>}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({parallelhash128, 32, 8192, <<\"orders/v1\">>}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({parallelhash128, 32, 8192, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-parallelhash256"></a>
+
+#### ParallelHash256
+
+The block size is 8192 bytes in this example. It is part of the algorithm and affects the result.
+
+```erlang
+Digest = libdecaf:hash({parallelhash256, 64, 8192, <<"orders/v1">>}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({parallelhash256, 64, 8192, <<\"orders/v1\">>}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({parallelhash256, 64, 8192, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-parallelhashxof128"></a>
+
+#### ParallelHashXOF128
+
+The block size is 8192 bytes in this example. It is part of the algorithm and affects the result.
+
+```erlang
+Output = libdecaf:xof({parallelhashxof128, 8192, <<"orders/v1">>}, <<"test">>, 32),
+<<"~J< erlang("Output = libdecaf:xof({parallelhashxof128, 8192, <<\"orders/v1\">>}, <<\"test\">>, 32),\nOutput", "hex") >.">> = binary:encode_hex(Output),
+X0 = libdecaf:xof_init({parallelhashxof128, 8192, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"te">>),
+X2 = libdecaf:xof_absorb(X1, <<"st">>),
+{X3, First} = libdecaf:xof_squeeze(X2, 16),
+{_X4, Second} = libdecaf:xof_squeeze(X3, 16),
+Output = <<First/binary, Second/binary>>.
+```
+
+<a id="example-parallelhashxof256"></a>
+
+#### ParallelHashXOF256
+
+The block size is 8192 bytes in this example. It is part of the algorithm and affects the result.
+
+```erlang
+Output = libdecaf:xof({parallelhashxof256, 8192, <<"orders/v1">>}, <<"test">>, 64),
+<<"~J< erlang("Output = libdecaf:xof({parallelhashxof256, 8192, <<\"orders/v1\">>}, <<\"test\">>, 64),\nOutput", "hex") >.">> = binary:encode_hex(Output),
+X0 = libdecaf:xof_init({parallelhashxof256, 8192, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"te">>),
+X2 = libdecaf:xof_absorb(X1, <<"st">>),
+{X3, First} = libdecaf:xof_squeeze(X2, 32),
+{_X4, Second} = libdecaf:xof_squeeze(X3, 32),
+Output = <<First/binary, Second/binary>>.
+```
+
+<a id="example-tuplehash128"></a>
+
+#### TupleHash128
+
+Each update or absorb call adds one complete tuple element; element boundaries affect the result.
+
+```erlang
+Digest = libdecaf:hash({tuplehash128, 32, <<"orders/v1">>}, [<<"alice">>, <<"invoice-42">>]),
+<<"~J< erlang("Digest = libdecaf:hash({tuplehash128, 32, <<\"orders/v1\">>}, [<<\"alice\">>, <<\"invoice-42\">>]),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({tuplehash128, 32, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"alice">>),
+H2 = libdecaf:hash_update(H1, <<"invoice-42">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-tuplehash256"></a>
+
+#### TupleHash256
+
+Each update or absorb call adds one complete tuple element; element boundaries affect the result.
+
+```erlang
+Digest = libdecaf:hash({tuplehash256, 64, <<"orders/v1">>}, [<<"alice">>, <<"invoice-42">>]),
+<<"~J< erlang("Digest = libdecaf:hash({tuplehash256, 64, <<\"orders/v1\">>}, [<<\"alice\">>, <<\"invoice-42\">>]),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({tuplehash256, 64, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"alice">>),
+H2 = libdecaf:hash_update(H1, <<"invoice-42">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-tuplehashxof128"></a>
+
+#### TupleHashXOF128
+
+Each update or absorb call adds one complete tuple element; element boundaries affect the result.
+
+```erlang
+Output = libdecaf:xof({tuplehashxof128, <<"orders/v1">>}, [<<"alice">>, <<"invoice-42">>], 32),
+<<"~J< erlang("Output = libdecaf:xof({tuplehashxof128, <<\"orders/v1\">>}, [<<\"alice\">>, <<\"invoice-42\">>], 32),\nOutput", "hex") >.">> = binary:encode_hex(Output),
+X0 = libdecaf:xof_init({tuplehashxof128, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"alice">>),
+X2 = libdecaf:xof_absorb(X1, <<"invoice-42">>),
+{X3, First} = libdecaf:xof_squeeze(X2, 16),
+{_X4, Second} = libdecaf:xof_squeeze(X3, 16),
+Output = <<First/binary, Second/binary>>.
+```
+
+<a id="example-tuplehashxof256"></a>
+
+#### TupleHashXOF256
+
+Each update or absorb call adds one complete tuple element; element boundaries affect the result.
+
+```erlang
+Output = libdecaf:xof({tuplehashxof256, <<"orders/v1">>}, [<<"alice">>, <<"invoice-42">>], 64),
+<<"~J< erlang("Output = libdecaf:xof({tuplehashxof256, <<\"orders/v1\">>}, [<<\"alice\">>, <<\"invoice-42\">>], 64),\nOutput", "hex") >.">> = binary:encode_hex(Output),
+X0 = libdecaf:xof_init({tuplehashxof256, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"alice">>),
+X2 = libdecaf:xof_absorb(X1, <<"invoice-42">>),
+{X3, First} = libdecaf:xof_squeeze(X2, 32),
+{_X4, Second} = libdecaf:xof_squeeze(X3, 32),
+Output = <<First/binary, Second/binary>>.
+```
+
+### Keccak
+
+The original Keccak and Keccak-XOF functions use their original domain separation;
+their output differs from SHA-3 and SHAKE.
+
+<a id="example-keccak-224"></a>
+
+#### Keccak-224
+
+```erlang
+Digest = libdecaf:hash(keccak_224, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash(keccak_224, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init(keccak_224),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-keccak-256"></a>
+
+#### Keccak-256
+
+```erlang
+Digest = libdecaf:hash(keccak_256, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash(keccak_256, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init(keccak_256),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-keccak-384"></a>
+
+#### Keccak-384
+
+```erlang
+Digest = libdecaf:hash(keccak_384, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash(keccak_384, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init(keccak_384),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-keccak-512"></a>
+
+#### Keccak-512
+
+```erlang
+Digest = libdecaf:hash(keccak_512, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash(keccak_512, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init(keccak_512),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+<a id="example-keccak-xof-128"></a>
+
+#### Keccak-XOF-128
+
+```erlang
+Digest = libdecaf:hash({keccakxof_128, 32}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({keccakxof_128, 32}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({keccakxof_128, 32}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+X0 = libdecaf:xof_init(keccakxof_128),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof(keccakxof_128, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+<a id="example-keccak-xof-256"></a>
+
+#### Keccak-XOF-256
+
+```erlang
+Digest = libdecaf:hash({keccakxof_256, 64}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({keccakxof_256, 64}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({keccakxof_256, 64}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+X0 = libdecaf:xof_init(keccakxof_256),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof(keccakxof_256, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+<a id="example-spongerng"></a>
+
+#### SpongeRNG
+
+For automatically seeded random bytes:
+
+```erlang
+Bytes = libdecaf:strong_rand_bytes(32),
+32 = byte_size(Bytes).
+```
+
+For an explicit deterministic stream, initialize from a seed buffer. Reusing a
+state repeats its output; keep the returned state to advance:
+
+```erlang
+S0 = libdecaf_spongerng:init_from_buffer(<<"example seed">>, true),
+{S1, First} = libdecaf_spongerng:next(S0, 16),
+{_, First} = libdecaf_spongerng:next(S0, 16),
+{_, Second} = libdecaf_spongerng:next(S1, 16),
+true = First =/= Second.
+```
+
+Initialize from a seed file with a byte limit:
+
+```erlang
+Seed = <<"example seed file">>,
+ok = file:write_file("libdecaf-example-seed.bin", Seed),
+S0 = libdecaf_spongerng:init_from_file("libdecaf-example-seed.bin", byte_size(Seed), true),
+{_S1, Bytes} = libdecaf_spongerng:next(S0, 16),
+16 = byte_size(Bytes),
+ok = file:delete("libdecaf-example-seed.bin").
+```
+
+Initialize a nondeterministic stream from the operating system's random device:
+
+```erlang
+S0 = libdecaf_spongerng:init_from_dev_urandom(),
+{_S1, Bytes} = libdecaf_spongerng:next(S0, 16),
+16 = byte_size(Bytes).
+```
+
+Mix additional seed data into a new state with `stir/2`:
+
+```erlang
+S0 = libdecaf_spongerng:init_from_buffer(<<"example seed">>, true),
+S1 = libdecaf_spongerng:stir(S0, <<"additional seed">>),
+{_, Before} = libdecaf_spongerng:next(S0, 16),
+{_, After} = libdecaf_spongerng:next(S1, 16),
+true = Before =/= After.
+```
+
+<a id="example-tuak"></a>
+
+#### TUAK
+
+`libdecaf_tuak` provides the 3GPP TUAK authentication and key-generation functions:
+`topc/2,3`, `f1/5,6`, `f1_star/5,6`, `f2/3,4`, `f3/3,4`, `f4/3,4`, `f5/3,4`,
+`f5_star/3,4`, and the combined `f2345/3,4`. Matching `tuak_*` functions are
+available directly from `libdecaf_nif`.
+
+Inputs are fixed-size binaries in the published test-vector byte order. Subscriber
+keys contain 16 or 32 bytes, TOP/TOPc 32 bytes, RAND 16 bytes, SQN six bytes, and
+AMF two bytes. Derive TOPc once for a subscriber key and operator TOP, then reuse
+it with that key and the same iteration count.
+
+```erlang
+Key = binary:copy(<<16#AB>>, 16),
+TOP = binary:copy(<<16#55>>, 32),
+RAND = binary:copy(<<16#42>>, 16),
+SQN = binary:copy(<<16#11>>, 6),
+TOPc = libdecaf_tuak:topc(Key, TOP),
+MAC_A = libdecaf_tuak:f1(Key, TOPc, RAND, SQN, <<255, 255>>),
+<<"~J< erlang("Key = binary:copy(<<16#AB>>, 16),\nTOP = binary:copy(<<16#55>>, 32),\nRAND = binary:copy(<<16#42>>, 16),\nSQN = binary:copy(<<16#11>>, 6),\nTOPc = libdecaf_tuak:topc(Key, TOP),\nMAC_A = libdecaf_tuak:f1(Key, TOPc, RAND, SQN, <<255, 255>>),\nMAC_A", "hex") >.">> = binary:encode_hex(MAC_A),
+{RES, CK, IK, AK} = libdecaf_tuak:f2345(Key, TOPc, RAND, #{res_length => 4}),
+<<"657ACD64">> = binary:encode_hex(RES).
+```
+
+Optional maps select `mac_length` (8/16/32 bytes), `res_length` (4/8/16/32),
+`ck_length` (16/32), `ik_length` (16/32), and positive `iterations`. Each operation
+accepts its applicable options only. Defaults are MAC=8, RES=8, CK=16, IK=16, and
+one complete Keccak-f[1600] iteration.
+
+The RES, CK, and IK lengths jointly select the `f2`–`f5` computation. Use matching
+options for individual calls, or obtain all four results together with `f2345`.
+The implementation is tested against all TUAK sets in the Release 19
+[implementers' data](https://www.etsi.org/deliver/etsi_ts/135200_135299/135232/19.00.00_60/ts_135232v190000p.pdf)
+and [conformance data](https://www.etsi.org/deliver/etsi_ts/135200_135299/135233/19.00.00_60/ts_135233v190000p.pdf).
+
+### KangarooTwelve
+
+TurboSHAKE128, TurboSHAKE256, KT128, KT256, HopMAC128, and HopMAC256 follow
+[RFC 9861][rfc9861]. KT128 is also known as KangarooTwelve. KT128, KT256,
+HopMAC128, and HopMAC256 support the parallel APIs for large messages.
+
+<a id="example-hopmac128"></a>
+
+#### HopMAC128
+
+```erlang
+Key = binary:copy(<<42>>, 32),
+Digest = libdecaf:hash({hopmac128, 32, Key, <<"orders/v1">>}, <<"test">>),
+<<"~J< erlang("Key = binary:copy(<<42>>, 32),\nDigest = libdecaf:hash({hopmac128, 32, Key, <<\"orders/v1\">>}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({hopmac128, 32, Key, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+Key = binary:copy(<<42>>, 32),
+X0 = libdecaf:xof_init({hopmac128, Key, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof({hopmac128, Key, <<"orders/v1">>}, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+<a id="example-hopmac256"></a>
+
+#### HopMAC256
+
+```erlang
+Key = binary:copy(<<42>>, 32),
+Digest = libdecaf:hash({hopmac256, 64, Key, <<"orders/v1">>}, <<"test">>),
+<<"~J< erlang("Key = binary:copy(<<42>>, 32),\nDigest = libdecaf:hash({hopmac256, 64, Key, <<\"orders/v1\">>}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({hopmac256, 64, Key, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+Key = binary:copy(<<42>>, 32),
+X0 = libdecaf:xof_init({hopmac256, Key, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof({hopmac256, Key, <<"orders/v1">>}, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+<a id="example-kt128"></a>
+
+#### KT128
+
+```erlang
+Digest = libdecaf:hash({kt128, 32, <<"orders/v1">>}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({kt128, 32, <<\"orders/v1\">>}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({kt128, 32, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+X0 = libdecaf:xof_init({kt128, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof({kt128, <<"orders/v1">>}, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+<a id="example-kt256"></a>
+
+#### KT256
+
+```erlang
+Digest = libdecaf:hash({kt256, 64, <<"orders/v1">>}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({kt256, 64, <<\"orders/v1\">>}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({kt256, 64, <<"orders/v1">>}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+X0 = libdecaf:xof_init({kt256, <<"orders/v1">>}),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof({kt256, <<"orders/v1">>}, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+<a id="example-turboshake128"></a>
+
+#### TurboSHAKE128
+
+```erlang
+Digest = libdecaf:hash({turboshake128, 32, 16#1F}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({turboshake128, 32, 16#1F}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({turboshake128, 32, 16#1F}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+X0 = libdecaf:xof_init({turboshake128, 16#1F}),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof({turboshake128, 16#1F}, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+<a id="example-turboshake256"></a>
+
+#### TurboSHAKE256
+
+```erlang
+Digest = libdecaf:hash({turboshake256, 64, 16#1F}, <<"test">>),
+<<"~J< erlang("Digest = libdecaf:hash({turboshake256, 64, 16#1F}, <<\"test\">>),\nDigest", "hex") >.">> = binary:encode_hex(Digest),
+H0 = libdecaf:hash_init({turboshake256, 64, 16#1F}),
+H1 = libdecaf:hash_update(H0, <<"te">>),
+H2 = libdecaf:hash_update(H1, <<"st">>),
+Digest = libdecaf:hash_final(H2).
+```
+
+For incremental XOF output:
+
+```erlang
+X0 = libdecaf:xof_init({turboshake256, 16#1F}),
+X1 = libdecaf:xof_absorb(X0, <<"test">>),
+{X2, First} = libdecaf:xof_squeeze(X1, 16),
+{_X3, Second} = libdecaf:xof_squeeze(X2, 16),
+Whole = libdecaf:xof({turboshake256, 16#1F}, <<"test">>, 32),
+Whole = <<First/binary, Second/binary>>.
+```
+
+### Prime-order groups
+
+<a id="example-curve25519"></a>
+
+#### Curve25519
+
+<a id="example-ristretto255"></a>
+
+##### Ristretto255
+
+`libdecaf_ristretto255` and `libdecaf_decaf448` expose the prime-order groups
+defined in [RFC 9496](https://www.rfc-editor.org/rfc/rfc9496.html). Points and
+scalars use canonical little-endian binary encodings: 32 bytes for Ristretto255
+and 56 bytes for Decaf448. Identity points and zero scalars are accepted.
+
+```erlang
+Group = libdecaf_ristretto255,
+Scalar = Group:scalar_random(),
+Point = Group:base_scalarmul(Scalar),
+true = Group:point_is_valid(Point),
+Identity = Group:identity(),
+Identity = Group:point_add(Point, Group:point_negate(Point)),
+Table = Group:precompute(Point),
+Twice = Group:point_double(Point),
+Twice = Group:precomputed_scalarmul(Table, Group:scalar_reduce(<<2>>)).
+```
+
+<a id="example-curve448"></a>
+
+#### Curve448
+
+<a id="example-decaf448"></a>
+
+##### Decaf448
+
+```erlang
+Group = libdecaf_decaf448,
+Scalar = Group:scalar_random(),
+Point = Group:base_scalarmul(Scalar),
+true = Group:point_is_valid(Point),
+Identity = Group:identity(),
+Identity = Group:point_add(Point, Group:point_negate(Point)),
+Table = Group:precompute(Point),
+Twice = Group:point_double(Point),
+Twice = Group:precomputed_scalarmul(Table, Group:scalar_reduce(<<2>>)).
+```
+
+Both modules provide the same operations:
+
+* `identity/0`, `base/0`, `point_is_valid/1`, and `point_eq/2`.
+* `point_add/2`, `point_sub/2`, `point_negate/1`, and `point_double/1`.
+* `point_scalarmul(Point, Scalar)`, `base_scalarmul(Scalar)`, and
+  `point_double_scalarmul(Point1, Scalar1, Point2, Scalar2)`.
+* `precompute(Point)` and `precomputed_scalarmul(Table, Scalar)`. Tables are
+  immutable resources and can be shared between processes.
+* `scalar_random/0`, `scalar_is_canonical/1`, `scalar_reduce/1`,
+  `scalar_add/2`, `scalar_sub/2`, `scalar_mul/2`, `scalar_negate/1`,
+  `scalar_halve/1`, and `scalar_invert/1`.
+
+`scalar_reduce/1` reduces an arbitrary-length little-endian integer modulo the
+group order. Other scalar operations require canonical inputs; invalid points,
+scalars, and resource types raise `badarg`. The validation functions return
+`false` for invalid inputs. Inverting the zero scalar returns `error`.
+
+`point_from_hash/1` implements RFC 9496 element derivation from **uniformly
+distributed bytes**: 64 bytes for Ristretto255 or 112 bytes for Decaf448.
+Hash or expand messages to the required length before calling this function.
+`point_from_hash_nonuniform/1` exposes the underlying single mapping with a
+32-byte or 56-byte input; its distribution differs from the uniform mapping.
+Call the group modules directly, for example
+`libdecaf_ristretto255:point_add/2` or `libdecaf_decaf448:point_add/2`.
+
+## License
+
+[MIT](LICENSE.md). Vendored dependencies retain their own license notices.

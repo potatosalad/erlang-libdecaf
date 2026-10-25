@@ -4,6 +4,8 @@ codegen: poetry-install
     poetry run erlang_libdecaf_codegen generate config.yaml .. templates0 templates1
     just format-c-targets
     gmake -C .. erlfmt
+    gmake -C ..
+    poetry run erlang_libdecaf_codegen generate --stage docs config.yaml .. templates0 templates1 templates2
     just sign
 
 format: poetry-install format-c-targets format-c-templates format-python-src
@@ -34,7 +36,7 @@ lock:
 
 [working-directory: 'codegen']
 sign: poetry-install
-    poetry run erlang_libdecaf_codegen sign config.yaml .. templates0 templates1
+    poetry run erlang_libdecaf_codegen sign config.yaml .. templates0 templates1 templates2
 
 [group('test')]
 sanitizers: sanitizers-docker
