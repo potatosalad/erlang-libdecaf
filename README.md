@@ -18,6 +18,66 @@ arithmetic, TUAK, and explicit PRNG state management.
 [Migrating to 3.0](guides/migrating-to-3.0.md) ·
 [Changelog](CHANGELOG.md)
 
+## Algorithm Support
+
+| Algorithm | Group | Purpose | Definition |
+| --- | --- | --- | --- |
+| [Ed25519](#signatures-and-key-agreement) | EdDSA | Signature | [RFC 8032][rfc8032] |
+| [Ed25519ctx](#signatures-and-key-agreement) | EdDSA | Signature | [RFC 8032][rfc8032] |
+| [Ed25519ph](#signatures-and-key-agreement) | EdDSA | Signature | [RFC 8032][rfc8032] |
+| [Ed448](#signatures-and-key-agreement) | EdDSA | Signature | [RFC 8032][rfc8032] |
+| [Ed448ph](#signatures-and-key-agreement) | EdDSA | Signature | [RFC 8032][rfc8032] |
+| [X25519](#signatures-and-key-agreement) | ECDH | Key agreement | [RFC 7748][rfc7748] |
+| [X448](#signatures-and-key-agreement) | ECDH | Key agreement | [RFC 7748][rfc7748] |
+| [Ristretto255](#specialized-modules) | Curve25519 | Prime-order group | [RFC 9496][rfc9496] |
+| [Decaf448](#specialized-modules) | Curve448 | Prime-order group | [RFC 9496][rfc9496] |
+| [SHA2-512 (SHA-512)](#hashes-authentication-tags-and-xofs) | SHA-2 | Hash | [FIPS 180-4][fips180] |
+| [SHA3-224](#hashes-authentication-tags-and-xofs) | SHA-3 | Hash | [FIPS 202][fips202] |
+| [SHA3-256](#hashes-authentication-tags-and-xofs) | SHA-3 | Hash | [FIPS 202][fips202] |
+| [SHA3-384](#hashes-authentication-tags-and-xofs) | SHA-3 | Hash | [FIPS 202][fips202] |
+| [SHA3-512](#hashes-authentication-tags-and-xofs) | SHA-3 | Hash | [FIPS 202][fips202] |
+| [Keccak-224](#hashes-authentication-tags-and-xofs) | Keccak | Hash | [Keccak submission v3][keccak] |
+| [Keccak-256](#hashes-authentication-tags-and-xofs) | Keccak | Hash | [Keccak submission v3][keccak] |
+| [Keccak-384](#hashes-authentication-tags-and-xofs) | Keccak | Hash | [Keccak submission v3][keccak] |
+| [Keccak-512](#hashes-authentication-tags-and-xofs) | Keccak | Hash | [Keccak submission v3][keccak] |
+| [SHAKE128](#hashes-authentication-tags-and-xofs) | Keccak | Hash / XOF | [FIPS 202][fips202] |
+| [SHAKE256](#hashes-authentication-tags-and-xofs) | Keccak | Hash / XOF | [FIPS 202][fips202] |
+| [cSHAKE128](#hashes-authentication-tags-and-xofs) | Keccak | Hash / XOF | [SP 800-185][sp800185] |
+| [cSHAKE256](#hashes-authentication-tags-and-xofs) | Keccak | Hash / XOF | [SP 800-185][sp800185] |
+| [TurboSHAKE128](#hashes-authentication-tags-and-xofs) | Keccak | Hash / XOF | [RFC 9861][rfc9861] |
+| [TurboSHAKE256](#hashes-authentication-tags-and-xofs) | Keccak | Hash / XOF | [RFC 9861][rfc9861] |
+| [Keccak-XOF-128](#hashes-authentication-tags-and-xofs) | Keccak | Hash / XOF | [Keccak submission v3][keccak] |
+| [Keccak-XOF-256](#hashes-authentication-tags-and-xofs) | Keccak | Hash / XOF | [Keccak submission v3][keccak] |
+| [KT128 (KangarooTwelve)](#hashes-authentication-tags-and-xofs) | Keccak | Parallel hash / XOF | [RFC 9861][rfc9861] |
+| [KT256](#hashes-authentication-tags-and-xofs) | Keccak | Parallel hash / XOF | [RFC 9861][rfc9861] |
+| [KMAC128](#hashes-authentication-tags-and-xofs) | Keccak | MAC | [SP 800-185][sp800185] |
+| [KMAC256](#hashes-authentication-tags-and-xofs) | Keccak | MAC | [SP 800-185][sp800185] |
+| [KMACXOF128](#hashes-authentication-tags-and-xofs) | Keccak | Keyed XOF | [SP 800-185][sp800185] |
+| [KMACXOF256](#hashes-authentication-tags-and-xofs) | Keccak | Keyed XOF | [SP 800-185][sp800185] |
+| [HopMAC128](#hashes-authentication-tags-and-xofs) | Keccak | Parallel MAC / keyed XOF | [RFC 9861][rfc9861] |
+| [HopMAC256](#hashes-authentication-tags-and-xofs) | Keccak | Parallel MAC / keyed XOF | [RFC 9861][rfc9861] |
+| [TupleHash128](#hashes-authentication-tags-and-xofs) | Keccak | Tuple hash | [SP 800-185][sp800185] |
+| [TupleHash256](#hashes-authentication-tags-and-xofs) | Keccak | Tuple hash | [SP 800-185][sp800185] |
+| [TupleHashXOF128](#hashes-authentication-tags-and-xofs) | Keccak | Tuple XOF | [SP 800-185][sp800185] |
+| [TupleHashXOF256](#hashes-authentication-tags-and-xofs) | Keccak | Tuple XOF | [SP 800-185][sp800185] |
+| [ParallelHash128](#hashes-authentication-tags-and-xofs) | Keccak | Parallel hash | [SP 800-185][sp800185] |
+| [ParallelHash256](#hashes-authentication-tags-and-xofs) | Keccak | Parallel hash | [SP 800-185][sp800185] |
+| [ParallelHashXOF128](#hashes-authentication-tags-and-xofs) | Keccak | Parallel XOF | [SP 800-185][sp800185] |
+| [ParallelHashXOF256](#hashes-authentication-tags-and-xofs) | Keccak | Parallel XOF | [SP 800-185][sp800185] |
+| [TUAK](#specialized-modules) | Keccak | Mobile authentication / key generation | [3GPP TS 35.231][tuak] |
+| [SpongeRNG](#specialized-modules) | Keccak | Pseudorandom bytes | [Upstream SpongeRNG API][spongerng] |
+
+[rfc8032]: https://www.rfc-editor.org/rfc/rfc8032
+[rfc7748]: https://www.rfc-editor.org/rfc/rfc7748
+[rfc9496]: https://www.rfc-editor.org/rfc/rfc9496
+[rfc9861]: https://www.rfc-editor.org/rfc/rfc9861
+[fips180]: https://csrc.nist.gov/pubs/fips/180-4/upd1/final
+[fips202]: https://csrc.nist.gov/pubs/fips/202/final
+[sp800185]: https://csrc.nist.gov/pubs/sp/800/185/final
+[keccak]: https://keccak.team/files/Keccak-submission-3.pdf
+[tuak]: https://www.etsi.org/deliver/etsi_ts/135200_135299/135231/19.00.00_60/ts_135231v190000p.pdf
+[spongerng]: https://github.com/potatosalad/erlang-libdecaf/blob/main/c_deps/ed448goldilocks/src/public_include/decaf/spongerng.h
+
 ## Installation
 
 Erlang with Rebar3:
@@ -148,19 +208,12 @@ They produce the same output as the ordinary APIs.
 See the [Hash and XOF guide](guides/hash-and-xof.md) for parameter forms,
 TupleHash element boundaries, customization, and parallel configuration.
 
-## Supported algorithms
+## Specialized modules
 
-| Purpose | Algorithms | API |
-| --- | --- | --- |
-| Signatures | Ed25519, Ed25519ctx, Ed25519ph, Ed448, Ed448ph | `libdecaf:eddsa_*` |
-| Key agreement | X25519, X448 | `libdecaf:ecdh_*` |
-| Fixed-output hashes | SHA-512, SHA3-224/256/384/512, original Keccak-224/256/384/512 | `libdecaf:hash*` |
-| XOFs | SHAKE128/256, cSHAKE128/256, Keccak-XOF-128/256, TurboSHAKE128/256, KT128/256 | `libdecaf:hash*`, `libdecaf:xof*` |
-| Authentication | KMAC128/256, KMACXOF128/256, HopMAC128/256 | `libdecaf:hash*`, `libdecaf:xof*` |
-| Structured hashing | TupleHash128/256, ParallelHash128/256 and their XOF variants | `libdecaf:hash*`, `libdecaf:xof*` |
-| Prime-order groups | Ristretto255, Decaf448 | `libdecaf_ristretto255`, `libdecaf_decaf448` |
-| Mobile authentication | TUAK | `libdecaf_tuak` |
-| Random bytes | Automatically seeded SpongeRNG; explicit seeded streams | `libdecaf:strong_rand_bytes/1`, `libdecaf_spongerng` |
+`libdecaf_ristretto255` and `libdecaf_decaf448` provide prime-order group arithmetic.
+`libdecaf_tuak` exposes TUAK authentication and key generation. Use
+`libdecaf:strong_rand_bytes/1` for automatically seeded random bytes, or
+`libdecaf_spongerng` for explicit seeded streams.
 
 Implementations are checked against published vectors from RFCs
 [7748](https://www.rfc-editor.org/rfc/rfc7748.html),
