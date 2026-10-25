@@ -31,6 +31,10 @@ these settings. Each algorithm warms up all workers and checks their outputs
 against the scalar leaf implementation before measuring repeated full passes.
 Thread creation and warmup are outside the timed region.
 
+Workers claim 1 MiB ranges dynamically, so faster cores can take more work.
+Each worker reuses private SIMD output storage; it does not retain every leaf's
+chaining value as the NIF must do for ordered root absorption.
+
 This is a leaf-only upper bound: it excludes root absorption, tree framing,
 queues, resource management, and Erlang scheduling. Workers synchronize once per
 complete pass, rather than once per update. The gap to the API includes required

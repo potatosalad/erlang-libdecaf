@@ -5,6 +5,7 @@
 #include <keccak_internal.h>
 #include <errno.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +20,7 @@ typedef struct {
     unsigned int generation, completed, threads, width;
     bool stop;
     size_t leaves, passes;
+    atomic_size_t cursor;
     const uint8_t *input;
     uint8_t *output;
     libdecaf_nif_parallel_leaf_t algorithm;
@@ -27,6 +29,7 @@ typedef struct {
 typedef struct {
     pool_t *pool;
     unsigned int number;
+    size_t processed;
 } worker_t;
 
 static void
@@ -77,24 +80,28 @@ worker(void *argument)
             break;
         generation = pool->generation;
         size_t groups = (pool->leaves + pool->width - 1) / pool->width;
-        size_t first = groups * self->number / pool->threads * pool->width;
-        size_t end = groups * (self->number + 1) / pool->threads * pool->width;
-        if (end > pool->leaves)
-            end = pool->leaves;
+        size_t total = groups * pool->passes;
+        self->processed = 0;
         check(pthread_mutex_unlock(&pool->mutex));
-        for (size_t pass = 0; pass < pool->passes; pass++) {
-            for (size_t index = first; index < end;) {
-                unsigned int width = pool->width;
-                while (width > end - index)
-                    width /= 2;
+        for (;;) {
+            /* Dynamic 1 MiB claims keep slower cores from determining the
+             * whole pass time. Outputs are private to each worker because
+             * different passes may read the same input concurrently. */
+            size_t batch = 128 / pool->width;
+            size_t first = atomic_fetch_add_explicit(&pool->cursor, batch, memory_order_relaxed);
+            if (first >= total)
+                break;
+            size_t end = total - first < batch ? total : first + batch;
+            for (size_t group = first; group < end; group++) {
+                size_t index = group % groups * pool->width;
                 const uint8_t *inputs[8];
                 uint8_t *outputs[8];
-                for (unsigned int lane = 0; lane < width; lane++) {
+                for (unsigned int lane = 0; lane < pool->width; lane++) {
                     inputs[lane] = pool->input + (index + lane) * BLOCK_SIZE;
-                    outputs[lane] = pool->output + (index + lane) * (200 - pool->algorithm.rate);
+                    outputs[lane] = pool->output + self->number * pool->width * 64 + lane * (200 - pool->algorithm.rate);
                 }
-                libdecaf_nif_parallel_leaf_hash_many(pool->algorithm, inputs, BLOCK_SIZE, outputs, width);
-                index += width;
+                libdecaf_nif_parallel_leaf_hash_many(pool->algorithm, inputs, BLOCK_SIZE, outputs, pool->width);
+                self->processed += pool->width;
             }
         }
         check(pthread_mutex_lock(&pool->mutex));
@@ -111,6 +118,7 @@ run(pool_t *pool, size_t passes)
     check(pthread_mutex_lock(&pool->mutex));
     pool->completed = 0;
     pool->passes = passes;
+    atomic_store_explicit(&pool->cursor, 0, memory_order_relaxed);
     double started = seconds();
     ++pool->generation;
     check(pthread_cond_broadcast(&pool->start));
@@ -135,13 +143,14 @@ main(void)
     size_t repeats = setting("BENCH_REPEATS", 3);
     long online = sysconf(_SC_NPROCESSORS_ONLN);
     size_t threads = setting("BENCH_THREADS", online > 0 ? (size_t)online : 1);
-    if (mib > SIZE_MAX / (1024 * 1024) || gib > SIZE_MAX / 1024 || gib * 1024 % mib != 0 || threads > MAX_THREADS ||
+    if (mib > SIZE_MAX / (1024 * 1024) || gib > SIZE_MAX / (1024 * 1024 * 1024) || gib * 1024 % mib != 0 || threads > MAX_THREADS ||
         repeats > 1000) {
         fprintf(stderr, "Sizes overflow, BENCH_MIB does not divide BENCH_GIB * 1024, or thread/repeat limit exceeded\n");
         return 1;
     }
     size_t bytes = mib * 1024 * 1024, leaves = bytes / BLOCK_SIZE;
-    uint8_t *input = malloc(bytes), *output = malloc(leaves * 64);
+    unsigned int width = decaf_keccak_parallelism();
+    uint8_t *input = malloc(bytes), *output = malloc(threads * width * 64);
     double *samples = calloc(repeats, sizeof(*samples));
     pthread_t *handles = calloc(threads, sizeof(*handles));
     worker_t *workers = calloc(threads, sizeof(*workers));
@@ -153,10 +162,11 @@ main(void)
                    .start = PTHREAD_COND_INITIALIZER,
                    .done = PTHREAD_COND_INITIALIZER,
                    .threads = (unsigned int)threads,
-                   .width = decaf_keccak_parallelism(),
+                   .width = width,
                    .leaves = leaves,
                    .input = input,
                    .output = output};
+    atomic_init(&pool.cursor, 0);
     for (unsigned int i = 0; i < threads; i++) {
         workers[i] = (worker_t){.pool = &pool, .number = i};
         check(pthread_create(&handles[i], NULL, worker, &workers[i]));
@@ -168,14 +178,16 @@ main(void)
     for (unsigned int algorithm = 0; algorithm < 4; algorithm++) {
         pool.algorithm = (libdecaf_nif_parallel_leaf_t){.rate = algorithm % 2 == 0 ? 168 : 136, .turbo = algorithm < 2};
         run(&pool, 1);
-        /* Verify each worker's range and all SIMD lanes against scalar hashing. */
+        /* Verify each participating worker's SIMD lanes against scalar hashing. */
         uint8_t expected[64];
         libdecaf_nif_parallel_leaf_hash(pool.algorithm, input, BLOCK_SIZE, expected);
         size_t length = 200 - pool.algorithm.rate;
-        for (size_t i = 0; i < leaves; i++) {
-            if (memcmp(expected, output + i * length, length) != 0) {
-                fprintf(stderr, "Leaf validation failed: %s, %zu\n", names[algorithm], i);
-                return 1;
+        for (size_t i = 0; i < threads; i++) {
+            for (size_t lane = 0; workers[i].processed != 0 && lane < width; lane++) {
+                if (memcmp(expected, output + i * width * 64 + lane * length, length) != 0) {
+                    fprintf(stderr, "Leaf validation failed: %s, thread %zu, lane %zu\n", names[algorithm], i, lane);
+                    return 1;
+                }
             }
         }
         for (size_t repeat = 0; repeat < repeats; repeat++)
@@ -195,7 +207,7 @@ main(void)
     check(pthread_cond_destroy(&pool.start));
     check(pthread_cond_destroy(&pool.done));
     check(pthread_mutex_destroy(&pool.mutex));
-    decaf_bzero(output, leaves * 64);
+    decaf_bzero(output, threads * width * 64);
     free(workers);
     free(handles);
     free(samples);
