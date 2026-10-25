@@ -16,6 +16,27 @@ Each scenario times complete initialization, updates and finalization, with inpu
 storage reused. It retains one timed pass; repeat runs on an otherwise idle
 machine before comparing medians. These numbers are not cold-memory bandwidth.
 
+## Native leaf baseline
+
+```sh
+BENCH_GIB=16 BENCH_REPEATS=5 sh bench/parallel_leaf_stress.sh
+BENCH_GIB=16 BENCH_THREADS=10 sh bench/parallel_leaf_stress.sh
+```
+
+This builds a standalone pthread benchmark against the same upstream static
+archive and leaf wrappers as the NIF. It uses the runtime-selected SIMD width,
+8 KiB leaves, and a reused 64 MiB zero-filled input, matching the streaming
+benchmarks. `BENCH_MIB`, `BENCH_GIB`, `BENCH_THREADS`, and `BENCH_REPEATS` override
+these settings. Each algorithm warms up all workers and checks their outputs
+against the scalar leaf implementation before measuring repeated full passes.
+Thread creation and warmup are outside the timed region.
+
+This is a leaf-only upper bound: it excludes root absorption, tree framing,
+queues, resource management, and Erlang scheduling. Workers synchronize once per
+complete pass, rather than once per update. The gap to the API includes required
+root work as well as overhead; it cannot all be recovered. Run the native and
+Erlang benchmarks separately so they do not compete for the same cores.
+
 ## Update size and native window size
 
 These are separate settings. The native window remains capped at 4,096 leaves:
