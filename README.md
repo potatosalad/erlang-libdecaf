@@ -195,7 +195,7 @@ elixir bench/parallel_hash_stress.exs
 elixir bench/parallel_xof_stress.exs
 ```
 
-[Benchmark measurements](https://github.com/potatosalad/erlang-libdecaf/blob/3.0.0/bench/parallel_hash.md)
+[Benchmark measurements](https://github.com/potatosalad/erlang-libdecaf/blob/main/bench/parallel_hash.md)
 include size sweeps and native leaf baselines.
 
 ## Building, testing, and documentation
