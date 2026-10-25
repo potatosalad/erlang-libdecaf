@@ -10,7 +10,8 @@ Exercise native resource ownership, failure paths, and process cleanup under ASa
 
 run(Count) ->
     asan = erlang:system_info(emu_type),
-    batches(Count),
+    {ok, _} = application:ensure_all_started(libdecaf),
+    try batches(Count) after application:stop(libdecaf) end,
     erlang:garbage_collect(),
     io:format("[sanitizers] completed ~B cleanup iterations~n", [Count]).
 
@@ -41,6 +42,15 @@ iteration(Index) ->
             _ -> <<Index:64>>
         end,
     TUAKKey = <<Index:256>>,
+    LengthRandom = byte_size(libdecaf:strong_rand_bytes(byte_size(Input))),
+    LengthRandom = byte_size(Input),
+    case Index rem 100 of
+        0 ->
+            Parallel = libdecaf:hash(kt128, Input),
+            Parallel = libdecaf:parallel_hash(kt128, Input),
+            Parallel = libdecaf:parallel_xof(kt128, Input, 32);
+        _ -> ok
+    end,
     TOPc = libdecaf_nif:tuak_topc(TUAKKey, <<0:256>>),
     {_, _, _, <<_:48>>} = libdecaf_nif:tuak_f2345(TUAKKey, TOPc, <<Index:128>>),
     <<_:64>> = libdecaf_nif:tuak_f1(TUAKKey, TOPc, <<Index:128>>, <<Index:48>>, <<0:16>>),

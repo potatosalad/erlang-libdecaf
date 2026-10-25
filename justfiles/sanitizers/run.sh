@@ -8,7 +8,15 @@ restore_build="${SANITIZERS_RESTORE_BUILD:-1}"
 stress_iterations="${SANITIZERS_STRESS_ITERATIONS:-10000}"
 jobs="${SANITIZERS_JOBS:-4}"
 color="${SANITIZERS_COLOR:-always}"
-suites="${SANITIZERS_CT_SUITES:-tuak spongerng spongerng_random cfrg eddsa_stream nif_components hash_api cshake keccak_xof rfc9861 hash_compat sp800185}"
+suites="${SANITIZERS_CT_SUITES:-}"
+if [[ -z "${suites}" ]]; then
+    # Discover every maintained suite; new suites automatically get instrumented.
+    for suite_path in "${project_root}"/test/*_SUITE.erl; do
+        suite_name="${suite_path##*/}"
+        suites+="${suite_name%_SUITE.erl} "
+    done
+    suites="${suites% }"
+fi
 make_cmd="${MAKE:-make}"
 
 case "${restore_build}" in 0 | 1) ;; *) echo 'SANITIZERS_RESTORE_BUILD must be 0 or 1' >&2; exit 2 ;; esac
@@ -101,14 +109,14 @@ for binary in "${dep_build}/src/libdecaf.a" "${project_root}/priv/libdecaf_nif.s
 done
 
 echo '[sanitizers] running upstream decaf tests (excluding benchmarks)'
-"${sanitizer_env[@]}" ctest --test-dir "${dep_build}" --output-on-failure -R '^decaf$' 2>&1 | tee "${report_dir}/upstream.log"
+"${sanitizer_env[@]}" ctest --test-dir "${dep_build}" --output-on-failure -R '^(decaf|keccak|keccak_batch|spongerng_parallel)$' 2>&1 | tee "${report_dir}/upstream.log"
 
 erl_aflags="${ERL_AFLAGS:+${ERL_AFLAGS} }-emu_type asan"
 echo "[sanitizers] running Common Test: ${suites}"
 (
     cd "${project_root}"
     "${sanitizer_env[@]}" "ERL_AFLAGS=${erl_aflags}" \
-        "${make_cmd}" ct "CT_SUITES=${suites}" "${make_args[@]}"
+        "${make_cmd}" tests "CT_SUITES=${suites}" "${make_args[@]}"
 ) 2>&1 | tee "${report_dir}/ct.log"
 
 "${sanitizer_env[@]}" "ERL_AFLAGS=${erl_aflags}" \
