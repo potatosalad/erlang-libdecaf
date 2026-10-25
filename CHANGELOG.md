@@ -30,13 +30,15 @@
 * Enhancements
   * Add parallel Hash and XOF APIs for KT, HopMAC, and ParallelHash with retained input slices, bulk native queues, ordered chaining-value assembly, and caller cancellation.
     * Configure worker budgets through `parallel_absorb(RouterNumber, MaxRounds)` or the `parallel_absorb_rounds` application option; zero drains until empty.
-    * Batch pairs of leaves with SIMD, coalesce completion notifications, and size worker fan-outs to amortize scheduling costs.
+    * Batch leaves with runtime-selected two-, four-, or eight-state XKCP/K12 kernels, coalesce completion notifications, and size worker fan-outs to amortize scheduling costs.
     * Reuse registered absorb workers, steal queued work in short batches, and grow dispatch storage with input up to 4096 leaves. The calling dirty scheduler computes a share of the leaves; bounded root collection runs on normal schedulers.
     * Queue spans of 16 leaves to reduce resource references and completion atomics; retain exact worker leaf budgets when splitting jobs and safely retire legacy queues on NIF upgrades.
+  * Use pinned XKCP and K12 backends in ed448goldilocks for shared Keccak acceleration, with runtime ARM SHA3 and x86 SSSE3/AVX2/AVX-512 selection and portable fallback.
+    * Add `libdecaf_nif:keccak_info/0` to report the selected backend and parallelism.
   * Add scheduler-numbered parallel routers with `rest_for_one` absorb supervision, asynchronously prepared reusable workers, coalesced wakeups, and idle hibernation.
   * Add high-level EdDSA and ECDH APIs in `libdecaf`, with opaque algorithm-specific keypairs, explicit seed/signing-key formats, and immutable native Ed25519ph/Ed448ph streaming.
   * Modernize `libdecaf_spongerng` with direct native calls, named typespecs, descriptive documentation, and runnable examples while preserving its wrapped-state API.
-  * Add `libdecaf:spongerng_random_bytes/1` with automatically seeded thread-local native state, periodic reseeding, and a `crypto:strong_rand_bytes/1` entropy fallback.
+  * Add `libdecaf:strong_rand_bytes/1` with automatically seeded thread-local native state, periodic reseeding, and a `crypto:strong_rand_bytes/1` entropy fallback. Warm requests use a normal-scheduler cache; large requests yield, and OS seeding uses dirty I/O schedulers.
   * Add immutable advancing `absorb`/`squeeze` APIs for every XOF family, following the two-phase streaming interface in the SP 800-185 Revision 1 initial public draft.
   * Generate the deprecated `libdecaf_sha2`, `libdecaf_sha3`, and `libdecaf_keccak_sha3` compatibility modules, retaining wrapped states and directing callers to the hash and XOF APIs in `libdecaf`.
   * Add Docker and native ASan, LSan, and UBSan checks for ed448goldilocks and the NIF, including resource cleanup stress.

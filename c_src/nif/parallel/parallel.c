@@ -224,14 +224,23 @@ libdecaf_nif_parallel_drain(ErlNifEnv *env, libdecaf_nif_parallel_pool_t *pool, 
         size_t end = node->index + count;
         if (!atomic_load_explicit(&operation->cancelled, memory_order_acquire)) {
             size_t index = node->index;
-            for (; index + 1 < end; index += 2) {
-                libdecaf_nif_parallel_leaf_hash2(operation->leaf, libdecaf_nif_parallel_leaf_input(operation, index),
-                                                 libdecaf_nif_parallel_leaf_input(operation, index + 1), operation->block_size,
-                                                 operation->results[index].chaining, operation->results[index + 1].chaining);
-                atomic_store_explicit(&operation->results[index].ready, true, memory_order_release);
-                atomic_store_explicit(&operation->results[index + 1].ready, true, memory_order_release);
+            unsigned int preferred_width = libdecaf_nif_parallel_leaf_width();
+            while (end - index >= 2 && preferred_width >= 2) {
+                unsigned int width = preferred_width;
+                while (width > end - index)
+                    width /= 2;
+                const uint8_t *inputs[8];
+                uint8_t *outputs[8];
+                for (unsigned int lane = 0; lane < width; ++lane) {
+                    inputs[lane] = libdecaf_nif_parallel_leaf_input(operation, index + lane);
+                    outputs[lane] = operation->results[index + lane].chaining;
+                }
+                libdecaf_nif_parallel_leaf_hash_many(operation->leaf, inputs, operation->block_size, outputs, width);
+                for (unsigned int lane = 0; lane < width; ++lane)
+                    atomic_store_explicit(&operation->results[index + lane].ready, true, memory_order_release);
+                index += width;
             }
-            if (index < end) {
+            for (; index < end; ++index) {
                 libdecaf_nif_parallel_leaf_hash(operation->leaf, libdecaf_nif_parallel_leaf_input(operation, index),
                                                 operation->block_size, operation->results[index].chaining);
                 atomic_store_explicit(&operation->results[index].ready, true, memory_order_release);

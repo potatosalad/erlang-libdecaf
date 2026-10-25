@@ -119,7 +119,7 @@ exports(_) ->
         not lists:prefix("parallel_", atom_to_list(Name))
     ]),
     Public = lists:sort([
-        {spongerng_random_bytes, 1},
+        {strong_rand_bytes, 1},
         {hash, 2},
         {hash_init, 1},
         {hash_update, 2},

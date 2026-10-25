@@ -75,6 +75,17 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
         )
 
     add(
+        "keccak_info",
+        [],
+        "keccak_info()",
+        "Return the runtime-selected native Keccak backend and parallel permutation width.\n"
+        "The backend name is a diagnostic binary; parallelism is 1, 2, 4 or 8.\n"
+        "Selection reflects CPU and OS support, including portable fallback.",
+        "Keccak API",
+        result_name="KeccakInfo",
+    )
+
+    add(
         "parallel_absorb",
         [("RouterNumber", "pos_integer()"), ("MaxRounds", "non_neg_integer()")],
         "ok",
@@ -452,20 +463,20 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
     result.extend(tuak_functions())
 
     add(
-        "spongerng_random_bytes",
+        "strong_rand_bytes",
         [("Length", "non_neg_integer()")],
         "binary() | need_seed",
         "Generate bytes using an automatically OS-seeded, thread-local SpongeRNG.\n"
-        "Return `need_seed` if native entropy is unavailable; prefer `libdecaf:spongerng_random_bytes/1` for automatic fallback.",
+        "Return `need_seed` if native entropy is unavailable; prefer `libdecaf:strong_rand_bytes/1` for automatic fallback.",
         "Sponge PRNG",
         result_name="Output",
     )
     add(
-        "spongerng_random_bytes",
+        "strong_rand_bytes",
         [("Length", "non_neg_integer()"), ("Seed", "binary()")],
         "binary()",
         "Supply exactly 64 cryptographically random seed bytes and generate output from the calling thread's SpongeRNG.\n"
-        "Used by `libdecaf:spongerng_random_bytes/1` when native OS entropy is unavailable. Existing state is stirred, not reset.",
+        "Used by `libdecaf:strong_rand_bytes/1` when native OS entropy is unavailable. Existing state is stirred, not reset.",
         "Sponge PRNG",
         result_name="Output",
     )
@@ -514,6 +525,11 @@ def functions(schema: NIFSchema) -> tuple[Function, ...]:
 
 def types(schema: NIFSchema) -> tuple[tuple[str, str, str], ...]:
     result = [
+        (
+            "keccak_info",
+            "#{backend := binary(), parallelism := 1 | 2 | 4 | 8}",
+            "Selected Keccak backend name and preferred number of independent parallel states.",
+        ),
         (
             "parallel_router_info",
             "#{count := pos_integer(), limit := pos_integer(), names := [atom()], queued := non_neg_integer()}",

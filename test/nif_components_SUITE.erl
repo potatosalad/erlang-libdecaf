@@ -9,6 +9,7 @@ Exercise component resources directly through the native interface.
 -export([
     all/0,
     csprng/1,
+    keccak_info/1,
     key_exchange/1,
     keypairs/1,
     prime_order_groups/1,
@@ -17,7 +18,14 @@ Exercise component resources directly through the native interface.
 
 -spec all() -> Result when Result :: [ct_suite:ct_test_def()].
 all() ->
-    [keypairs, key_exchange, csprng, prime_order_groups, upgrade].
+    [keccak_info, keypairs, key_exchange, csprng, prime_order_groups, upgrade].
+
+-spec keccak_info(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+keccak_info(_) ->
+    #{backend := Backend, parallelism := Parallelism} = libdecaf_nif:keccak_info(),
+    true = byte_size(Backend) > 0,
+    true = lists:member(Parallelism, [1, 2, 4, 8]),
+    ok.
 
 -spec keypairs(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 keypairs(_) ->

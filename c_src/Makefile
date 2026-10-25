@@ -334,3 +334,11 @@ endif
 
 -include $(DEPFILES)
 endif
+
+.PHONY: test-spongerng
+
+test-spongerng: $(ED448GOLDILOCKS_OUTPUT_FILE)
+	$(verbose) mkdir -p "$(BASEDIR)/logs/native"
+	$(verbose) $(CC) $(CFLAGS) $(CPPFLAGS) "$(BASEDIR)/test/native/spongerng.c" \
+		"$(ED448GOLDILOCKS_OUTPUT_FILE)" -o "$(BASEDIR)/logs/native/spongerng"
+	$(verbose) "$(BASEDIR)/logs/native/spongerng"

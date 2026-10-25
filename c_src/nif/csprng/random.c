@@ -1,255 +1,272 @@
 #include "csprng.h"
 
 #include <stdbool.h>
-#include <stdatomic.h>
-
 #if defined(_WIN32)
 #include <process.h>
 #else
 #include <unistd.h>
 #endif
-#if defined(__linux__) || defined(__APPLE__)
-#include <sys/random.h>
-#elif !defined(_WIN32) && !defined(__APPLE__) && !defined(__OpenBSD__)
-#include <fcntl.h>
-#endif
 
 enum {
     LIBDECAF_RANDOM_SEED_BYTES = 64,
+    LIBDECAF_RANDOM_CACHE_BYTES = 4096,
     LIBDECAF_RANDOM_CHUNK_BYTES = 65536,
     LIBDECAF_RANDOM_RESEED_BYTES = 16 * 1024 * 1024,
     LIBDECAF_RANDOM_RESEED_SECONDS = 300
 };
 
-typedef struct libdecaf_nif_random_state_s libdecaf_nif_random_state_t;
-struct libdecaf_nif_random_state_s {
-    decaf_keccak_prng_s prng;
-    libdecaf_nif_random_state_t *next;
+typedef struct {
+    decaf_keccak_prng_s prng[2];
+    uint8_t cache[LIBDECAF_RANDOM_CACHE_BYTES];
+    size_t available, generated;
     ErlNifTime seeded_at;
     uint64_t process_id;
-    size_t generated;
     bool seeded;
-};
+} libdecaf_nif_random_thread_t;
 
-/* enif_tsd_set() cannot retain values on emulator threads between callbacks.
- * Use native TLS instead, and own the allocations until the library unloads.
- * The list is touched only when a thread first calls us or during unloading. */
-static _Thread_local libdecaf_nif_random_state_t *libdecaf_nif_random_thread_state;
-static _Thread_local uint64_t libdecaf_nif_random_thread_generation;
-static libdecaf_nif_random_state_t *libdecaf_nif_random_states;
-static uint64_t libdecaf_nif_random_generation;
-static size_t libdecaf_nif_random_load_count;
-static atomic_flag libdecaf_nif_random_lock = ATOMIC_FLAG_INIT;
+typedef struct {
+    decaf_keccak_prng_s prng[2];
+    ErlNifBinary output;
+    size_t offset;
+    bool owns_output;
+} libdecaf_nif_random_trap_t;
 
-static void
-libdecaf_nif_random_lock_acquire(void)
-{
-    while (atomic_flag_test_and_set_explicit(&libdecaf_nif_random_lock, memory_order_acquire)) {
-    }
-}
+static _Thread_local libdecaf_nif_random_thread_t libdecaf_nif_random_thread;
+static ErlNifResourceType *libdecaf_nif_random_resource_type;
+
+static ERL_NIF_TERM libdecaf_nif_random_seed_io(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_random_seed_ready(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM libdecaf_nif_random_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 static void
-libdecaf_nif_random_lock_release(void)
+libdecaf_nif_random_unload_thread(void *priv_data)
 {
-    atomic_flag_clear_explicit(&libdecaf_nif_random_lock, memory_order_release);
+    (void)priv_data;
+    decaf_bzero(&libdecaf_nif_random_thread, sizeof(libdecaf_nif_random_thread));
 }
 
-void
-libdecaf_nif_csprng_random_load(void)
+static void
+libdecaf_nif_random_dtor(ErlNifEnv *env, void *object)
 {
-    libdecaf_nif_random_lock_acquire();
-    /* Multiple module versions can share the same loaded native library. */
-    if (libdecaf_nif_random_load_count++ == 0) {
-        libdecaf_nif_random_generation++;
+    (void)env;
+    libdecaf_nif_random_trap_t *trap = object;
+    if (trap->owns_output) {
+        decaf_bzero(trap->output.data, trap->offset);
+        enif_release_binary(&trap->output);
     }
-    libdecaf_nif_random_lock_release();
+    decaf_bzero(trap, sizeof(*trap));
 }
 
-void
-libdecaf_nif_csprng_random_unload(void)
+int
+libdecaf_nif_csprng_random_load(ErlNifEnv *env)
 {
-    libdecaf_nif_random_lock_acquire();
-    if (--libdecaf_nif_random_load_count == 0) {
-        /* The last module version has no executing NIFs at this point. */
-        while (libdecaf_nif_random_states != NULL) {
-            libdecaf_nif_random_state_t *state = libdecaf_nif_random_states;
-            libdecaf_nif_random_states = state->next;
-            decaf_bzero(state, sizeof(*state));
-            enif_free(state);
-        }
-    }
-    libdecaf_nif_random_lock_release();
+    libdecaf_nif_random_resource_type = enif_open_resource_type(env, "libdecaf_nif", "spongerng_random", libdecaf_nif_random_dtor,
+                                                                ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER, NULL);
+    return libdecaf_nif_random_resource_type != NULL &&
+                   enif_set_option(env, ERL_NIF_OPT_ON_UNLOAD_THREAD, libdecaf_nif_random_unload_thread) == 0
+               ? 0
+               : -1;
 }
 
-static libdecaf_nif_random_state_t *
-libdecaf_nif_random_state(void)
-{
-    if (libdecaf_nif_random_thread_generation != libdecaf_nif_random_generation) {
-        libdecaf_nif_random_state_t *state = enif_alloc(sizeof(*state));
-        if (state == NULL) {
-            return NULL;
-        }
-        decaf_bzero(state, sizeof(*state));
-        libdecaf_nif_random_lock_acquire();
-        state->next = libdecaf_nif_random_states;
-        libdecaf_nif_random_states = state;
-        libdecaf_nif_random_lock_release();
-        libdecaf_nif_random_thread_state = state;
-        libdecaf_nif_random_thread_generation = libdecaf_nif_random_generation;
-    }
-    return libdecaf_nif_random_thread_state;
-}
-
-static bool
-libdecaf_nif_random_os_seed(uint8_t seed[LIBDECAF_RANDOM_SEED_BYTES])
-{
-#if defined(__linux__)
-    size_t offset = 0;
-    while (offset < LIBDECAF_RANDOM_SEED_BYTES) {
-        /* Do not block a dirty CPU thread waiting for early-boot entropy. */
-        ssize_t count = getrandom(seed + offset, LIBDECAF_RANDOM_SEED_BYTES - offset, GRND_NONBLOCK);
-        if (count < 0 && errno == EINTR) {
-            continue;
-        }
-        if (count <= 0) {
-            return false;
-        }
-        offset += (size_t)count;
-    }
-    return true;
-#elif defined(__APPLE__) || defined(__OpenBSD__)
-    return getentropy(seed, LIBDECAF_RANDOM_SEED_BYTES) == 0;
-#elif defined(_WIN32)
-    /* crypto:strong_rand_bytes/1 supplies the seed on this platform. */
-    (void)seed;
-    return false;
-#else
-    int fd;
-    do {
-        fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
-    } while (fd < 0 && errno == EINTR);
-    if (fd < 0) {
-        return false;
-    }
-    size_t offset = 0;
-    while (offset < LIBDECAF_RANDOM_SEED_BYTES) {
-        ssize_t count = read(fd, seed + offset, LIBDECAF_RANDOM_SEED_BYTES - offset);
-        if (count < 0 && errno == EINTR) {
-            continue;
-        }
-        if (count <= 0) {
-            close(fd);
-            return false;
-        }
-        offset += (size_t)count;
-    }
-    close(fd);
-    return true;
-#endif
-}
-
-static bool
-libdecaf_nif_random_seed(libdecaf_nif_random_state_t *state, const ErlNifBinary *fallback)
+static uint64_t
+libdecaf_nif_random_process_id(void)
 {
 #if defined(_WIN32)
-    uint64_t process_id = (uint64_t)_getpid();
+    return (uint64_t)_getpid();
 #else
-    uint64_t process_id = (uint64_t)getpid();
+    return (uint64_t)getpid();
 #endif
-    ErlNifTime now = enif_monotonic_time(ERL_NIF_SEC);
-    if (state->seeded && state->process_id != process_id) {
-        decaf_spongerng_destroy(&state->prng);
-        state->seeded = false;
-    }
-    if (fallback == NULL && state->seeded && state->generated < LIBDECAF_RANDOM_RESEED_BYTES &&
-        now - state->seeded_at < LIBDECAF_RANDOM_RESEED_SECONDS) {
-        return true;
-    }
+}
 
-    uint8_t seed[LIBDECAF_RANDOM_SEED_BYTES];
-    if (fallback != NULL) {
-        memcpy(seed, fallback->data, sizeof(seed));
-    } else if (!libdecaf_nif_random_os_seed(seed)) {
-        decaf_bzero(seed, sizeof(seed));
-        return false;
-    }
-    if (state->seeded) {
-        decaf_spongerng_stir(&state->prng, seed, sizeof(seed));
+static bool
+libdecaf_nif_random_ready(void)
+{
+    libdecaf_nif_random_thread_t *thread = &libdecaf_nif_random_thread;
+    return thread->seeded && thread->generated < LIBDECAF_RANDOM_RESEED_BYTES &&
+           thread->process_id == libdecaf_nif_random_process_id() &&
+           enif_monotonic_time(ERL_NIF_SEC) - thread->seeded_at < LIBDECAF_RANDOM_RESEED_SECONDS;
+}
+
+static void
+libdecaf_nif_random_install(const uint8_t seed[LIBDECAF_RANDOM_SEED_BYTES])
+{
+    libdecaf_nif_random_thread_t *thread = &libdecaf_nif_random_thread;
+    uint64_t process_id = libdecaf_nif_random_process_id();
+    if (thread->seeded && thread->process_id == process_id) {
+        for (size_t i = 0; i < 2; ++i)
+            decaf_spongerng_stir(&thread->prng[i], seed, LIBDECAF_RANDOM_SEED_BYTES);
     } else {
-        /* OS entropy supplies unpredictability. Disable the optional upstream
-         * CPU-entropy path, whose x86 feature-detection globals are not atomic. */
-        decaf_spongerng_init_from_buffer(&state->prng, seed, sizeof(seed), 1);
+        decaf_keccak_prng_s source;
+        uint8_t derived[2 * LIBDECAF_RANDOM_SEED_BYTES];
+        /* Derive independent seeds through the upstream construction. */
+        decaf_spongerng_init_from_buffer(&source, seed, LIBDECAF_RANDOM_SEED_BYTES, 1);
+        decaf_spongerng_next(&source, derived, sizeof(derived));
+        for (size_t i = 0; i < 2; ++i)
+            decaf_spongerng_init_from_buffer(&thread->prng[i], derived + i * LIBDECAF_RANDOM_SEED_BYTES, LIBDECAF_RANDOM_SEED_BYTES,
+                                             1);
+        decaf_spongerng_destroy(&source);
+        decaf_bzero(derived, sizeof(derived));
     }
-    decaf_bzero(seed, sizeof(seed));
-    state->seeded = true;
-    state->process_id = process_id;
-    state->seeded_at = now;
-    state->generated = 0;
-    return true;
+    decaf_bzero(thread->cache, sizeof(thread->cache));
+    thread->available = 0;
+    thread->generated = 0;
+    thread->seeded_at = enif_monotonic_time(ERL_NIF_SEC);
+    thread->process_id = process_id;
+    thread->seeded = true;
+}
+
+static libdecaf_nif_random_trap_t *
+libdecaf_nif_random_trap(ErlNifEnv *env, ERL_NIF_TERM term)
+{
+    libdecaf_nif_random_trap_t *trap;
+    return enif_get_resource(env, term, libdecaf_nif_random_resource_type, (void **)&trap) ? trap : NULL;
+}
+
+static void
+libdecaf_nif_random_cached(uint8_t *output, size_t length)
+{
+    libdecaf_nif_random_thread_t *thread = &libdecaf_nif_random_thread;
+    while (length != 0) {
+        if (thread->available == 0) {
+            decaf_spongerng_next2(&thread->prng[0], &thread->prng[1], thread->cache, thread->cache + sizeof(thread->cache) / 2,
+                                  sizeof(thread->cache) / 2);
+            thread->available = sizeof(thread->cache);
+        }
+        size_t count = length < thread->available ? length : thread->available;
+        uint8_t *source = thread->cache + sizeof(thread->cache) - thread->available;
+        memcpy(output, source, count);
+        decaf_bzero(source, count);
+        thread->available -= count;
+        output += count;
+        length -= count;
+    }
+}
+
+static void
+libdecaf_nif_random_generate(decaf_keccak_prng_s state[2], uint8_t *output, size_t length)
+{
+    size_t half = length / 2;
+    if (half != 0)
+        decaf_spongerng_next2(&state[0], &state[1], output, output + half, half);
+    if (length % 2 != 0)
+        decaf_spongerng_next(&state[0], output + 2 * half, 1);
 }
 
 static ERL_NIF_TERM
-libdecaf_nif_random_bytes(ErlNifEnv *env, ERL_NIF_TERM length_term, const ErlNifBinary *fallback)
+libdecaf_nif_random_continue(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    libdecaf_nif_random_trap_t *trap = argc == 1 ? libdecaf_nif_random_trap(env, argv[0]) : NULL;
+    if (trap == NULL || !enif_is_current_process_alive(env))
+        return enif_make_badarg(env);
+    size_t count = trap->output.size - trap->offset;
+    if (count > LIBDECAF_RANDOM_CHUNK_BYTES)
+        count = LIBDECAF_RANDOM_CHUNK_BYTES;
+    libdecaf_nif_random_generate(trap->prng, trap->output.data + trap->offset, count);
+    trap->offset += count;
+    enif_consume_timeslice(env, (int)((count * 100 + LIBDECAF_RANDOM_CHUNK_BYTES - 1) / LIBDECAF_RANDOM_CHUNK_BYTES));
+    if (trap->offset < trap->output.size)
+        return enif_schedule_nif(env, "libdecaf_nif_random_continue", ERL_NIF_NORMAL_JOB_BOUND, libdecaf_nif_random_continue, 1,
+                                 argv);
+    trap->owns_output = false;
+    decaf_bzero(trap->prng, sizeof(trap->prng));
+    return enif_make_binary(env, &trap->output);
+}
+
+static ERL_NIF_TERM
+libdecaf_nif_random_seed_io(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    libdecaf_nif_random_trap_t *trap = argc == 2 ? libdecaf_nif_random_trap(env, argv[1]) : NULL;
+    if (trap == NULL || !enif_is_current_process_alive(env))
+        return enif_make_badarg(env);
+    /* Upstream handles the platform's entropy source, including its Windows
+     * equivalent. File I/O is confined to this dirty I/O continuation. */
+    if (decaf_spongerng_init_from_file(&trap->prng[0], "/dev/urandom", LIBDECAF_RANDOM_SEED_BYTES, 1) != DECAF_SUCCESS)
+        return ATOM(need_seed);
+    return enif_schedule_nif(env, "libdecaf_nif_random_seed_ready", ERL_NIF_NORMAL_JOB_BOUND, libdecaf_nif_random_seed_ready, 2,
+                             argv);
+}
+
+static ERL_NIF_TERM
+libdecaf_nif_random_seed_ready(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    libdecaf_nif_random_trap_t *trap = argc == 2 ? libdecaf_nif_random_trap(env, argv[1]) : NULL;
+    if (trap == NULL || !enif_is_current_process_alive(env))
+        return enif_make_badarg(env);
+    uint8_t seed[LIBDECAF_RANDOM_SEED_BYTES];
+    decaf_spongerng_next(&trap->prng[0], seed, sizeof(seed));
+    /* Install on the normal scheduler that actually resumes the caller, which
+     * need not be the scheduler that originally requested entropy. */
+    libdecaf_nif_random_install(seed);
+    decaf_bzero(seed, sizeof(seed));
+    decaf_bzero(trap->prng, sizeof(trap->prng));
+    return libdecaf_nif_strong_rand_bytes_1(env, 1, argv);
+}
+
+ERL_NIF_TERM
+libdecaf_nif_strong_rand_bytes_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     unsigned long length;
-    if (!enif_get_ulong(env, length_term, &length)) {
-        return EXCP_BADARG(env, "Bad argument: 'Length'");
-    }
+    if (argc != 1 || !enif_get_ulong(env, argv[0], &length))
+        return EXCP_BADARG(env, "Expected a non-negative random byte length");
     if (length == 0) {
-        ERL_NIF_TERM empty;
-        (void)enif_make_new_binary(env, 0, &empty);
-        return empty;
+        ERL_NIF_TERM result;
+        (void)enif_make_new_binary(env, 0, &result);
+        return result;
     }
-    libdecaf_nif_random_state_t *state = libdecaf_nif_random_state();
-    if (state == NULL) {
-        return EXCP_ERROR(env, "Can't allocate thread-local SpongeRNG state");
+    if (!libdecaf_nif_random_ready()) {
+        libdecaf_nif_random_trap_t *seed = enif_alloc_resource(libdecaf_nif_random_resource_type, sizeof(*seed));
+        if (seed == NULL)
+            return EXCP_ERROR(env, "Cannot allocate SpongeRNG seed state");
+        decaf_bzero(seed, sizeof(*seed));
+        ERL_NIF_TERM arguments[] = {argv[0], enif_make_resource(env, seed)};
+        enif_release_resource(seed);
+        return enif_schedule_nif(env, "libdecaf_nif_random_seed_io", ERL_NIF_DIRTY_JOB_IO_BOUND, libdecaf_nif_random_seed_io, 2,
+                                 arguments);
     }
-    if (!libdecaf_nif_random_seed(state, fallback)) {
-        return ATOM(need_seed);
+    libdecaf_nif_random_thread_t *thread = &libdecaf_nif_random_thread;
+    if (length <= LIBDECAF_RANDOM_CACHE_BYTES) {
+        ERL_NIF_TERM result;
+        uint8_t *output = enif_make_new_binary(env, length, &result);
+        if (output == NULL)
+            return EXCP_ERROR(env, "Cannot allocate random bytes");
+        if (length <= 256)
+            libdecaf_nif_random_cached(output, length);
+        else
+            libdecaf_nif_random_generate(thread->prng, output, length);
+        thread->generated += length;
+        return result;
     }
-    ErlNifBinary output;
-    if (!enif_alloc_binary(length, &output)) {
-        return EXCP_ERROR(env, "Can't allocate random bytes");
+    libdecaf_nif_random_trap_t *trap = enif_alloc_resource(libdecaf_nif_random_resource_type, sizeof(*trap));
+    if (trap == NULL)
+        return EXCP_ERROR(env, "Cannot allocate SpongeRNG output state");
+    decaf_bzero(trap, sizeof(*trap));
+    if (!enif_alloc_binary(length, &trap->output)) {
+        enif_release_resource(trap);
+        return EXCP_ERROR(env, "Cannot allocate random bytes");
     }
-    size_t offset = 0;
-    while (offset < output.size) {
-        if (!enif_is_current_process_alive(env)) {
-            decaf_bzero(output.data, offset);
-            enif_release_binary(&output);
-            return EXCP_ERROR(env, "Random byte generation cancelled");
-        }
-        size_t count = output.size - offset;
-        if (count > LIBDECAF_RANDOM_CHUNK_BYTES) {
-            count = LIBDECAF_RANDOM_CHUNK_BYTES;
-        }
-        decaf_spongerng_next(&state->prng, output.data + offset, count);
-        offset += count;
-        if (state->generated < LIBDECAF_RANDOM_RESEED_BYTES) {
-            size_t remaining = LIBDECAF_RANDOM_RESEED_BYTES - state->generated;
-            state->generated += count < remaining ? count : remaining;
-        }
-    }
-    return enif_make_binary(env, &output);
+    trap->owns_output = true;
+    uint8_t seed[2 * LIBDECAF_RANDOM_SEED_BYTES];
+    /* Ratchet the thread's generator and give this request an independent PRNG,
+     * so yielding and scheduler migration cannot expose or reuse cached state. */
+    libdecaf_nif_random_cached(seed, sizeof(seed));
+    for (size_t i = 0; i < 2; ++i)
+        decaf_spongerng_init_from_buffer(&trap->prng[i], seed + i * LIBDECAF_RANDOM_SEED_BYTES, LIBDECAF_RANDOM_SEED_BYTES, 1);
+    decaf_bzero(seed, sizeof(seed));
+    size_t remaining = LIBDECAF_RANDOM_RESEED_BYTES - thread->generated;
+    thread->generated += length < remaining ? length : remaining;
+    ERL_NIF_TERM argument = enif_make_resource(env, trap);
+    enif_release_resource(trap);
+    return libdecaf_nif_random_continue(env, 1, &argument);
 }
 
 ERL_NIF_TERM
-libdecaf_nif_spongerng_random_bytes_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{
-    if (argc != 1) {
-        return EXCP_NOTSUP(env, "argc must be 1");
-    }
-    return libdecaf_nif_random_bytes(env, argv[0], NULL);
-}
-
-ERL_NIF_TERM
-libdecaf_nif_spongerng_random_bytes_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+libdecaf_nif_strong_rand_bytes_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary seed;
-    if (argc != 2) {
-        return EXCP_NOTSUP(env, "argc must be 2");
-    }
-    if (!enif_inspect_binary(env, argv[1], &seed) || seed.size != LIBDECAF_RANDOM_SEED_BYTES) {
-        return EXCP_BADARG(env, "Bad argument: 'Seed' must contain 64 cryptographically random bytes");
-    }
-    return libdecaf_nif_random_bytes(env, argv[0], &seed);
+    unsigned long length;
+    if (argc != 2 || !enif_get_ulong(env, argv[0], &length) || !enif_inspect_binary(env, argv[1], &seed) ||
+        seed.size != LIBDECAF_RANDOM_SEED_BYTES)
+        return EXCP_BADARG(env, "Expected a length and 64 cryptographically random seed bytes");
+    libdecaf_nif_random_install(seed.data);
+    return libdecaf_nif_strong_rand_bytes_1(env, 1, argv);
 }

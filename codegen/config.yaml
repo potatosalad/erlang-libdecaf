@@ -3,6 +3,7 @@
 ---
 nif:
   atoms:
+  - backend
   - badarg
   - error
   - 'false'
@@ -10,6 +11,7 @@ nif:
   - no_context
   - notsup
   - ok
+  - parallelism
   - 'true'
   - undefined
   tuak:

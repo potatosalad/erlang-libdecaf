@@ -198,3 +198,10 @@ docker-test::
 	$(gen_verbose) docker run \
 		-v "$(shell pwd)":"/build/${PROJECT}" "${PROJECT}-${DOCKER_OTP_VERSION}" \
 		/bin/bash -c 'cd ${PROJECT} && make ct'
+
+.PHONY: test-spongerng
+
+tests:: test-spongerng
+
+test-spongerng:
+	$(verbose) $(MAKE) -C $(CURDIR)/c_src test-spongerng
