@@ -20,6 +20,11 @@ installation, use `ELP_OTP_VERSION=28.5`; the default is its OTP 29.1 build.
 The first full test run downloads the SHA-512, SHA-3, and legacy Keccak vector
 sets. Other maintained conformance vectors are checked in under `test/`.
 
+GitHub CI builds and tests the latest OTP 28 and 29 releases. OTP 29 also runs
+all four lint targets and builds ExDoc, with the HTML available as a workflow
+artifact. A separate job checks Python formatting and generator tests using the
+locked codegen dependencies. CI uses the same clang-format version as codegen.
+
 The upstream C source is vendored under `c_deps/ed448goldilocks` and pinned in
 `c_src/Makefile` to branch `features-20261025-v1.0.5`, based on tag `v1.0.5`.
 If removed, it is fetched and the local empty-input patch is reapplied.

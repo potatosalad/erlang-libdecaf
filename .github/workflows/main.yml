@@ -2,6 +2,17 @@ name: CI
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CC: clang
+  CXX: clang++
+
 jobs:
   test:
     name: OTP ${{ matrix.otp }}
@@ -9,23 +20,107 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        otp: ['28', '29']
+        include:
+          - otp: '29'
+            lint: true
+          - otp: '28'
+            lint: false
     steps:
       - uses: actions/checkout@v7
-      - uses: erlef/setup-beam@v1
+
+      - name: Set up Erlang and Rebar3
+        id: beam
+        uses: erlef/setup-beam@v1
         with:
           otp-version: ${{ matrix.otp }}
-          rebar3-version: '3.27.0'
+          rebar3-version: '3.28.0'
+
+      - name: Set up Python
+        if: matrix.lint
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install C formatter
+        if: matrix.lint
+        # Match the version used by codegen/poetry.lock.
+        run: python -m pip install clang-format==23.1.3
+
+      - name: Cache Dialyzer PLT
+        if: matrix.lint
+        uses: actions/cache@v6
+        with:
+          path: _build/test/*_plt
+          key: ${{ runner.os }}-${{ runner.arch }}-otp-${{ steps.beam.outputs.otp-version }}-dialyzer-${{ hashFiles('rebar.config', 'rebar.lock') }}
+
       - name: Build
         run: make -j2
+
       - name: Test
         run: make tests
+
+      - name: C and Erlang formatting
+        if: matrix.lint
+        run: |
+          clang-format --version
+          make lint-format
+
+      - name: Eqwalizer
+        if: matrix.lint
+        run: make lint-eqwalizer
+
+      - name: Dialyzer
+        if: matrix.lint
+        run: make lint-dialyzer
+
+      - name: Cross references
+        if: matrix.lint
+        run: make lint-xref
+
       - name: Documentation
-        if: matrix.otp == '29'
+        if: matrix.lint
         run: make docs
+
+      - name: Documentation artifact
+        if: matrix.lint
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs
+          path: doc/
+          if-no-files-found: error
+
       - name: Logs
         uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: ct-logs-${{ matrix.otp }}
-          path: logs/*
+          path: |
+            logs/
+            _build/test/logs/
+            rebar3.crashdump
+          if-no-files-found: ignore
+
+  codegen:
+    name: Codegen
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: codegen
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install generator dependencies
+        run: |
+          python -m pip install poetry==2.5.1
+          poetry install --no-interaction
+
+      - name: Python formatting
+        run: poetry run black --check src/ tests/
+
+      - name: Generator tests
+        run: poetry run pytest
