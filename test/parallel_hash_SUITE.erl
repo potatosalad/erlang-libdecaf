@@ -18,6 +18,7 @@ Parallel Hash/XOF framing, ordered joins, retained input, cancellation, and queu
     concurrent_branches/1,
     concurrent_windows/1,
     round_limits/1,
+    yielding/1,
     cancellation/1,
     worker_restart/1,
     retained_binary/1,
@@ -40,6 +41,7 @@ all() ->
         concurrent_branches,
         concurrent_windows,
         round_limits,
+        yielding,
         cancellation,
         worker_restart,
         retained_binary,
@@ -510,4 +512,66 @@ badarg(Fun) ->
         error:badarg -> ok;
         error:{badarg, _} -> ok;
         error:{badarg, _, _} -> ok
+    end.
+
+-spec yielding(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+yielding(_) ->
+    lists:foreach(
+        fun(Budget) ->
+            with_paused_routers(fun(_) ->
+                Input = data(8192 * 1025),
+                State = libdecaf_nif:parallel_hash_init(kt128),
+                Pending = {await, _, _} = libdecaf_nif:parallel_hash_update(State, Input),
+                Parent = self(),
+                {Pid, Monitor} = spawn_opt(
+                    fun() ->
+                        receive
+                            go ->
+                                ok = libdecaf_nif:parallel_absorb(1, Budget),
+                                Parent ! {drained, self()}
+                        end
+                    end,
+                    [monitor, {priority, low}]
+                ),
+                erlang:trace(Pid, true, [running]),
+                Pid ! go,
+                try
+                    await_drain_yield(Pid, Monitor, false),
+                    0 = queued(),
+                    {await, _, Operation} = Pending,
+                    {done, _, Updated} = libdecaf_nif:parallel_hash_continue(Operation),
+                    Expected = libdecaf:hash(kt128, Input),
+                    Expected = libdecaf:parallel_hash_final(Updated)
+                after
+                    exit(Pid, kill),
+                    erlang:demonitor(Monitor, [flush]),
+                    flush_drain_trace(Pid)
+                end
+            end)
+        end,
+        [0, 16#FFFFFFFF]
+    ),
+    ok.
+
+-spec await_drain_yield(Pid, Monitor, Yielded) -> Result when
+    Pid :: pid(), Monitor :: reference(), Yielded :: boolean(), Result :: ok.
+await_drain_yield(Pid, Monitor, Yielded) ->
+    receive
+        {trace, Pid, out, {libdecaf_nif, libdecaf_nif_parallel_absorb_continue, 2}} ->
+            await_drain_yield(Pid, Monitor, true);
+        {trace, Pid, _, _} ->
+            await_drain_yield(Pid, Monitor, Yielded);
+        {drained, Pid} when Yielded -> ok;
+        {drained, Pid} ->
+            ct:fail(parallel_absorb_did_not_yield);
+        {'DOWN', Monitor, process, Pid, Reason} ->
+            ct:fail({parallel_absorb_failed, Reason})
+    after 10000 -> ct:fail(parallel_absorb_yield_timeout)
+    end.
+
+-spec flush_drain_trace(Pid) -> Result when Pid :: pid(), Result :: ok.
+flush_drain_trace(Pid) ->
+    receive
+        {trace, Pid, _, _} -> flush_drain_trace(Pid)
+    after 0 -> ok
     end.

@@ -272,16 +272,25 @@ libdecaf_nif_parallel_absorb_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
     if (argc != 2 || !enif_get_uint(env, argv[0], &router) || router == 0 || router > pool->count ||
         !enif_get_ulong(env, argv[1], &max_rounds))
         return EXCP_BADARG(env, "Expected a native parallel router number");
-    size_t processed = 0, before;
-    do {
-        before = processed;
-        for (unsigned int offset = 0; offset < pool->count && enif_is_current_process_alive(env); offset++) {
-            if (max_rounds != 0 && processed == max_rounds)
-                break;
-            size_t budget = max_rounds == 0 ? 0 : max_rounds - processed;
-            processed += libdecaf_nif_parallel_drain(env, pool, (router - 1 + offset) % pool->count, budget);
-        }
-    } while (max_rounds == 0 && processed != before);
+    /* Preserve the requested total budget, including zero's drain-until-idle
+     * semantics, while handing the dirty scheduler back between short batches. */
+    const size_t slice = 128;
+    size_t processed = 0;
+    for (unsigned int offset = 0; offset < pool->count && processed < slice && enif_is_current_process_alive(env); offset++) {
+        if (max_rounds != 0 && processed == max_rounds)
+            break;
+        size_t budget = slice - processed;
+        if (max_rounds != 0 && budget > max_rounds - processed)
+            budget = max_rounds - processed;
+        processed += libdecaf_nif_parallel_drain(env, pool, (router - 1 + offset) % pool->count, budget);
+    }
+    if (processed != 0 && (max_rounds == 0 || (processed == slice && processed < max_rounds)) &&
+        enif_is_current_process_alive(env)) {
+        ERL_NIF_TERM arguments[] = {argv[0], enif_make_ulong(env, max_rounds == 0 ? 0 : max_rounds - processed)};
+        enif_consume_timeslice(env, 100);
+        return enif_schedule_nif(env, "libdecaf_nif_parallel_absorb_continue", ERL_NIF_DIRTY_JOB_CPU_BOUND,
+                                 libdecaf_nif_parallel_absorb_2, 2, arguments);
+    }
     /* A reusable worker can keep helping other queues on its next bounded call.
      * Direct NIF callers do not receive worker-control messages. */
     ErlNifPid self, worker;
