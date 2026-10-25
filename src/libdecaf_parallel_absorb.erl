@@ -1,18 +1,6 @@
 %%% % @format
 -module(libdecaf_parallel_absorb).
--moduledoc """
-Reusable parallel absorb process, started with `proc_lib`.
-
-Registers its readiness with its router, then waits for that router's work
-message. The NIF processes queued leaves on a dirty CPU scheduler;
-then waits for more work. Native queues wake the registered worker directly;
-router wakeups are acknowledged after the call. The process exits if its router
-dies. Each process belongs to a temporary supervised child.
-
-The `parallel_absorb_rounds` application option defaults to 100 leaves per call.
-Set it to zero to drain until the pool becomes idle, even if producers keep
-the call running indefinitely.
-""".
+-moduledoc false.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
 -moduledoc #{copyright => "Andrew Bennett"}.

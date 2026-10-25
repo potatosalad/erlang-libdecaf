@@ -1,25 +1,6 @@
 %%% % @format
 -module(libdecaf_parallel_router).
--moduledoc """
-Parallel-work router with one reusable absorb process and one pending wakeup.
-
-An absorb process is started asynchronously before work arrives. Sending
-`wakeup` dispatches it. While it is working, further wakeups set a single
-pending flag. When it acknowledges completion, the router dispatches it again
-if that flag is set. Native queues wake the registered absorb process directly.
-Startup wakeups are coalesced in the same way. The router replaces exited workers.
-Failed starts are retried after 250 milliseconds without restarting the router
-or discarding its pending wakeup.
-
-Routers hibernate after five idle seconds. Ready absorb processes wait for
-work without occupying a dirty scheduler.
-
-```erlang
-{ok, _} = application:ensure_all_started(libdecaf),
-#{names := [RouterName | _]} = libdecaf_nif:parallel_router_info(),
-RouterName ! wakeup.
-```
-""".
+-moduledoc false.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
 -moduledoc #{copyright => "Andrew Bennett"}.

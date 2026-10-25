@@ -1,23 +1,22 @@
 ~J{ macro implementation(module, title, hashes, created, xofs=()) }.
 ~J{ set algorithm = hashes[0] }.
-~J{ set hash_migration = 'Use libdecaf hash family functions and hash_init/1, hash_update/2, hash_final/1 instead.' }.
-~J{ set xof_migration = ' For SHAKE, use libdecaf:xof/3 and libdecaf:xof_init/1, xof_absorb/2, xof_squeeze/2.' if xofs else '' }.
+~J{ set hash_migration = 'Use libdecaf:hash/2, libdecaf:hash_init/1, libdecaf:hash_update/2, and libdecaf:hash_final/1.' }.
+~J{ set xof_migration = ' For SHAKE, use libdecaf:xof/3 and libdecaf:xof_init/1, libdecaf:xof_absorb/2, and libdecaf:xof_squeeze/2.' if xofs else '' }.
 %%% % @format
 -module(~J< module >.).
 -moduledoc """
 Deprecated compatibility API for ~J< title >. with tagged, immutable states.
 
-New code should use `libdecaf:hash/2,3`, `libdecaf:hash_init/1`,
+New code should use `libdecaf:hash/2`, `libdecaf:hash_init/1`,
 `libdecaf:hash_update/2`, and `libdecaf:hash_final/1` directly.
 ~J{ if xofs }.
 For SHAKE, use `libdecaf:xof/3`, `libdecaf:xof_init/1`,
 `libdecaf:xof_absorb/2`, and `libdecaf:xof_squeeze/2`.
 ~J{ endif }.
 
-This module retains the historical `{Algorithm, NativeState}` wrapper and
-delegates directly to `m:libdecaf_nif`. Updates return a new wrapped state;
-updating and finalizing leave the input state reusable. The replacement APIs
-take the native state directly, without the algorithm tuple.
+This compatibility module keeps `{Algorithm, NativeState}` wrapped states.
+Updates return a new state; existing states remain reusable. The new API
+returns opaque states directly. See the [migration guide](guides/migrating-to-3.0.md).
 
 Fixed-output algorithms and their default digest lengths:
 
@@ -33,8 +32,6 @@ accept only fixed-output hashes.
 
 Lengths are in bytes. Fixed-output hashes allow truncation from zero bytes
 through the algorithm's maximum digest length. Input accepts iodata.
-An unsupported selector or state wrapper raises `{badarg, Arguments}`;
-invalid native states, data, and lengths raise a native argument error.
 
 For example, the replacement incremental API needs no wrapper:
 
@@ -46,9 +43,9 @@ Digest = libdecaf:hash(~J< algorithm >., <<"abc">>).
 ```
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
--moduledoc #{created => "~J< created >.", modified => "2026-10-23"}.
+-moduledoc #{created => "~J< created >.", modified => "2026-10-25"}.
 -moduledoc #{copyright => "Andrew Bennett"}.
--moduledoc #{deprecated => "~J< hash_migration >.~J< xof_migration >."}.
+-moduledoc #{deprecated => <<"~J< hash_migration >.~J< xof_migration >.">>}.
 -compile(warn_missing_spec_all).
 -deprecated(module).
 
@@ -116,7 +113,7 @@ The wrapped state remains reusable.
 SHAKE requires `final/2`.
 ~J{ endif }.
 """.
--doc #{deprecated => "Use libdecaf:hash_final/1 with an unwrapped hash state."}.
+-doc #{deprecated => <<"Use libdecaf:hash_final/1 with an unwrapped hash state.">>}.
 -spec final(State) -> Digest when State :: hash_state(), Digest :: binary().
 ~J{ for name in hashes }.
 final({~J< name >., State}) ->
@@ -133,7 +130,7 @@ maximum.
 SHAKE accepts any nonnegative output length.
 ~J{ endif }.
 """.
--doc #{deprecated => "Use libdecaf:hash_final/1~J< ' or libdecaf:xof_squeeze/2' if xofs else '' >. with an unwrapped state."}.
+-doc #{deprecated => <<"Choose the digest length with libdecaf:hash_init/1, then use libdecaf:hash_final/1.~J< ' For SHAKE, use libdecaf:xof_squeeze/2; it returns {NextState, Output}.' if xofs else '' >.">>}.
 -spec final(State, Length) -> Digest when State :: state(), Length :: non_neg_integer(), Digest :: binary().
 ~J{ for name in hashes }.
 final({~J< name >., State}, Length) ->
@@ -152,7 +149,7 @@ Hash iodata using the algorithm's default digest length.
 SHAKE requires an explicit output length with `hash/3` or `xof/3`.
 ~J{ endif }.
 """.
--doc #{deprecated => "Use libdecaf:hash/2."}.
+-doc #{deprecated => <<"Use libdecaf:hash/2.">>}.
 -spec hash(Type, Data) -> Digest when Type :: hash_algorithm(), Data :: iodata(), Digest :: binary().
 ~J{ for name in hashes }.
 hash(~J< name >., Data) ->
@@ -168,7 +165,7 @@ Fixed-output hashes allow truncation up to their maximum digest length.
 SHAKE produces the requested number of XOF bytes, including zero.
 ~J{ endif }.
 """.
--doc #{deprecated => "Use libdecaf:hash/2~J< ' or libdecaf:xof/3 for SHAKE' if xofs else '' >.."}.
+-doc #{deprecated => <<"Use libdecaf:hash({Algorithm, Length}, Data).~J< ' For SHAKE, use libdecaf:xof(Algorithm, Data, Length).' if xofs else '' >.">>}.
 -spec hash(Type, Data, Length) -> Digest when
     Type :: algorithm(), Data :: iodata(), Length :: non_neg_integer(), Digest :: binary().
 ~J{ for name in hashes }.
@@ -189,7 +186,7 @@ Pass the returned tuple to `update/2` and `final/1,2` in this module.
 SHAKE states can only be finalized with an explicit output length.
 ~J{ endif }.
 """.
--doc #{deprecated => "Use libdecaf:hash_init/1~J< ' or libdecaf:xof_init/1' if xofs else '' >.; retain the unwrapped state."}.
+-doc #{deprecated => <<"Use libdecaf:hash_init/1~J< ' or libdecaf:xof_init/1' if xofs else '' >.; retain the unwrapped state.">>}.
 -spec init(Type) -> State when Type :: algorithm(), State :: state().
 ~J{ for name in hashes }.
 init(~J< name >.) ->
@@ -206,7 +203,7 @@ init(Type) ->
 Absorb iodata and return a new `{Algorithm, NativeState}` tuple.
 The algorithm tag is preserved and the input tuple remains reusable.
 """.
--doc #{deprecated => "Use libdecaf:hash_update/2~J< ' or libdecaf:xof_absorb/2' if xofs else '' >. with an unwrapped state."}.
+-doc #{deprecated => <<"Use libdecaf:hash_update/2~J< ' or libdecaf:xof_absorb/2' if xofs else '' >. with an unwrapped state.">>}.
 -spec update(State, Data) -> NewState when State :: state(), Data :: iodata(), NewState :: state().
 ~J{ for name in hashes }.
 update({~J< name >., State}, Data) ->
@@ -224,7 +221,7 @@ update(State, Data) ->
 Return `Length` SHAKE bytes from iodata in one call.
 This preserves the historical `xof/3` alias for SHAKE through `hash/3`.
 """.
--doc #{deprecated => "Use libdecaf:xof/3."}.
+-doc #{deprecated => <<"Use libdecaf:xof/3.">>}.
 -spec xof(Type, Data, Length) -> Output when
     Type :: xof_algorithm(), Data :: iodata(), Length :: non_neg_integer(), Output :: binary().
 ~J{ for name in xofs }.

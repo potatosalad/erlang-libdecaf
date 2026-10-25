@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from ..schema import Root
 from .nif import NIF
-from .functions import functions, xof_groups, types
+from .functions import Function, functions, xof_groups, types
 from .groups import PRIME_ORDER_GROUPS, PrimeOrderGroup
 
 
@@ -105,9 +105,7 @@ class Context:
         from .public_key import Type, types as public_key_types
 
         aliases = (
-            Type(name, f"libdecaf_nif:{name}()", doc)
-            for name, _, doc in self.types
-            if name in self.public_crypto_type_names
+            Type(name, f"libdecaf_nif:{name}()", doc) for name, _, doc in self.types if name in self.public_crypto_type_names
         )
         return tuple(sorted((*aliases, *public_key_types()), key=lambda item: item.name))
 
@@ -137,6 +135,22 @@ class Context:
         from .public_key import VARIANTS
 
         return VARIANTS
+
+    @property
+    def start_function(self):
+        return Function(
+            "start",
+            (),
+            "{ok, [atom()]} | {error, term()}",
+            "Start libdecaf and its application dependencies.\n\n```erlang\n{ok, _Started} = libdecaf:start().\n```",
+            "Application API",
+        )
+
+    @property
+    def deprecated_functions(self):
+        from .deprecated import deprecated_functions
+
+        return deprecated_functions(self.schema.nif)
 
     @property
     def crypto_functions(self):

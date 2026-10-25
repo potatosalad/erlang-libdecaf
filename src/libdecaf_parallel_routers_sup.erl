@@ -1,11 +1,6 @@
 %%% % @format
 -module(libdecaf_parallel_routers_sup).
--moduledoc """
-Supervisor for the numbered parallel routers.
-
-Starts one router supervisor for each name reported by `libdecaf_nif:parallel_router_info/0`.
-Each router supervisor owns an absorb supervisor and its router.
-""".
+-moduledoc false.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
 -moduledoc #{copyright => "Andrew Bennett"}.

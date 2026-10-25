@@ -1,12 +1,6 @@
 %%% % @format
 -module(libdecaf_sup).
--moduledoc """
-Root supervisor for libdecaf's background workers.
-
-The parallel router supervisor is enabled unless the application's
-`parallel` environment key is `false`. Its router count and registered names
-come from `libdecaf_nif:parallel_router_info/0`.
-""".
+-moduledoc false.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
 -moduledoc #{copyright => "Andrew Bennett"}.

@@ -58,13 +58,10 @@ S1 = libdecaf:parallel_{mode}_{update}(S0, <<"invoice-42">>),
 ```""",
             update: f"""Add input to a parallel {title} state and return its new state.
 
-The NIF tops up a partial leaf before dispatching full blocks to the routers.
-Binary payloads are retained once and jobs use offsets; iodata is normalized
-once. Workers compute leaves independently, and the caller joins chaining
-values in input order. The Erlang wrapper waits for native completion messages.
-Work and result storage grow with the input, up to 4096 leaves per operation at a time.
-If the router pool is disabled, the caller performs the work on a dirty scheduler.
-The previous state remains reusable, including from other processes.""",
+Input accepts iodata. Large inputs are processed concurrently using the
+application's worker pool, while results are combined in input order.
+The previous state remains reusable. Without a worker pool, the call still
+completes using the caller's dirty scheduler.""",
             finish: (
                 """Return the configured hash output without changing the input state.
 

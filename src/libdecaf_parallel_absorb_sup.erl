@@ -1,11 +1,6 @@
 %%% % @format
 -module(libdecaf_parallel_absorb_sup).
--moduledoc """
-Dynamic supervisor for one router's temporary absorb processes.
-
-Uses `simple_one_for_one`. Each child drains its native queue when woken and
-waits for more work. The router replaces exited children asynchronously.
-""".
+-moduledoc false.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
 -moduledoc #{copyright => "Andrew Bennett"}.

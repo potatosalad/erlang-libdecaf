@@ -111,14 +111,19 @@ parameters(_) ->
 
 -spec exports(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
 exports(_) ->
+    Deprecated = [
+        {Name, Arity}
+     || {Name, Arity, _} <- lists:flatten(proplists:get_value(deprecated, libdecaf:module_info(attributes)))
+    ],
     Public = lists:sort([
         Export
-     || Export = {Name, _} <- libdecaf:module_info(exports) -- [{module_info, 0}, {module_info, 1}],
+     || Export = {Name, _} <- libdecaf:module_info(exports) -- [{module_info, 0}, {module_info, 1} | Deprecated],
         not lists:prefix("ecdh_", atom_to_list(Name)),
         not lists:prefix("eddsa_", atom_to_list(Name)),
         not lists:prefix("parallel_", atom_to_list(Name))
     ]),
     Public = lists:sort([
+        {start, 0},
         {strong_rand_bytes, 1},
         {hash, 2},
         {hash_init, 1},

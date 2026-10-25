@@ -1,12 +1,13 @@
 %%% % @format
 -module(libdecaf_spongerng).
 -moduledoc """
-Generate pseudorandom bytes with the upstream Keccak sponge PRNG.
+Explicitly seeded pseudorandom byte streams using SpongeRNG.
+
+For automatically seeded random bytes, use `libdecaf:strong_rand_bytes/1`.
 
 Initialize from seed bytes, a file, or the operating system's random source.
 `next/2` and `stir/2` return new immutable states. Keep the returned state to
 advance the generator; reusing an earlier deterministic state repeats its output.
-The Erlang state keeps the existing `{spongerng, NativeState}` representation.
 
 For reproducible output, pass `true` as `Deterministic` and use the same seed and
 sequence of calls with the same library version. The requested length is part of
@@ -28,7 +29,7 @@ the seed supplied to those initializers is still the caller's responsibility.
 State resources are released and erased when no references remain.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
--moduledoc #{created => "2018-11-30", modified => "2026-10-24"}.
+-moduledoc #{created => "2018-11-30", modified => "2026-10-25"}.
 -moduledoc #{copyright => "Andrew Bennett"}.
 -compile(warn_missing_spec_all).
 

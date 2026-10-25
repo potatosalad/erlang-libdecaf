@@ -222,7 +222,7 @@ def functions():
             f"{family}_keypair",
             [("Type", f"{family}_algorithm()")],
             f"{family}_{state_suffix}()",
-            f"Generate a random {title} keypair using `crypto:strong_rand_bytes/1`.\n\n"
+            f"Generate a random {title} keypair.\n\n"
             f"Keep the opaque keypair for repeated operations; extract bytes when needed.\n\n"
             f"```erlang\nKeypair = libdecaf:{family}_keypair({example_type}),\nPublicKey = libdecaf:{family}_keypair_extract_public_key(Keypair).\n```",
             "Keypair",

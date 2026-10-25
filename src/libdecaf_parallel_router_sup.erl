@@ -1,11 +1,6 @@
 %%% % @format
 -module(libdecaf_parallel_router_sup).
--moduledoc """
-Supervisor for one parallel router and its absorb processes.
-
-The absorb supervisor starts first. A `rest_for_one` restart replaces the
-router whenever its absorb supervisor fails, keeping their lifecycles aligned.
-""".
+-moduledoc false.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
 -moduledoc #{created => "2026-10-24", modified => "2026-10-24"}.
 -moduledoc #{copyright => "Andrew Bennett"}.

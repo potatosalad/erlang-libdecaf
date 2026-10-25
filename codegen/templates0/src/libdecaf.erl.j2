@@ -1,69 +1,44 @@
 %%% % @format
 -module(libdecaf).
 -moduledoc """
-Hash messages, authenticate data, sign messages, and agree on shared secrets with libdecaf.
+Cryptography for Erlang and Elixir: signatures, key agreement, hashes, XOFs, and random bytes.
 
-Use `strong_rand_bytes/1` to generate random bytes without managing a PRNG
-state. Native threads seed and periodically reseed their private SpongeRNG from
-OS entropy, falling back to `crypto:strong_rand_bytes/1` when necessary.
-
-The **EdDSA API** selects signatures through `{Algorithm, Key}` or
-`{Algorithm, Key, Context}` parameters. `eddsa_keypair/1,2` returns an opaque
-native keypair; extraction returns the public key and original secret seed.
-Signing also accepts seeds, encoded `Seed || PublicKey` signing keys, and
-public/secret pairs from the curve modules. Ed25519ph and Ed448ph support native
-streaming through the `eddsa_sign_*` and `eddsa_verify_*` functions. Pass original
-message bytes; the prehash is computed internally. Contexts belong to each operation.
-
-The **ECDH API** generates X25519 or X448 keypairs with `ecdh_keypair/1,2`.
-`ecdh_shared_secret/3` takes the algorithm, local secret, and peer public key;
-either key argument may instead be a keypair. It returns raw shared-secret bytes
-or `error` for a rejected peer key. Extracted pairs use `{PublicKey, SecretKey}`
-order. EdDSA seeds and ECDH scalars are distinct key formats.
-
-Use the **Hash API** when you know the output length in advance: initialize with
-`hash_init/1`, add data with `hash_update/2`, and get bytes
-with `hash_final/1`. `hash/2` does the same work in one call.
-
-Use the **XOF API** when you want to read output incrementally: initialize with
-`xof_init/1`, add data with `xof_absorb/2`, then call
-`xof_squeeze/2` repeatedly, keeping the returned state. One-shot `xof/3` functions
-return bytes. Once squeezing starts, the returned state cannot absorb more input.
-
-Use `parallel_hash/2` or `parallel_xof/3` and their streaming counterparts to
-process KT, HopMAC, and ParallelHash leaves concurrently. They produce the same
-bytes as the serial APIs. Starting the application enables the router pool;
-without it, parallel calls complete on the caller's dirty scheduler. The
-`parallel_absorb_rounds` application option controls the worker budget, defaulting
-to 100 leaves. Zero drains queued work until the pool becomes idle.
-
-Hash and XOF states are opaque and belong to their corresponding lifecycle.
-They are immutable: keep each returned state to advance; reuse an older
-state to branch the input or repeat output. Lengths and ParallelHash block sizes
-are measured in **bytes**, and message, key, and customization inputs accept iodata.
-For TupleHash, one-shot input is a list of elements, while each update/absorb call
-contributes one whole element. Element boundaries are part of the hash.
-
-KMAC, TupleHash, and ParallelHash encode the chosen output length into their hash
-results. Their XOF variants use different framing, so a shorter hash is not obtained
-by truncating a longer hash or taking a prefix of the XOF. SHAKE, cSHAKE, Keccak XOF,
-TurboSHAKE, KT, and HopMAC produce the same prefix through either lifecycle.
-KMAC and HopMAC states contain key material and should be kept private.
-
-The SP 800-185 functions retain the published test-vector behavior and expose
-absorbing/squeezing phases described in the Revision 1 initial public draft.
-See [NIST SP 800-185r1 IPD](https://csrc.nist.gov/pubs/sp/800/185/r1/ipd) and
-[RFC 9861](https://www.rfc-editor.org/rfc/rfc9861.html).
+Start with `hash/2` for a digest, `xof/3` for a chosen number of XOF bytes,
+or `strong_rand_bytes/1` for random bytes:
 
 ```erlang
 Digest = libdecaf:hash(sha3_256, <<"abc">>),
-<<"3A985DA74FE225B2045C172D6BD390BD855F086E3E9D525B46BFE24511431532">> = binary:encode_hex(Digest).
+<<"3A985DA74FE225B2045C172D6BD390BD855F086E3E9D525B46BFE24511431532">> = binary:encode_hex(Digest),
+Token = libdecaf:strong_rand_bytes(32).
 ```
+
+Signatures use `eddsa_keypair/1`, `eddsa_sign/2`, and `eddsa_verify/3`.
+Ed25519ph and Ed448ph also support streaming through `eddsa_sign_init/1`
+and `eddsa_verify_init/2`. Key agreement uses `ecdh_keypair/1` and
+`ecdh_shared_secret/3` with X25519 or X448.
+
+For streaming hashes, use `hash_init/1`, `hash_update/2`, and `hash_final/1`.
+For streaming XOFs, use `xof_init/1`, `xof_absorb/2`, and `xof_squeeze/2`.
+All states are immutable: keep the state returned by each update. Lengths are
+in bytes, and message input accepts iodata.
+
+`parallel_hash/2` and `parallel_xof/3` process KT, HopMAC, and ParallelHash
+across worker processes. Call `start/0` to enable the worker pool. The ordinary
+and parallel APIs produce identical output.
+
+See the [Hash and XOF guide](guides/hash-and-xof.md) for algorithm parameters
+and the [migration guide](guides/migrating-to-3.0.md) for deprecated APIs.
+Group arithmetic is available through `m:libdecaf_ristretto255` and
+`m:libdecaf_decaf448`; TUAK through `m:libdecaf_tuak`.
 """.
 -moduledoc #{author => ["Andrew Bennett <potatosaladx@gmail.com>"]}.
--moduledoc #{created => "2016-02-06", modified => "2026-10-24"}.
+-moduledoc #{created => "2016-02-06", modified => "2026-10-25"}.
 -moduledoc #{copyright => "Andrew Bennett"}.
 
+%% Application API
+-export([
+    start/0
+]).
 ~J{ for family, title in (('ecdh', 'ECDH'), ('eddsa', 'EdDSA')) }.
 %% ~J< title >. API
 -export([
@@ -84,6 +59,18 @@ Digest = libdecaf:hash(sha3_256, <<"abc">>),
 -export([
     strong_rand_bytes/1
 ]).
+%% Deprecated API
+-export([
+~J{ for function in ctx.deprecated_functions }.
+    ~J< function.name >./~J< function.arity >.~J< ',' if not loop.last else '' >.
+~J{ endfor }.
+]).
+-deprecated([
+~J{ for function in ctx.deprecated_functions }.
+    {~J< function.name >., ~J< function.arity >., "~J< function.replacement >."}~J< ',' if not loop.last else '' >.
+~J{ endfor }.
+]).
+
 %%% Types
 ~J{ for type in ctx.public_types }.
 -doc """
@@ -97,6 +84,18 @@ Digest = libdecaf:hash(sha3_256, <<"abc">>),
     ~J< type.name >./0~J< ',' if not loop.last else '' >.
 ~J{ endfor }.
 ]).
+
+%%%=============================================================================
+%%% Application API functions
+%%%=============================================================================
+
+-doc """
+~J< ctx.start_function.doc >.
+""".
+-doc #{group => <<"~J< ctx.start_function.group >.">>}.
+-spec ~J< ctx.start_function.spec >..
+start() ->
+    application:ensure_all_started(?MODULE).
 
 ~J{ include 'src/public_key_api.erl.inc' }.
 
@@ -139,18 +138,12 @@ Digest = libdecaf:hash(sha3_256, <<"abc">>),
 -doc """
 Generate `Length` cryptographically random bytes without managing a PRNG state.
 
-The native implementation keeps a private SpongeRNG and byte cache per normal
-scheduler thread, seeded with 64 bytes of OS entropy. Before the next request after
-generating 16 MiB or five minutes, it mixes in fresh entropy. It also reseeds
-if the OS process ID changes. Calls advance private state automatically; there
-is no state to retain, share, or accidentally reuse.
+The generator is seeded automatically from operating-system entropy and
+reseeded periodically. If native entropy is unavailable, it uses
+`crypto:strong_rand_bytes/1` to obtain seed bytes. An entropy-source failure
+raises an exception. A zero-byte request returns `<<>>`.
 
-If native entropy is unavailable, `crypto:strong_rand_bytes/1` supplies a fresh
-64-byte seed. Entropy-source failures raise an exception. Zero returns `<<>>`
-without requesting entropy. `Length` must be a nonnegative integer that fits
-the native length type and available memory. Cached requests run directly on
-normal schedulers; large requests yield in bounded chunks. Only reading OS
-entropy uses a dirty I/O scheduler. The libdecaf application does not need to be started.
+For an explicitly seeded or deterministic stream, use `m:libdecaf_spongerng`.
 
 ```erlang
 Token = libdecaf:strong_rand_bytes(32),
@@ -167,6 +160,21 @@ strong_rand_bytes(Length) ->
         Output ->
             Output
     end.
+
+%%%=============================================================================
+%%% Deprecated API
+%%%=============================================================================
+
+~J{ for function in ctx.deprecated_functions }.
+-doc """
+~J< function.doc >.
+""".
+-doc #{group => <<"Deprecated API">>, deprecated => <<"~J< function.replacement >.">>}.
+-spec ~J< function.spec >..
+~J< function.name >.(~J< function.arguments | map(attribute='name') | join(', ') >.) ->
+    ~J< function.implementation | indent(4) >..
+
+~J{ endfor }.
 
 ~J{ include 'src/public_key_internal.erl.inc' }.
 

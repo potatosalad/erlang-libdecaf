@@ -67,8 +67,12 @@ charges for element framing, including empty elements; ParallelHash charges for
 extra leaf permutations at small block sizes. Cancellation wipes contexts and
 unpublished output. KT/HopMAC customization resources remain component-owned.
 
-`libdecaf.erl` exposes only the generic high-level interface with runnable examples
-and parameter tables. Generic constructors and one-shot functions expand parameter
+`libdecaf.erl` exposes application startup and the generic high-level interface with runnable examples
+and parameter tables, followed by a Deprecated API section for the historical
+top-level functions. `context/deprecated.py` maps those functions to current native
+operations while preserving raw states, final-time digest truncation, SHAKE's
+binary-only finalizers, and low-level curve argument order.
+Generic constructors and one-shot functions expand parameter
 tuples through the selected algorithm's constructor vtable. `xof/3` uses the same
 parameters as `xof_init/1`, with the output byte length as its third argument.
 The NIF module keeps sparse documentation. `sp800185_SUITE` checks public documentation examples and both generic and algorithm-specific native APIs.
