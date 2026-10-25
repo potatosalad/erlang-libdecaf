@@ -233,43 +233,43 @@ and the ARM SHA3 backend. The parallel APIs reach **41 GB/s for KT128** and
 | Algorithm | Ordinary API | Parallel API | Speedup |
 | --- | ---: | ---: | ---: |
 | SHA2-512 | 710 MB/s | — | — |
-| SHA3-224 | 1 GB/s | — | — |
+| SHA3-224 | 1025 MB/s | — | — |
 | SHA3-256 | 951 MB/s | — | — |
 | SHA3-384 | 737 MB/s | — | — |
 | SHA3-512 | 511 MB/s | — | — |
-| SHAKE128 | 1 GB/s | — | — |
+| SHAKE128 | 1184 MB/s | — | — |
 | SHAKE256 | 965 MB/s | — | — |
-| cSHAKE128 | 1 GB/s | — | — |
+| cSHAKE128 | 1176 MB/s | — | — |
 | cSHAKE256 | 944 MB/s | — | — |
-| KMAC128 | 1 GB/s | — | — |
+| KMAC128 | 1180 MB/s | — | — |
 | KMAC256 | 964 MB/s | — | — |
-| KMACXOF128 | 1 GB/s | — | — |
+| KMACXOF128 | 1184 MB/s | — | — |
 | KMACXOF256 | 958 MB/s | — | — |
-| ParallelHash128 | 1 GB/s | 21 GB/s | 18× |
+| ParallelHash128 | 1158 MB/s | 21 GB/s | 18× |
 | ParallelHash256 | 924 MB/s | 16 GB/s | 17× |
-| ParallelHashXOF128 | 1 GB/s | 20 GB/s | 17× |
+| ParallelHashXOF128 | 1161 MB/s | 20 GB/s | 17× |
 | ParallelHashXOF256 | 931 MB/s | 16 GB/s | 17× |
-| TupleHash128 | 1 GB/s | — | — |
+| TupleHash128 | 1181 MB/s | — | — |
 | TupleHash256 | 958 MB/s | — | — |
-| TupleHashXOF128 | 1 GB/s | — | — |
+| TupleHashXOF128 | 1186 MB/s | — | — |
 | TupleHashXOF256 | 965 MB/s | — | — |
-| Keccak-224 | 1 GB/s | — | — |
+| Keccak-224 | 1020 MB/s | — | — |
 | Keccak-256 | 958 MB/s | — | — |
 | Keccak-384 | 742 MB/s | — | — |
 | Keccak-512 | 511 MB/s | — | — |
-| Keccak-XOF-128 | 1 GB/s | — | — |
+| Keccak-XOF-128 | 1185 MB/s | — | — |
 | Keccak-XOF-256 | 950 MB/s | — | — |
-| HopMAC128 | 2 GB/s | 41 GB/s | 17× |
-| HopMAC256 | 2 GB/s | 31 GB/s | 16× |
-| KT128 | 2 GB/s | 41 GB/s | 17× |
-| KT256 | 2 GB/s | 31 GB/s | 16× |
-| TurboSHAKE128 | 2 GB/s | — | — |
-| TurboSHAKE256 | 2 GB/s | — | — |
+| HopMAC128 | 2417 MB/s | 41 GB/s | 17× |
+| HopMAC256 | 1946 MB/s | 31 GB/s | 16× |
+| KT128 | 2410 MB/s | 41 GB/s | 17× |
+| KT256 | 1950 MB/s | 31 GB/s | 16× |
+| TurboSHAKE128 | 2457 MB/s | — | — |
+| TurboSHAKE256 | 2023 MB/s | — | — |
 
 Best of five complete streaming passes, including initialization and finalization,
 with reused 64 MiB updates. Ordinary messages are 1 GiB; parallel messages are
 32 GiB to measure sustained worker-pool throughput. ParallelHash uses 8 KiB blocks;
-workers drain their queues until idle. Values use rounded decimal GB/s or MB/s. Speedups use the unrounded measurements.
+workers drain their queues until idle. Ordinary API rates use rounded decimal MB/s; parallel rates use rounded decimal GB/s. Speedups use the unrounded measurements.
 KMACXOF128, KMACXOF256, TupleHashXOF128, TupleHashXOF256, ParallelHashXOF128,
 and ParallelHashXOF256 use the XOF API; other rows use the Hash API. Small messages favor the ordinary API.
 

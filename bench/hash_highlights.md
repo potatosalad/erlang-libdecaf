@@ -20,44 +20,44 @@ elixir bench/hash_highlights.exs
 BENCH_GIB=2 BENCH_PARALLEL_GIB=32 BENCH_REPEATS=7 elixir bench/hash_highlights.exs
 ```
 
-Values below are decimal GB/s, retained to three decimals so that README rounding
+Values below use decimal MB/s for the ordinary API and GB/s for the parallel API, retained to three decimals so that README rounding
 and speedup calculations can be checked. These are warm-input measurements;
 CPU placement, clock frequency, input size, and other work affect results.
 HopMAC shares KT's leaf kernel, so their bulk rates are effectively equal within
 measurement variation.
 
-| Algorithm | Ordinary API GB/s | Parallel API GB/s |
+| Algorithm | Ordinary API MB/s | Parallel API GB/s |
 | --- | ---: | ---: |
-| SHA2-512 | 0.710 | — |
-| SHA3-224 | 1.025 | — |
-| SHA3-256 | 0.951 | — |
-| SHA3-384 | 0.737 | — |
-| SHA3-512 | 0.511 | — |
-| SHAKE128 | 1.184 | — |
-| SHAKE256 | 0.965 | — |
-| cSHAKE128 | 1.176 | — |
-| cSHAKE256 | 0.944 | — |
-| KMAC128 | 1.180 | — |
-| KMAC256 | 0.964 | — |
-| KMACXOF128 | 1.184 | — |
-| KMACXOF256 | 0.958 | — |
-| TupleHash128 | 1.181 | — |
-| TupleHash256 | 0.958 | — |
-| TupleHashXOF128 | 1.186 | — |
-| TupleHashXOF256 | 0.965 | — |
-| ParallelHash128 | 1.158 | 20.530 |
-| ParallelHash256 | 0.924 | 15.987 |
-| ParallelHashXOF128 | 1.161 | 20.096 |
-| ParallelHashXOF256 | 0.931 | 15.789 |
-| Keccak-224 | 1.020 | — |
-| Keccak-256 | 0.958 | — |
-| Keccak-384 | 0.742 | — |
-| Keccak-512 | 0.511 | — |
-| Keccak-XOF-128 | 1.185 | — |
-| Keccak-XOF-256 | 0.950 | — |
-| TurboSHAKE128 | 2.457 | — |
-| TurboSHAKE256 | 2.023 | — |
-| KT128 | 2.410 | 40.508 |
-| KT256 | 1.950 | 31.291 |
-| HopMAC128 | 2.417 | 41.059 |
-| HopMAC256 | 1.946 | 31.204 |
+| SHA2-512 | 710.000 | — |
+| SHA3-224 | 1025.000 | — |
+| SHA3-256 | 951.000 | — |
+| SHA3-384 | 737.000 | — |
+| SHA3-512 | 511.000 | — |
+| SHAKE128 | 1184.000 | — |
+| SHAKE256 | 965.000 | — |
+| cSHAKE128 | 1176.000 | — |
+| cSHAKE256 | 944.000 | — |
+| KMAC128 | 1180.000 | — |
+| KMAC256 | 964.000 | — |
+| KMACXOF128 | 1184.000 | — |
+| KMACXOF256 | 958.000 | — |
+| TupleHash128 | 1181.000 | — |
+| TupleHash256 | 958.000 | — |
+| TupleHashXOF128 | 1186.000 | — |
+| TupleHashXOF256 | 965.000 | — |
+| ParallelHash128 | 1158.000 | 20.530 |
+| ParallelHash256 | 924.000 | 15.987 |
+| ParallelHashXOF128 | 1161.000 | 20.096 |
+| ParallelHashXOF256 | 931.000 | 15.789 |
+| Keccak-224 | 1020.000 | — |
+| Keccak-256 | 958.000 | — |
+| Keccak-384 | 742.000 | — |
+| Keccak-512 | 511.000 | — |
+| Keccak-XOF-128 | 1185.000 | — |
+| Keccak-XOF-256 | 950.000 | — |
+| TurboSHAKE128 | 2457.000 | — |
+| TurboSHAKE256 | 2023.000 | — |
+| KT128 | 2410.000 | 40.508 |
+| KT256 | 1950.000 | 31.291 |
+| HopMAC128 | 2417.000 | 41.059 |
+| HopMAC256 | 1946.000 | 31.204 |
