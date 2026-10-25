@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+extern int libdecaf_nif_tuak_load(ErlNifEnv *env);
+
 {% for function in ctx.tuak_functions %}
 extern ERL_NIF_TERM {{ function.c_name }}(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 {% endfor %}

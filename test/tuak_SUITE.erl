@@ -24,7 +24,9 @@ Exercise every TUAK test set in TS 35.232 and TS 35.233 Release 19 through the N
     invalid_arguments/1,
     output_domains/1,
     concurrent/1,
-    public_api/1
+    public_api/1,
+    yielding/1,
+    cancellation/1
 ]).
 
 -type vector() :: #{atom() => binary() | pos_integer()}.
@@ -39,7 +41,9 @@ all() ->
         invalid_arguments,
         output_domains,
         concurrent,
-        public_api
+        public_api,
+        yielding,
+        cancellation
     ].
 
 -spec groups() -> Result when Result :: [ct_suite:ct_group_def()].
@@ -335,4 +339,82 @@ badarg(Fun) ->
     catch
         error:badarg -> ok;
         error:{badarg, _, _} -> ok
+    end.
+
+-spec yielding(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+yielding(_) ->
+    Key = <<0:128>>,
+    Options = #{iterations => 2049},
+    TOPc = binary:decode_hex(<<"CEC74E8C4DEEF0E091DD9B1482A2D8F367CDAD2507E8F168C392F7204FD9D6C3">>),
+    TOPc = libdecaf_nif:tuak_topc(Key, <<0:256>>, Options),
+    Expected = {
+        binary:decode_hex(<<"7EC68A2B99C1D5CC">>),
+        binary:decode_hex(<<"E3D1F9BBFB656000E5677D113FF13650">>),
+        binary:decode_hex(<<"14BADDF4C880665724EE0F2B43CD24A2">>),
+        binary:decode_hex(<<"2791E76EA905">>)
+    },
+    % Reference outputs come from the independent synchronous primitive entry points.
+    Expected = libdecaf_nif:tuak_f2345(Key, TOPc, <<0:128>>, Options),
+    ok.
+
+-spec cancellation(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+cancellation(_) ->
+    Key = <<0:128>>,
+    TOPc = <<0:256>>,
+    RAND = <<0:128>>,
+    lists:foreach(
+        fun({Function, Args}) -> cancel_evaluation(Function, Args ++ [#{iterations => 16#FFFFFFFF}]) end,
+        [
+            {topc, [Key, TOPc]},
+            {f1, [Key, TOPc, RAND, <<0:48>>, <<0:16>>]},
+            {f1_star, [Key, TOPc, RAND, <<0:48>>, <<0:16>>]}
+            | [{Function, [Key, TOPc, RAND]} || Function <- [f2, f3, f4, f5, f5_star, f2345]]
+        ]
+    ),
+    ok.
+
+-spec cancel_evaluation(Function, Args) -> Result when Function :: atom(), Args :: [term()], Result :: ok.
+cancel_evaluation(Function, Args) ->
+    Parent = self(),
+    {Pid, Monitor} = spawn_opt(
+        fun() ->
+            receive
+                go -> Parent ! {unexpected_result, self(), call(Function, Args)}
+            end
+        end,
+        [monitor, {priority, low}]
+    ),
+    erlang:trace(Pid, true, [running]),
+    Pid ! go,
+    try
+        await_continuation(Pid, Monitor)
+    after
+        exit(Pid, kill),
+        erlang:demonitor(Monitor, [flush]),
+        flush_continuations(Pid)
+    end.
+
+-spec await_continuation(Pid, Monitor) -> Result when Pid :: pid(), Monitor :: reference(), Result :: ok.
+await_continuation(Pid, Monitor) ->
+    receive
+        {trace, Pid, out, {libdecaf_nif, libdecaf_nif_tuak_continue, 1}} ->
+            exit(Pid, kill),
+            receive
+                {'DOWN', Monitor, process, Pid, killed} -> ok
+            after 3000 -> ct:fail(tuak_did_not_cancel)
+            end;
+        {trace, Pid, _, _} ->
+            await_continuation(Pid, Monitor);
+        {'DOWN', Monitor, process, Pid, Reason} ->
+            ct:fail({tuak_failed, Reason});
+        {unexpected_result, Pid, _} ->
+            ct:fail(tuak_did_not_yield)
+    after 3000 -> ct:fail(tuak_did_not_yield)
+    end.
+
+-spec flush_continuations(Pid) -> Result when Pid :: pid(), Result :: ok.
+flush_continuations(Pid) ->
+    receive
+        {trace, Pid, _, _} -> flush_continuations(Pid)
+    after 0 -> ok
     end.

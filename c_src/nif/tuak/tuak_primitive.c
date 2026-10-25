@@ -1,6 +1,7 @@
 #include <keccak_internal.h>
 #include <decaf/common.h>
 #include "tuak_primitive.h"
+#include <string.h>
 
 /* TS 35.231 maps each external byte string in reverse byte order into the
  * Keccak state. The permutation operates on its usual little-endian lanes. */
@@ -12,8 +13,8 @@ libdecaf_nif_tuak_reverse(uint8_t *output, const uint8_t *input, size_t length)
 }
 
 static void
-libdecaf_nif_tuak_evaluate(kdomain_t state, const uint8_t *key, size_t key_length, const uint8_t top[32], uint8_t instance,
-                           const uint8_t *rand, const uint8_t *sqn, const uint8_t *amf, uint32_t iterations)
+libdecaf_nif_tuak_initialize(kdomain_t state, const uint8_t *key, size_t key_length, const uint8_t top[32], uint8_t instance,
+                             const uint8_t *rand, const uint8_t *sqn, const uint8_t *amf)
 {
     static const uint8_t algorithm[] = "TUAK1.0";
     decaf_bzero(state, sizeof(kdomain_t));
@@ -29,6 +30,40 @@ libdecaf_nif_tuak_evaluate(kdomain_t state, const uint8_t *key, size_t key_lengt
     libdecaf_nif_tuak_reverse(state->b + 64, key, key_length);
     state->b[96] = 0x1F;
     state->b[135] = 0x80;
+}
+
+void
+libdecaf_nif_tuak_prepare(uint8_t bytes[200], const uint8_t *key, size_t key_length, const uint8_t top[32], uint8_t instance,
+                          const uint8_t *rand, const uint8_t *sqn, const uint8_t *amf)
+{
+    kdomain_t state;
+    libdecaf_nif_tuak_initialize(state, key, key_length, top, instance, rand, sqn, amf);
+    memcpy(bytes, state->b, 200);
+    decaf_bzero(state, sizeof(state));
+}
+
+void
+libdecaf_nif_tuak_iterate(uint8_t bytes[200], uint32_t iterations)
+{
+    kdomain_t state;
+    memcpy(state->b, bytes, 200);
+    for (uint32_t i = 0; i < iterations; ++i)
+        keccakf(state, 0);
+    memcpy(bytes, state->b, 200);
+    decaf_bzero(state, sizeof(state));
+}
+
+void
+libdecaf_nif_tuak_extract(const uint8_t bytes[200], size_t offset, uint8_t *output, size_t length)
+{
+    libdecaf_nif_tuak_reverse(output, bytes + offset, length);
+}
+
+static void
+libdecaf_nif_tuak_evaluate(kdomain_t state, const uint8_t *key, size_t key_length, const uint8_t top[32], uint8_t instance,
+                           const uint8_t *rand, const uint8_t *sqn, const uint8_t *amf, uint32_t iterations)
+{
+    libdecaf_nif_tuak_initialize(state, key, key_length, top, instance, rand, sqn, amf);
     for (uint32_t i = 0; i < iterations; ++i)
         keccakf(state, 0);
 }

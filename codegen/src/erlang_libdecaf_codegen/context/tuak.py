@@ -180,7 +180,8 @@ def types(schema):
             "iterations",
             "1..4294967295",
             "Number of complete 24-round Keccak-f[1600] permutations; default "
-            f"{schema.default_iterations}. Use the same count for TOPc derivation and its subsequent operations.",
+            f"{schema.default_iterations}. Use the same count for TOPc derivation and its subsequent operations. "
+            "Long evaluations yield between bounded batches and stop when their caller is terminated.",
         ),
     ]
     for option in OPTIONS:

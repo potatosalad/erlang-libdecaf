@@ -85,7 +85,7 @@ static ErlNifFunc libdecaf_nif_funcs[] = {
 {% endfor %}
     /* TUAK API. */
 {% for function in ctx.tuak_functions %}
-    {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"{{ function.name }}", {{ function.arity }}, {{ function.c_name }}, ERL_NIF_NORMAL_JOB_BOUND},
 {% endfor %}
     /* decaf/spongerng.h */
     {"spongerng_random_bytes", 1, libdecaf_nif_spongerng_random_bytes_1, ERL_NIF_DIRTY_JOB_CPU_BOUND},
@@ -116,6 +116,8 @@ libdecaf_nif_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     if (libdecaf_nif_ed448_load(env) != 0)
         return -1;
     if (libdecaf_nif_ed448ph_load(env) != 0)
+        return -1;
+    if (libdecaf_nif_tuak_load(env) != 0)
         return -1;
     if (libdecaf_nif_hash_load(env) != 0)
         return -1;
@@ -152,6 +154,8 @@ libdecaf_nif_upgrade(ErlNifEnv *env, void **new_priv_data, void **old_priv_data,
     if (libdecaf_nif_ed448_load(env) != 0)
         return -1;
     if (libdecaf_nif_ed448ph_load(env) != 0)
+        return -1;
+    if (libdecaf_nif_tuak_load(env) != 0)
         return -1;
     if (libdecaf_nif_hash_load(env) != 0)
         return -1;
