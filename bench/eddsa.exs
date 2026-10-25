@@ -1,6 +1,7 @@
 # Run from the repository root:
 #   gmake && elixir bench/eddsa.exs
-#   BENCH_BYTES=65536 BENCH_TIME=10 elixir bench/eddsa.exs
+#   BENCH_BYTES=65536 BENCH_TIME=1 elixir bench/eddsa.exs
+# Default: 0.1 seconds per case, with no per-case warmup.
 
 Mix.install([{:benchee, "~> 1.5.1"}])
 Code.require_file("support/grouped_console.exs", __DIR__)
@@ -9,9 +10,9 @@ Code.prepend_path(Path.expand("../ebin", __DIR__))
 {:ok, _} = :libdecaf.start()
 
 bytes = System.get_env("BENCH_BYTES", "1024") |> String.to_integer()
-time = System.get_env("BENCH_TIME", "5") |> String.to_integer()
+{time, ""} = System.get_env("BENCH_TIME", "0.1") |> Float.parse()
 
-if bytes < 0 or time < 1,
+if bytes < 0 or time <= 0,
   do: raise("BENCH_BYTES must be nonnegative and BENCH_TIME must be positive")
 
 message = :binary.copy(<<0>>, bytes)
@@ -66,7 +67,7 @@ IO.inspect(:crypto.info_lib(), label: "crypto backend")
 
 Benchee.run(jobs,
   time: time,
-  warmup: 1,
+  warmup: 0,
   parallel: 1,
   formatters: [LibdecafBench.GroupedConsole]
 )
