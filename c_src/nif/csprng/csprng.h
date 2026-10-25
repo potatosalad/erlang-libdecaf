@@ -15,7 +15,12 @@ struct libdecaf_nif_csprng_ctx_s {
     decaf_keccak_prng_s state;
 };
 
-int libdecaf_nif_csprng_load(ErlNifEnv *env);
+extern int libdecaf_nif_csprng_load(ErlNifEnv *env);
+extern void libdecaf_nif_csprng_random_load(void);
+extern void libdecaf_nif_csprng_random_unload(void);
+
+extern ERL_NIF_TERM libdecaf_nif_spongerng_random_bytes_1(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+extern ERL_NIF_TERM libdecaf_nif_spongerng_random_bytes_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 extern ERL_NIF_TERM libdecaf_nif_spongerng_csprng_init_from_buffer_2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 extern ERL_NIF_TERM libdecaf_nif_spongerng_csprng_init_from_file_3(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);

@@ -36,6 +36,7 @@
   * Add scheduler-numbered parallel routers with `rest_for_one` absorb supervision, asynchronously prepared reusable workers, coalesced wakeups, and idle hibernation.
   * Add high-level EdDSA and ECDH APIs in `libdecaf`, with opaque algorithm-specific keypairs, explicit seed/signing-key formats, and immutable native Ed25519ph/Ed448ph streaming.
   * Modernize `libdecaf_spongerng` with direct native calls, named typespecs, descriptive documentation, and runnable examples while preserving its wrapped-state API.
+  * Add `libdecaf:spongerng_random_bytes/1` with automatically seeded thread-local native state, periodic reseeding, and a `crypto:strong_rand_bytes/1` entropy fallback.
   * Add immutable advancing `absorb`/`squeeze` APIs for every XOF family, following the two-phase streaming interface in the SP 800-185 Revision 1 initial public draft.
   * Generate the deprecated `libdecaf_sha2`, `libdecaf_sha3`, and `libdecaf_keccak_sha3` compatibility modules, retaining wrapped states and directing callers to the hash and XOF APIs in `libdecaf`.
   * Add Docker and native ASan, LSan, and UBSan checks for ed448goldilocks and the NIF, including resource cleanup stress.
