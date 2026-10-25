@@ -5,6 +5,8 @@
 3f819e75718565e36fbb1f6ed31e800b4bd274c81adc81f6da2a5bf51c29cf66  lib/common/brg_endian.h
 d6279858810b8ce0d04a212fd164bef993a91c4abc650db8c53af57b74322ca7  lib/common/load-store.h
 34b851be1afdaf6b67b5d55390495c910aec778d794e0789dc19bbe2294b15a5  lib/common/xkcp-memcmp.h
+9a55126f9870a0ddc01282810fefd13431561db1bfc9f95b38151fa7d637523d  lib/low/KeccakP-1600-times2/ARMv8A/KeccakP-1600-times2-SnP.h
+5d9e13c453a03b023e5af5cedf5916dd1c15576dca9e703b7b31431ff4076054  lib/low/KeccakP-1600-times2/ARMv8A/KeccakP-1600-times2-armv8a-neon.c
 73d112ed3023c5221e5f8ccde6eb3f49c8a9b158331a52468fd4235275c219e9  lib/low/KeccakP-1600-times2/ARMv8A/KeccakP-1600-times2-x2-v84a-asm.s
 94531b8e9b4de47a92b6842ac19e7fe5e7ce36c0d1a2f8c423a7408c0fc68dde  lib/low/KeccakP-1600-times2/SIMD128/KeccakP-1600-times2-SIMD128.c
 4c8e83f83b3b0684dcf4e97f5db87296f640080de56db92deceff2b581a94e77  lib/low/KeccakP-1600-times2/SIMD128/KeccakP-1600-times2-SIMD128.h

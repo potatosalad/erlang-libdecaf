@@ -21,6 +21,12 @@ every round count, including zero, and for independent interleaved states.
 The AVX2/AVX-512 assembly fast loops select Mach-O calls without the ELF-only
 `@PLT` suffix when `old_gas_syntax` is enabled (the existing XKCP macOS flag).
 
+The unmodified ARMv8A times2 C backend supplies register-resident 12/24-round
+absorb loops for 136- and 168-byte rates. The adapter selects those loops only
+when SHA3 instructions are available. Equal-length contiguous streams use the
+corresponding SSSE3/AVX2/AVX-512 absorb loops on x86; other shapes retain the
+portable per-block path. Only the active SIMD lanes are initialized and wiped.
+
 CMake option `ENABLE_KECCAK_OPTIMIZATIONS=OFF` builds only portable C.
 On unsupported CPUs/operating systems runtime detection retains portable C.
 Keccak states keep their existing byte order and alignment requirements.

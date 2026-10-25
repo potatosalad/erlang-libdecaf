@@ -30,7 +30,7 @@ add_executable(keccak_tester keccak.c)
 # The permutation hooks are intentionally internal (hidden in shared builds).
 # Link their objects into the differential tester as well as the public library.
 target_link_libraries(keccak_tester decaf-keccak-adapter decaf-keccak-plain ${DECAF_LIBRARIES_FOR_TESTER})
-foreach(backend decaf-keccak-k12 decaf-keccak-sha3 decaf-keccak-x86 decaf-keccak-ssse3 decaf-keccak-avx2 decaf-keccak-avx512)
+foreach(backend decaf-keccak-arm-pair decaf-keccak-k12 decaf-keccak-sha3 decaf-keccak-x86 decaf-keccak-ssse3 decaf-keccak-avx2 decaf-keccak-avx512)
     if(TARGET ${backend})
         target_link_libraries(keccak_tester ${backend})
     endif()

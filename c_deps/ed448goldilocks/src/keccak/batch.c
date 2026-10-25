@@ -33,8 +33,10 @@ decaf_error_t decaf_sha3_hash_parallel(uint8_t *const *outputs,
       decaf_keccak_hash_leaves(outputs, inputs, width, params->rate))
     return result;
   uint64_t state[25 * 8] __attribute__((aligned(64)));
-  decaf_bzero(state, sizeof(state));
-  size_t offset = 0, rate = params->rate;
+  decaf_bzero(state, width * 25 * sizeof(state[0]));
+  size_t rate = params->rate;
+  size_t offset = decaf_keccak_absorb_parallel(
+      state, width, inputs, input_length, rate, params->start_round);
   while (input_length - offset >= rate) {
     for (unsigned int instance = 0; instance < width; ++instance) {
       size_t byte = 0;
@@ -74,6 +76,6 @@ decaf_error_t decaf_sha3_hash_parallel(uint8_t *const *outputs,
     if (offset < output_length)
       decaf_keccak_permute_parallel(state, width, params->start_round);
   }
-  decaf_bzero(state, sizeof(state));
+  decaf_bzero(state, width * 25 * sizeof(state[0]));
   return result;
 }

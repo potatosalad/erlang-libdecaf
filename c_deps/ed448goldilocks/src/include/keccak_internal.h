@@ -43,6 +43,8 @@ void __attribute__((noinline)) keccakf(kdomain_t state, uint8_t start_round);
 const char *decaf_keccak_backend(void);
 size_t decaf_keccak_absorb_blocks(kdomain_t state, unsigned int rate, uint8_t start_round, const uint8_t *input, size_t length);
 unsigned int decaf_keccak_parallelism(void);
+size_t decaf_keccak_absorb_parallel(uint64_t *states, unsigned int width, const uint8_t *const *inputs,
+    size_t length, unsigned int rate, uint8_t start_round);
 int decaf_keccak_hash_leaves(uint8_t *const *outputs, const uint8_t *const *inputs, unsigned int width, unsigned int rate);
 void decaf_keccak_permute_parallel(uint64_t *states, unsigned int width, uint8_t start_round);
 

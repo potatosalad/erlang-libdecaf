@@ -265,7 +265,8 @@ $(ED448GOLDILOCKS_MAKE_FILE): $(ED448GOLDILOCKS_SRC_DIR)/CMakeLists.txt $(C_SRC_
 			-DCMAKE_CXX_FLAGS="-fPIC -g $(if $(filter 1,$(SANITIZE)),$(CXXFLAGS_SANITIZE))" \
 			"$(ED448GOLDILOCKS_SRC_DIR)"
 
-$(ED448GOLDILOCKS_OUTPUT_FILE): $(ED448GOLDILOCKS_MAKE_FILE)
+# Revisit CMake's dependency graph when bundled source or backend files change.
+$(ED448GOLDILOCKS_OUTPUT_FILE): $(ED448GOLDILOCKS_MAKE_FILE) $(call core_find,$(ED448GOLDILOCKS_SRC_DIR)/src/,*)
 	$(MAKE) -C $(ED448GOLDILOCKS_BUILD_DIR)
 	$(verbose) touch $@
 

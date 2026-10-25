@@ -25,6 +25,10 @@ if(ENABLE_KECCAK_OPTIMIZATIONS AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" AND N
             decaf_keccak_object(decaf-keccak-sha3
                 "${XKCP_ROOT}/low/KeccakP-1600/ARMv8A-SHA3/KeccakP-1600-x1-v84a-asm.S;${XKCP_ROOT}/low/KeccakP-1600-times2/ARMv8A/KeccakP-1600-times2-x2-v84a-asm.S")
             target_compile_options(decaf-keccak-sha3 PRIVATE -march=armv8.2-a+sha3)
+            set(XKCP_ARM_TWO ${XKCP_ROOT}/low/KeccakP-1600-times2/ARMv8A)
+            decaf_keccak_object(decaf-keccak-arm-pair ${XKCP_ARM_TWO}/KeccakP-1600-times2-armv8a-neon.c ${XKCP_ARM_TWO})
+            target_compile_options(decaf-keccak-arm-pair PRIVATE -march=armv8.2-a+sha3)
+            list(APPEND XKCP_INCLUDES ${XKCP_ARM_TWO})
             decaf_keccak_object(decaf-keccak-k12 ${CMAKE_CURRENT_SOURCE_DIR}/k12/KeccakP-1600-ARMv8Asha3.S)
             target_compile_options(decaf-keccak-k12 PRIVATE -march=armv8.2-a+sha3)
             if(APPLE)

@@ -4,6 +4,7 @@
 #include "config.h"
 #include "keccak_internal.h"
 #include <assert.h>
+#include <limits.h>
 #include <string.h>
 #if defined(DECAF_KECCAK_SHA3) || defined(DECAF_KECCAK_X86)
 #include <stdatomic.h>
@@ -12,6 +13,7 @@
 #include <decaf/common.h>
 
 #if defined(DECAF_KECCAK_SHA3)
+#include "KeccakP-1600-times2-SnP.h"
 #if defined(__APPLE__)
 #include <sys/sysctl.h>
 #elif defined(__linux__)
@@ -306,6 +308,89 @@ int decaf_keccak_hash_leaves(uint8_t *const *outputs,
   if (handled)
     for (unsigned int instance = 0; instance < width; ++instance)
       memcpy(outputs[instance], chaining + instance * (200 - rate), 200 - rate);
-  decaf_bzero(chaining, sizeof(chaining));
+  decaf_bzero(chaining, width * (200 - rate));
   return handled;
+}
+
+#if defined(DECAF_KECCAK_SHA3)
+/* The imported ARM absorb loops use these helpers only for uncommon rates. */
+void KeccakP1600times2_AddLanesAll(KeccakP1600times2_states *states,
+                                   const unsigned char *data,
+                                   unsigned int lane_count,
+                                   unsigned int lane_offset) {
+  uint64_t *lanes = (uint64_t *)states;
+  for (unsigned int instance = 0; instance < 2; ++instance)
+    for (unsigned int lane = 0; lane < lane_count; ++lane) {
+      uint64_t word;
+      memcpy(&word, data + 8 * ((size_t)instance * lane_offset + lane), 8);
+      lanes[2 * lane + instance] ^= word;
+    }
+}
+void KeccakP1600times2_PermuteAll_4rounds(KeccakP1600times2_states *states) {
+  decaf_keccak_permute_parallel((uint64_t *)states, 2, 20);
+}
+void KeccakP1600times2_PermuteAll_6rounds(KeccakP1600times2_states *states) {
+  decaf_keccak_permute_parallel((uint64_t *)states, 2, 18);
+}
+void KeccakP1600times2_PermuteAll_12rounds(KeccakP1600times2_states *states) {
+  decaf_keccak_permute_parallel((uint64_t *)states, 2, 12);
+}
+void KeccakP1600times2_PermuteAll_24rounds(KeccakP1600times2_states *states) {
+  decaf_keccak_permute_parallel((uint64_t *)states, 2, 0);
+}
+#endif
+
+/* Dispatch an entire absorb loop, keeping the state in SIMD registers across
+ * blocks. All streams must be contiguous equal-sized, whole-lane slices. */
+size_t decaf_keccak_absorb_parallel(uint64_t *states, unsigned int width,
+                                    const uint8_t *const *inputs, size_t length,
+                                    unsigned int rate, uint8_t start_round) {
+  if ((width != 2 && width != 4 && width != 8) || length < rate ||
+      length % 8 != 0 || (rate != 136 && rate != 168) ||
+      (start_round != 0 && start_round != 12) || length / 8 > UINT_MAX ||
+      length > SIZE_MAX / width)
+    return 0;
+  for (unsigned int instance = 1; instance < width; ++instance)
+    if ((uintptr_t)inputs[instance] != (uintptr_t)inputs[0] + length * instance)
+      return 0;
+  unsigned int features = cpu_features();
+#if defined(DECAF_KECCAK_SHA3)
+  if (width == 2 && (features & SHA3)) {
+    if (start_round == 0)
+      return KeccakF1600times2_FastLoop_Absorb((void *)states, rate / 8,
+                                               length / 8, rate / 8, inputs[0],
+                                               2 * length);
+    return KeccakP1600times2_12rounds_FastLoop_Absorb(
+        (void *)states, rate / 8, length / 8, rate / 8, inputs[0], 2 * length);
+  }
+#endif
+#if defined(DECAF_KECCAK_X86)
+  if (width == 8 && (features & AVX512)) {
+    if (start_round == 0)
+      return KeccakF1600times8_AVX512_FastLoop_Absorb((void *)states, rate / 8,
+                                                      length / 8, rate / 8,
+                                                      inputs[0], 8 * length);
+    return KeccakP1600times8_12rounds_AVX512_FastLoop_Absorb(
+        (void *)states, rate / 8, length / 8, rate / 8, inputs[0], 8 * length);
+  }
+  if (width == 4 && (features & AVX2)) {
+    if (start_round == 0)
+      return KeccakF1600times4_AVX2_FastLoop_Absorb((void *)states, rate / 8,
+                                                    length / 8, rate / 8,
+                                                    inputs[0], 4 * length);
+    return KeccakP1600times4_12rounds_AVX2_FastLoop_Absorb(
+        (void *)states, rate / 8, length / 8, rate / 8, inputs[0], 4 * length);
+  }
+  if (width == 2 && (features & SSSE3)) {
+    if (start_round == 0)
+      return KeccakF1600times2_SSSE3_FastLoop_Absorb((void *)states, rate / 8,
+                                                     length / 8, rate / 8,
+                                                     inputs[0], 2 * length);
+    return KeccakP1600times2_12rounds_SSSE3_FastLoop_Absorb(
+        (void *)states, rate / 8, length / 8, rate / 8, inputs[0], 2 * length);
+  }
+#endif
+  (void)states;
+  (void)features;
+  return 0;
 }
