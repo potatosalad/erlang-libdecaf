@@ -1,0 +1,9 @@
+# Run from the repository root:
+#   gmake && elixir bench/hash.exs
+#   BENCH_BYTES=65536 BENCH_TIME=1 elixir bench/hash.exs
+# Default: 1 MiB messages, 0.1 seconds per case, no per-case warmup.
+
+Mix.install([{:benchee, "~> 1.5.1"}])
+Code.require_file("support/one_shot.exs", __DIR__)
+
+LibdecafBench.OneShot.run(:hash)
