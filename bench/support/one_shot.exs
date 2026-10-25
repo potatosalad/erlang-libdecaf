@@ -106,21 +106,86 @@ defmodule LibdecafBench.OneShot do
   end
 
   defp report(suite, bytes) do
-    suite.scenarios
-    |> Enum.group_by(fn scenario -> hd(String.split(scenario.name, " / ")) end)
-    |> Enum.sort_by(&elem(&1, 0))
-    |> Enum.each(fn {_algorithm, scenarios} ->
+    groups =
+      suite.scenarios
+      |> Enum.group_by(fn scenario -> hd(String.split(scenario.name, " / ")) end)
+      |> Enum.sort_by(&elem(&1, 0))
+
+    Enum.each(groups, fn {_algorithm, scenarios} ->
       group = Benchee.relative_statistics(%{suite | scenarios: scenarios})
       Benchee.Formatter.output(group, LibdecafBench.GroupedConsole)
 
       rates =
         Enum.map_join(group.scenarios, " | ", fn scenario ->
           implementation = List.last(String.split(scenario.name, " / "))
-          rate = bytes * scenario.run_time_data.statistics.ips / (1024 * 1024)
-          "#{implementation}: #{:erlang.float_to_binary(rate, decimals: 2)}"
+          "#{implementation}: #{format_rate(scenario, bytes)}"
         end)
 
       IO.puts("\nThroughput (MiB/s): #{rates}")
     end)
+
+    summary(groups, bytes)
+  end
+
+  defp summary(groups, bytes) do
+    IO.puts("\nOne-shot throughput comparison (MiB/s; higher is faster)")
+    IO.puts("Lead = fastest / runner-up. '-' = unavailable or no comparison.\n")
+    row_format = "~-20s ~11s ~11s ~11s ~10s ~8s"
+
+    IO.puts(
+      :io_lib.format(row_format, [
+        "Algorithm",
+        "crypto",
+        "libdecaf",
+        "parallel",
+        "Fastest",
+        "Lead"
+      ])
+    )
+
+    IO.puts(String.duplicate("-", 76))
+
+    for {algorithm, scenarios} <- groups do
+      [winner | others] = Enum.sort_by(scenarios, & &1.run_time_data.statistics.average)
+      implementations = Map.new(scenarios, &{provider(&1), &1})
+
+      lead =
+        case others do
+          [] ->
+            "-"
+
+          [runner_up | _] ->
+            ratio =
+              runner_up.run_time_data.statistics.average / winner.run_time_data.statistics.average
+
+            "#{:erlang.float_to_binary(ratio, decimals: 2)}x"
+        end
+
+      IO.puts(
+        :io_lib.format(row_format, [
+          algorithm,
+          format_rate(implementations[:crypto], bytes),
+          format_rate(implementations[:libdecaf], bytes),
+          format_rate(implementations[:parallel], bytes),
+          Atom.to_string(provider(winner)),
+          lead
+        ])
+      )
+    end
+  end
+
+  defp provider(scenario) do
+    case List.last(String.split(scenario.name, " / ")) do
+      "crypto:" <> _ -> :crypto
+      "libdecaf:parallel_" <> _ -> :parallel
+      "libdecaf:" <> _ -> :libdecaf
+    end
+  end
+
+  defp format_rate(nil, _bytes), do: "-"
+
+  defp format_rate(scenario, bytes) do
+    rate = bytes * scenario.run_time_data.statistics.ips / (1024 * 1024)
+    :erlang.float_to_binary(rate, decimals: 2)
   end
 end
