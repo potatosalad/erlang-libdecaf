@@ -35,7 +35,8 @@ libdecaf_nif_parallel_operation_load(ErlNifEnv *env, const char *name)
 
 libdecaf_nif_parallel_operation_t *
 libdecaf_nif_parallel_operation_create(ErlNifEnv *env, ErlNifResourceType *type, ERL_NIF_TERM state, ERL_NIF_TERM input,
-                                       size_t block_size, bool finish, size_t output_length, ERL_NIF_TERM *error)
+                                       size_t block_size, libdecaf_nif_parallel_leaf_t leaf, bool finish, size_t output_length,
+                                       ERL_NIF_TERM *error)
 {
     ErlNifEnv *work_env = enif_alloc_env();
     if (work_env == NULL) {
@@ -55,29 +56,42 @@ libdecaf_nif_parallel_operation_create(ErlNifEnv *env, ErlNifResourceType *type,
     size_t capacity = binary.size / block_size;
     if (capacity > LIBDECAF_NIF_PARALLEL_WINDOW)
         capacity = LIBDECAF_NIF_PARALLEL_WINDOW;
-    if (capacity == 0)
-        capacity = 1;
-    size_t allocation = offsetof(libdecaf_nif_parallel_operation_t, results) + capacity * sizeof(libdecaf_nif_parallel_result_t);
+    size_t width = LIBDECAF_NIF_PARALLEL_JOB_LEAVES;
+    capacity = capacity == 0 ? width : (capacity + width - 1) / width * width;
+    size_t jobs = capacity / width * LIBDECAF_NIF_PARALLEL_WINDOWS;
+    size_t chaining_length = 200 - leaf.rate;
+    size_t allocation = offsetof(libdecaf_nif_parallel_operation_t, results) + offsetof(libdecaf_nif_parallel_pipeline_t, jobs) +
+                        jobs * sizeof(libdecaf_nif_parallel_job_t) + capacity * LIBDECAF_NIF_PARALLEL_WINDOWS * chaining_length;
     libdecaf_nif_parallel_operation_t *operation = enif_alloc_resource(type, allocation);
     if (operation == NULL) {
         *error = EXCP_ERROR(env, "Can't allocate parallel operation");
         enif_free_env(work_env);
         return NULL;
     }
-    /* Results are unreadable until their ready flag is published. Initialize
-     * metadata here; workers fully overwrite chaining values before publishing. */
+    /* Chaining values are unreadable until their job's ready bits are published.
+     * Only metadata needs initialization; workers fully overwrite the output. */
     decaf_bzero(operation, offsetof(libdecaf_nif_parallel_operation_t, results));
     atomic_init(&operation->cancelled, false);
     atomic_init(&operation->notified, false);
     atomic_init(&operation->completed, 0);
-    for (size_t i = 0; i < capacity; i++) {
-        atomic_init(&operation->results[i].ready, false);
-        operation->results[i].node.next = NULL;
-        operation->results[i].node.operation = operation;
-        operation->results[i].node.index = i;
+    libdecaf_nif_parallel_pipeline_t *pipeline = libdecaf_nif_parallel_pipeline(operation);
+    decaf_bzero(pipeline, offsetof(libdecaf_nif_parallel_pipeline_t, jobs));
+    pipeline->capacity = capacity;
+    pipeline->chaining_length = chaining_length;
+    for (size_t i = 0; i < LIBDECAF_NIF_PARALLEL_WINDOWS; i++) {
+        atomic_init(&pipeline->windows[i].completed, 0);
+        atomic_init(&pipeline->windows[i].notified, false);
     }
-    operation->version = 1;
+    for (size_t i = 0; i < jobs; i++) {
+        atomic_init(&pipeline->jobs[i].ready, 0);
+        pipeline->jobs[i].node.next = NULL;
+        pipeline->jobs[i].node.operation = operation;
+        pipeline->jobs[i].node.index = i * width;
+    }
+    operation->version = 2;
     operation->job_width = LIBDECAF_NIF_PARALLEL_JOB_LEAVES;
+    operation->block_size = block_size;
+    operation->leaf = leaf;
     operation->pool = libdecaf_nif_parallel_pool_current(env);
     libdecaf_nif_parallel_pool_keep(operation->pool);
     operation->work_env = work_env;
@@ -201,10 +215,170 @@ libdecaf_nif_parallel_dispatch(ErlNifEnv *env, libdecaf_nif_parallel_operation_t
     return fallback;
 }
 
+static unsigned int
+libdecaf_nif_parallel_window_dispatch(libdecaf_nif_parallel_operation_t *operation, unsigned int slot)
+{
+    libdecaf_nif_parallel_pipeline_t *pipeline = libdecaf_nif_parallel_pipeline(operation);
+    libdecaf_nif_parallel_window_t *window = &pipeline->windows[slot];
+    libdecaf_nif_parallel_pool_t *pool = operation->pool;
+    libdecaf_nif_parallel_node_t *heads[LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT];
+    libdecaf_nif_parallel_node_t *tails[LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT];
+    size_t counts[LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT];
+    decaf_bzero(heads, pool->count * sizeof(heads[0]));
+    decaf_bzero(tails, pool->count * sizeof(tails[0]));
+    decaf_bzero(counts, pool->count * sizeof(counts[0]));
+    size_t first = atomic_fetch_add_explicit(&pool->next_router, 1, memory_order_relaxed) % pool->count;
+    size_t input_bytes = window->count * operation->block_size;
+    size_t target_bytes = operation->leaf.turbo && input_bytes >= 2 * 1024 * 1024 ? 512 * 1024 : 128 * 1024;
+    size_t workers = 1 + (input_bytes - 1) / target_bytes;
+    if (workers > pool->count)
+        workers = pool->count;
+    const size_t width = LIBDECAF_NIF_PARALLEL_JOB_LEAVES;
+    size_t jobs = (window->count + width - 1) / width;
+    if (workers > jobs)
+        workers = jobs;
+    for (size_t i = 0; i < window->count; i += width) {
+        size_t index = slot * pipeline->capacity + i;
+        libdecaf_nif_parallel_job_t *job = libdecaf_nif_parallel_job(operation, index);
+        atomic_store_explicit(&job->ready, 0, memory_order_relaxed);
+        job->node.index = index;
+        job->node.next = NULL;
+        size_t router = (first + (i / width) * workers / jobs) % pool->count;
+        if (tails[router] == NULL)
+            heads[router] = &job->node;
+        else
+            tails[router]->next = &job->node;
+        tails[router] = &job->node;
+        counts[router] += libdecaf_nif_parallel_job_size(&job->node);
+        enif_keep_resource(operation);
+    }
+    for (unsigned int i = 0; i < pool->count; i++) {
+        if (heads[i] != NULL) {
+            libdecaf_nif_parallel_queue_push(&pool->queues[i], heads[i], tails[i], counts[i]);
+        }
+    }
+    return (unsigned int)first;
+}
+
+static int
+libdecaf_nif_parallel_pipeline_step(ErlNifEnv *env, libdecaf_nif_parallel_operation_t *operation, void *context,
+                                    const libdecaf_nif_parallel_algorithm_t *algorithm)
+{
+    libdecaf_nif_parallel_pipeline_t *pipeline = libdecaf_nif_parallel_pipeline(operation);
+    bool normal = enif_thread_type() == ERL_NIF_THR_NORMAL_SCHEDULER;
+    ErlNifTime started = normal ? enif_monotonic_time(ERL_NIF_USEC) : 0;
+    for (;;) {
+        if (atomic_load_explicit(&operation->cancelled, memory_order_acquire))
+            return -1;
+        bool active = false;
+        for (size_t i = 0; i < LIBDECAF_NIF_PARALLEL_WINDOWS; i++)
+            active |= pipeline->windows[i].active;
+        if (!active) {
+            size_t remaining = operation->input.size - operation->offset;
+            if (remaining == 0) {
+                operation->finished = true;
+                if (operation->monitored) {
+                    (void)enif_demonitor_process(env, operation, &operation->monitor);
+                    operation->monitored = false;
+                }
+                return 1;
+            }
+            size_t prefix = algorithm->prefix(context);
+            if (prefix != 0 || remaining < operation->block_size) {
+                size_t take = prefix != 0 && prefix < remaining ? prefix : remaining;
+                algorithm->update(context, operation->input.data + operation->offset, take);
+                operation->offset += take;
+                continue;
+            }
+        }
+        /* Refill the free slot before joining the current one. Workers can
+         * hash ahead, but only the owner mutates the root, in input order. */
+        bool dispatched = false;
+        unsigned int helper = 0;
+        for (unsigned int i = 0; i < LIBDECAF_NIF_PARALLEL_WINDOWS; i++) {
+            unsigned int slot = (pipeline->current + i) % LIBDECAF_NIF_PARALLEL_WINDOWS;
+            libdecaf_nif_parallel_window_t *window = &pipeline->windows[slot];
+            size_t count = (operation->input.size - operation->offset) / operation->block_size;
+            if (window->active || count == 0)
+                continue;
+            if (normal)
+                return 3;
+            if (count > pipeline->capacity)
+                count = pipeline->capacity;
+            window->offset = operation->offset;
+            window->count = count;
+            window->joined = 0;
+            window->active = true;
+            atomic_store_explicit(&window->completed, 0, memory_order_relaxed);
+            atomic_store_explicit(&window->notified, false, memory_order_relaxed);
+            operation->offset += count * operation->block_size;
+            helper = libdecaf_nif_parallel_window_dispatch(operation, slot);
+            dispatched = true;
+        }
+        /* Publish both windows before the calling dirty scheduler helps with
+         * a bounded share. It need not sit idle while workers start running. */
+        if (dispatched) {
+            for (unsigned int i = 0; i < operation->pool->count; i++) {
+                if (!libdecaf_nif_parallel_wakeup(env, operation->pool, i))
+                    libdecaf_nif_parallel_drain(env, operation->pool, i, LIBDECAF_NIF_PARALLEL_WINDOW);
+            }
+            libdecaf_nif_parallel_drain(env, operation->pool, helper, 128);
+        }
+        libdecaf_nif_parallel_window_t *window = &pipeline->windows[pipeline->current];
+        while (window->joined < window->count) {
+            size_t count = 0;
+            while (count < 128 && window->joined + count < window->count) {
+                size_t available = window->count - window->joined - count;
+                size_t take = available < LIBDECAF_NIF_PARALLEL_JOB_LEAVES ? available : LIBDECAF_NIF_PARALLEL_JOB_LEAVES;
+                size_t index = pipeline->current * pipeline->capacity + window->joined + count;
+                unsigned int mask = (1u << take) - 1u;
+                if ((atomic_load_explicit(&libdecaf_nif_parallel_job(operation, index)->ready, memory_order_acquire) & mask) !=
+                    mask)
+                    break;
+                count += take;
+            }
+            if (count == 0)
+                break;
+            uint8_t *chaining = libdecaf_nif_parallel_chaining(operation, pipeline->current * pipeline->capacity + window->joined);
+            bool valid = algorithm->join(context, chaining, count);
+            decaf_bzero(chaining, count * pipeline->chaining_length);
+            if (!valid)
+                return -1;
+            window->joined += count;
+            if (normal && enif_monotonic_time(ERL_NIF_USEC) - started >= 100)
+                return 2;
+        }
+        if (window->joined == window->count && atomic_load_explicit(&window->notified, memory_order_acquire)) {
+            window->active = false;
+            pipeline->current = (pipeline->current + 1) % LIBDECAF_NIF_PARALLEL_WINDOWS;
+            continue;
+        }
+        if (atomic_load_explicit(&window->completed, memory_order_acquire) == window->count)
+            return 2;
+        if (dispatched)
+            return 0;
+        /* Recheck missing/restarted workers on each continuation. Retired pools
+         * from an older NIF are drained by the owner on a dirty scheduler. */
+        for (unsigned int i = 0; i < operation->pool->count; i++) {
+            if (!libdecaf_nif_parallel_wakeup(env, operation->pool, i)) {
+                if (normal)
+                    return 3;
+                libdecaf_nif_parallel_drain(env, operation->pool, i, LIBDECAF_NIF_PARALLEL_WINDOW);
+            }
+        }
+        if (atomic_load_explicit(&window->completed, memory_order_acquire) == window->count)
+            continue;
+        return 0;
+    }
+}
+
 int
 libdecaf_nif_parallel_operation_step(ErlNifEnv *env, libdecaf_nif_parallel_operation_t *operation, void *context,
                                      const libdecaf_nif_parallel_algorithm_t *algorithm)
 {
+    if (operation->version >= 2)
+        return libdecaf_nif_parallel_pipeline_step(env, operation, context, algorithm);
+    /* Keep in-flight version 0/1 resources readable during NIF takeover. */
     bool dispatched = false;
     bool normal = enif_thread_type() == ERL_NIF_THR_NORMAL_SCHEDULER;
     ErlNifTime started = normal ? enif_monotonic_time(ERL_NIF_USEC) : 0;

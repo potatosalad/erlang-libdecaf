@@ -5,6 +5,7 @@
 #include <stdatomic.h>
 
 #define LIBDECAF_NIF_PARALLEL_WINDOW (4096)
+#define LIBDECAF_NIF_PARALLEL_WINDOWS (2)
 #define LIBDECAF_NIF_PARALLEL_JOB_LEAVES (16)
 #define LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT (1024)
 
@@ -36,6 +37,28 @@ typedef struct {
     uint8_t chaining[64];
 } libdecaf_nif_parallel_result_t;
 
+/* Version 2 keeps one queue node/readiness mask per job and packs chaining
+ * values separately. A split job requeues its existing node after taking a
+ * local copy of the claimed range, rather than allocating a node per leaf. */
+typedef struct {
+    libdecaf_nif_parallel_node_t node;
+    atomic_uint ready;
+} libdecaf_nif_parallel_job_t;
+
+typedef struct {
+    size_t offset, count, joined;
+    atomic_size_t completed;
+    atomic_bool notified;
+    bool active;
+} libdecaf_nif_parallel_window_t;
+
+typedef struct {
+    size_t capacity, chaining_length;
+    unsigned int current;
+    libdecaf_nif_parallel_window_t windows[LIBDECAF_NIF_PARALLEL_WINDOWS];
+    libdecaf_nif_parallel_job_t jobs[];
+} libdecaf_nif_parallel_pipeline_t;
+
 struct libdecaf_nif_parallel_operation_s {
     libdecaf_nif_parallel_pool_t *pool;
     ErlNifEnv *work_env;
@@ -55,18 +78,54 @@ struct libdecaf_nif_parallel_operation_s {
 /* These bytes used to be zeroed padding. Keep old operation/resource layouts
  * readable during NIF takeover; version zero uses one queued node per leaf. */
 _Static_assert(offsetof(libdecaf_nif_parallel_operation_t, results) ==
-                   ((offsetof(libdecaf_nif_parallel_operation_t, finish) + 1 +
-                     _Alignof(libdecaf_nif_parallel_result_t) - 1) /
-                    _Alignof(libdecaf_nif_parallel_result_t)) * _Alignof(libdecaf_nif_parallel_result_t),
+                   ((offsetof(libdecaf_nif_parallel_operation_t, finish) + 1 + _Alignof(libdecaf_nif_parallel_result_t) - 1) /
+                    _Alignof(libdecaf_nif_parallel_result_t)) *
+                       _Alignof(libdecaf_nif_parallel_result_t),
                "Parallel operation version must fit the legacy padding");
+
+static inline libdecaf_nif_parallel_pipeline_t *
+libdecaf_nif_parallel_pipeline(libdecaf_nif_parallel_operation_t *operation)
+{
+    return (void *)operation->results;
+}
+
+static inline libdecaf_nif_parallel_window_t *
+libdecaf_nif_parallel_window(libdecaf_nif_parallel_operation_t *operation, size_t index)
+{
+    libdecaf_nif_parallel_pipeline_t *pipeline = libdecaf_nif_parallel_pipeline(operation);
+    return &pipeline->windows[index / pipeline->capacity];
+}
+
+static inline libdecaf_nif_parallel_job_t *
+libdecaf_nif_parallel_job(libdecaf_nif_parallel_operation_t *operation, size_t index)
+{
+    return &libdecaf_nif_parallel_pipeline(operation)->jobs[index / LIBDECAF_NIF_PARALLEL_JOB_LEAVES];
+}
+
+static inline uint8_t *
+libdecaf_nif_parallel_chaining(libdecaf_nif_parallel_operation_t *operation, size_t index)
+{
+    if (operation->version < 2)
+        return operation->results[index].chaining;
+    libdecaf_nif_parallel_pipeline_t *pipeline = libdecaf_nif_parallel_pipeline(operation);
+    size_t jobs = pipeline->capacity / LIBDECAF_NIF_PARALLEL_JOB_LEAVES * LIBDECAF_NIF_PARALLEL_WINDOWS;
+    return (uint8_t *)&pipeline->jobs[jobs] + index * pipeline->chaining_length;
+}
 
 static inline size_t
 libdecaf_nif_parallel_job_size(const libdecaf_nif_parallel_node_t *node)
 {
-    const libdecaf_nif_parallel_operation_t *operation = node->operation;
+    libdecaf_nif_parallel_operation_t *operation = node->operation;
     size_t width = operation->job_width != 0 ? operation->job_width : 1;
     size_t count = width - node->index % width;
-    return count < operation->count - node->index ? count : operation->count - node->index;
+    size_t remaining;
+    if (operation->version >= 2) {
+        libdecaf_nif_parallel_pipeline_t *pipeline = libdecaf_nif_parallel_pipeline(operation);
+        remaining = libdecaf_nif_parallel_window(operation, node->index)->count - node->index % pipeline->capacity;
+    } else {
+        remaining = operation->count - node->index;
+    }
+    return count < remaining ? count : remaining;
 }
 
 extern libdecaf_nif_parallel_pool_t *libdecaf_nif_parallel_pool_current(ErlNifEnv *env);

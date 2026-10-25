@@ -13,7 +13,8 @@ typedef struct libdecaf_nif_parallel_operation_s libdecaf_nif_parallel_operation
 extern ErlNifResourceType *libdecaf_nif_parallel_operation_load(ErlNifEnv *env, const char *name);
 extern libdecaf_nif_parallel_operation_t *libdecaf_nif_parallel_operation_create(ErlNifEnv *env, ErlNifResourceType *type,
                                                                                  ERL_NIF_TERM state, ERL_NIF_TERM input,
-                                                                                 size_t block_size, bool finish,
+                                                                                 size_t block_size,
+                                                                                 libdecaf_nif_parallel_leaf_t leaf, bool finish,
                                                                                  size_t output_length, ERL_NIF_TERM *error);
 extern libdecaf_nif_parallel_operation_t *libdecaf_nif_parallel_operation_get(ErlNifEnv *env, ErlNifResourceType *type,
                                                                               ERL_NIF_TERM term);

@@ -51,7 +51,8 @@ libdecaf_nif_parallel_xof_begin(ErlNifEnv *env, ERL_NIF_TERM old_term, ERL_NIF_T
     ERL_NIF_TERM state_term = enif_make_resource(env, state), error;
     enif_release_resource(state);
     libdecaf_nif_parallel_operation_t *operation = libdecaf_nif_parallel_operation_create(env,
-        libdecaf_nif_parallel_xof_resource_type, state_term, input, algorithm->parallel->block_size(state->context), finish, output_length, &error);
+        libdecaf_nif_parallel_xof_resource_type, state_term, input, algorithm->parallel->block_size(state->context),
+        algorithm->parallel->leaf(state->context), finish, output_length, &error);
     if (operation == NULL)
         return error;
     ERL_NIF_TERM result = libdecaf_nif_parallel_xof_progress(env, operation);

@@ -17,6 +17,7 @@ Parallel Hash/XOF framing, ordered joins, retained input, cancellation, and queu
     windows/1,
     concurrent_branches/1,
     concurrent_windows/1,
+    pipelined_windows/1,
     round_limits/1,
     yielding/1,
     cancellation/1,
@@ -40,6 +41,7 @@ all() ->
         windows,
         concurrent_branches,
         concurrent_windows,
+        pipelined_windows,
         round_limits,
         yielding,
         cancellation,
@@ -215,6 +217,38 @@ concurrent_windows(_) ->
             )
         end,
         [{kt128, kt128}, {{parallelhash128, 32, 8192}, {parallelhashxof128, 8192}}]
+    ),
+    ok.
+
+-spec pipelined_windows(Config) -> Result when Config :: ct_suite:ct_config(), Result :: ok.
+pipelined_windows(_) ->
+    % Two full windows must be queued before the owner continues. Draining
+    % small pieces concurrently exercises split jobs and out-of-order masks.
+    Input = data(64 * 1024 * 1024 + 17 * 8192 + 37),
+    lists:foreach(
+        fun(Parameters) ->
+            Expected = libdecaf:hash(Parameters, Input),
+            with_paused_routers(fun(Names) ->
+                State = libdecaf_nif:parallel_hash_init(Parameters),
+                Pending = {await, _, _} = libdecaf_nif:parallel_hash_update(State, Input),
+                true = queued() > 4096,
+                Drainers = [
+                    spawn_monitor(fun() ->
+                        lists:foreach(
+                            fun(_) -> ok = libdecaf_nif:parallel_absorb(Number, Budget) end,
+                            lists:seq(1, 16)
+                        )
+                    end)
+                 || Number <- lists:seq(1, length(Names)), Budget <- [1, 3, 17]
+                ],
+                lists:foreach(fun({Pid, Ref}) -> down(Ref, Pid, normal) end, Drainers),
+                Updated = drain_hash(Pending, length(Names)),
+                Expected = libdecaf:parallel_hash_final(Updated),
+                0 = queued(),
+                [] = messages()
+            end)
+        end,
+        [kt128, {parallelhash256, 64, 8192}]
     ),
     ok.
 
@@ -438,14 +472,15 @@ native_hash_wait({done, Ref, State}) ->
     State.
 
 -spec drain_hash(Progress, RouterCount) -> Result when
-    Progress :: hash_progress(), RouterCount :: pos_integer(), Result :: ok.
+    Progress :: hash_progress(), RouterCount :: pos_integer(), Result :: libdecaf_nif:parallel_hash_state().
 drain_hash({finalize, _, _, _}, _) ->
     error(unexpected_parallel_finalize);
 drain_hash({await, _, Operation}, Count) ->
     lists:foreach(fun(Number) -> libdecaf_nif:parallel_absorb(Number, 0) end, lists:seq(1, Count)),
     drain_hash(libdecaf_nif:parallel_hash_continue(Operation), Count);
-drain_hash({done, Ref, _State}, _) ->
-    flush(Ref).
+drain_hash({done, Ref, State}, _) ->
+    flush(Ref),
+    State.
 
 -spec binary_memory() -> Result when Result :: non_neg_integer() | unavailable.
 binary_memory() ->

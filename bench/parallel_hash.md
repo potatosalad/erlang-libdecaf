@@ -40,13 +40,25 @@ queues, resource management, and Erlang scheduling. Workers synchronize once per
 complete pass, rather than once per update. The gap to the API includes required
 root work as well as overhead; it cannot all be recovered. Run the native and
 Erlang benchmarks separately so they do not compete for the same cores.
+Set `BENCH_THREADS` to match the VM's dirty CPU scheduler count when comparing
+non-default scheduler configurations.
 
 ## Update size and native window size
 
-These are separate settings. The native window remains capped at 4,096 leaves:
-32 MiB for KT/HopMAC and 8 KiB ParallelHash blocks. A larger update spans multiple
-native windows while retaining the original input binary. ParallelHash with a
-different block size has a different byte window.
+These are separate settings. Each native window is capped at 4,096 leaves:
+32 MiB for KT/HopMAC and 8 KiB ParallelHash blocks. Up to two windows run at once;
+workers can hash the next window while the owner joins the current window into
+the root. A freed window is refilled before the other window's results are
+joined. Root updates remain strictly ordered. The input binary is retained
+once, with offsets into its original storage. ParallelHash with a different
+block size has a different byte window.
+
+Queue nodes and readiness masks are stored per 16-leaf job, with chaining
+values packed separately at their actual 32- or 64-byte length. Full jobs publish
+one readiness store; partially split jobs combine readiness bits atomically.
+The root absorbs completed runs directly without copying into a scratch buffer.
+Window reuse waits for completion and notification publication, and NIF upgrades
+retire incompatible queue pools while allowing old operations to finish.
 
 On an Apple M3 Max with 14 online schedulers and the ARM SHA3 backend, the update
 sweep showed a broad 32–128 MiB plateau. One pass reached 34.8 GiB/s for KT128
@@ -75,3 +87,34 @@ an improvement. An isolated native A/B comparison showed about 8–12% higher
 24-round leaf throughput from register-resident SIMD absorption. Root chaining
 values are also absorbed in batches, and larger KT updates use fewer worker
 wakeups. Updates below 2 MiB of leaf work retain the original fan-out.
+
+## Two-window pipeline and packed results
+
+On the same M3 Max, three alternating baseline/optimized VM runs used 32 GiB
+messages, 64 MiB updates, and the default drain-until-idle worker budget.
+The baseline was commit `8d66072`, with the same upstream archive in both builds.
+The native column is the median of five standalone 32 GiB leaf passes, using
+dynamic work distribution across all 14 cores. Values are GiB/s.
+
+| Algorithm | API before | API after | Change | Native leaves only |
+| --- | ---: | ---: | ---: | ---: |
+| KT128 | 32.16 | 38.89 | +20.9% | 51.38 |
+| KT256 | 27.54 | 28.04 | +1.8% | 41.79 |
+| HopMAC128 | 32.57 | 39.58 | +21.5% | — |
+| HopMAC256 | 27.45 | 28.51 | +3.8% | — |
+| ParallelHash128 | 18.36 | 19.65 | +7.0% | 22.69 |
+| ParallelHash256 | 14.59 | 15.46 | +5.9% | 19.91 |
+
+HopMAC uses the corresponding KT leaf kernel. These are measurements, not a
+guaranteed ceiling: frequencies, background work, and core placement affect
+individual runs. Equal per-thread work partitions underestimated the native
+limit on this CPU because faster cores finished before slower ones; the native
+benchmark now uses dynamic claims. Its private output storage and lack of root
+work also make it deliberately cheaper than the full API.
+
+The leaf-only gap remains about 12.5 GiB/s for KT128 and 3 GiB/s for
+ParallelHash128. Required root absorption accounts for part of that gap.
+Additional 1/4 MiB and parallel XOF comparisons were mixed; these larger-window
+gains should not be assumed for every workload. Three 4 MiB Hash runs put KT128
+at 21.46 before versus 20.47 after, while KT256 measured 16.63 versus 17.30 GiB/s.
+Repeat the size sweep on the target workload before selecting its update size.
