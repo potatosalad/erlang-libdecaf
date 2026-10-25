@@ -11,6 +11,7 @@
 #define __DECAF_KECCAK_INTERNAL_H__ 1
 
 #include <stdint.h>
+#include <stddef.h>
 
 /* Aliasing MSVC preprocessing to GNU preprocessing */
 #if defined _MSC_VER
@@ -36,6 +37,14 @@ typedef struct decaf_keccak_sponge_s {
 #define INTERNAL_SPONGE_STRUCT 1
 
 void __attribute__((noinline)) keccakf(kdomain_t state, uint8_t start_round);
+
+/* Shared optimized backend; parallel scratch uses lane-major little-endian words
+ * and must be 64-byte aligned. Width is 1, 2, 4 or 8. */
+const char *decaf_keccak_backend(void);
+size_t decaf_keccak_absorb_blocks(kdomain_t state, unsigned int rate, uint8_t start_round, const uint8_t *input, size_t length);
+unsigned int decaf_keccak_parallelism(void);
+int decaf_keccak_hash_leaves(uint8_t *const *outputs, const uint8_t *const *inputs, unsigned int width, unsigned int rate);
+void decaf_keccak_permute_parallel(uint64_t *states, unsigned int width, uint8_t start_round);
 
 static inline void dokeccak (decaf_keccak_sponge_t decaf_sponge) {
     keccakf(decaf_sponge->state, decaf_sponge->params->start_round);

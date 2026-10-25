@@ -215,3 +215,59 @@ decaf_error_t decaf_spongerng_init_from_dev_urandom (
 ) {
     return decaf_spongerng_init_from_file(decaf_sponge, "/dev/urandom", 64, 0);
 }
+
+static void
+decaf_spongerng_squeeze2(decaf_keccak_sponge_s *s0, decaf_keccak_sponge_s *s1, uint8_t *out0, uint8_t *out1, size_t length)
+{
+    uint64_t state[50] __attribute__((aligned(64)));
+    s0->state->b[s0->params->position] ^= s0->params->pad;
+    s1->state->b[s1->params->position] ^= s1->params->pad;
+    s0->state->b[135] ^= 0x80;
+    s1->state->b[135] ^= 0x80;
+    for (size_t i = 0; i < 25; ++i)
+    {
+        state[2 * i] = s0->state->w[i];
+        state[2 * i + 1] = s1->state->w[i];
+    }
+    decaf_keccak_permute_parallel(state, 2, 0);
+    while (length >= 136) {
+        for (size_t i = 0; i < 17; ++i) {
+            uint64_t word0 = state[2 * i], word1 = state[2 * i + 1];
+            memcpy(out0 + 8 * i, &word0, 8);
+            memcpy(out1 + 8 * i, &word1, 8);
+        }
+        decaf_keccak_permute_parallel(state, 2, 0);
+        out0 += 136;
+        out1 += 136;
+        length -= 136;
+    }
+    for (size_t i = 0; i < 25; ++i) {
+        s0->state->w[i] = state[2 * i];
+        s1->state->w[i] = state[2 * i + 1];
+    }
+    memcpy(out0, s0->state->b, length);
+    memcpy(out1, s1->state->b, length);
+    s0->params->position = s1->params->position = (uint8_t)length;
+    s0->params->flags = s1->params->flags = 'Z';
+    decaf_bzero(state, sizeof(state));
+}
+
+void
+decaf_spongerng_next2(decaf_keccak_prng_t p0, decaf_keccak_prng_t p1, uint8_t *out0, uint8_t *out1, size_t length)
+{
+    /* Preserve the upstream CPU-entropy path for nondeterministic states. */
+    if (p0->sponge->params->remaining == 0 && p1->sponge->params->remaining == 0) {
+        uint8_t encoded[8];
+        for (size_t i = 0; i < sizeof(encoded); ++i)
+            encoded[i] = (uint8_t)((uint64_t)length >> (8 * i));
+        decaf_sha3_update(p0->sponge, encoded, sizeof(encoded));
+        decaf_sha3_update(p1->sponge, encoded, sizeof(encoded));
+        decaf_spongerng_squeeze2(p0->sponge, p1->sponge, out0, out1, length);
+        const uint8_t zero = 0;
+        decaf_spongerng_stir(p0, &zero, 0);
+        decaf_spongerng_stir(p1, &zero, 0);
+        return;
+    }
+    decaf_spongerng_next(p0, out0, length);
+    decaf_spongerng_next(p1, out1, length);
+}

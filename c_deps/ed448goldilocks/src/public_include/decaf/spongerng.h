@@ -64,6 +64,18 @@ void DECAF_API_VIS decaf_spongerng_next (
     size_t len                  /**< [in]    Number of bytes to output. */
 );
 
+/** Output equal-length buffers from two independent PRNGs using a parallel
+ * permutation where available. Outputs and final contexts are identical to
+ * two decaf_spongerng_next calls. States and output buffers must not overlap.
+ * Nondeterministic states retain the existing per-state CPU-entropy path. */
+void DECAF_API_VIS decaf_spongerng_next2 (
+    decaf_keccak_prng_t state0,
+    decaf_keccak_prng_t state1,
+    uint8_t *output0,
+    uint8_t *output1,
+    size_t length
+);
+
 /** Stir entropy data into a sponge-based CSPRNG from a buffer.  */
 void DECAF_API_VIS decaf_spongerng_stir (
     decaf_keccak_prng_t prng,              /**< [out] The PRNG object. */

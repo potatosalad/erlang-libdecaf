@@ -146,6 +146,17 @@ decaf_error_t DECAF_API_VIS decaf_sha3_hash (
     const struct decaf_kparams_s *params
 );
 
+/** Hash 1, 2, 4 or 8 independent equal-length inputs using runtime-selected
+ * parallel permutations. Input/output buffers must not overlap the states or
+ * one another. Output length and failure semantics match decaf_sha3_hash.
+ * Every buffer must hold its indicated length; zero-length inputs may be empty.
+ */
+decaf_error_t DECAF_API_VIS decaf_sha3_hash_parallel(
+    uint8_t *const *outputs, size_t output_length,
+    const uint8_t *const *inputs, size_t input_length,
+    unsigned int width, const struct decaf_kparams_s *params
+);
+
 /* FUTURE: expand/doxygenate individual DECAF_SHAKE/DECAF_SHA3 instances? */
 
 #if defined _MSC_VER

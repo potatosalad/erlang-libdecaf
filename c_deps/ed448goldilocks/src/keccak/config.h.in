@@ -1,0 +1,5 @@
+#ifndef DECAF_XKCP_CONFIG_H
+#define DECAF_XKCP_CONFIG_H
+#cmakedefine DECAF_KECCAK_SHA3 1
+#cmakedefine DECAF_KECCAK_X86 1
+#endif
