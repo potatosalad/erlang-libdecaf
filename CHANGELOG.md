@@ -4,7 +4,10 @@
 
 * Library Support
   * [Ristretto255 and Decaf448](https://www.rfc-editor.org/rfc/rfc9496.html) group arithmetic.
-  * cSHAKE, KMAC, TupleHash, and ParallelHash, including their XOF variants, from [NIST SP 800-185](https://csrc.nist.gov/pubs/sp/800/185/final).
+  * cSHAKE128, cSHAKE256, KMAC128, KMAC256, KMACXOF128, KMACXOF256,
+    TupleHash128, TupleHash256, TupleHashXOF128, TupleHashXOF256,
+    ParallelHash128, ParallelHash256, ParallelHashXOF128, and ParallelHashXOF256
+    from [SP 800-185r1](https://csrc.nist.gov/pubs/sp/800/185/r1/ipd).
   * TurboSHAKE, KangarooTwelve (KT128/KT256), and HopMAC from [RFC 9861](https://www.rfc-editor.org/rfc/rfc9861.html), plus original Keccak XOFs.
   * [3GPP TUAK](https://www.etsi.org/deliver/etsi_ts/135200_135299/135231/19.00.00_60/ts_135231v190000p.pdf) authentication and key generation.
 * Enhancements

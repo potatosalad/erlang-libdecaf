@@ -4,6 +4,13 @@
 `libdecaf:xof/3` returns a requested number of XOF bytes. Both have streaming
 interfaces for inputs that arrive in pieces.
 
+cSHAKE128, cSHAKE256, KMAC128, KMAC256, KMACXOF128, KMACXOF256,
+TupleHash128, TupleHash256, TupleHashXOF128, TupleHashXOF256, ParallelHash128,
+ParallelHash256, ParallelHashXOF128, and ParallelHashXOF256 follow
+[SP 800-185r1](https://csrc.nist.gov/pubs/sp/800/185/r1/ipd).
+Its streaming XOF interface initializes, absorbs input, and squeezes output.
+One-shot results remain compatible with the previous edition's published vectors.
+
 ## Hash parameters
 
 Initialize with `libdecaf:hash_init/1`, add input with `libdecaf:hash_update/2`,
@@ -17,8 +24,8 @@ and finish with `libdecaf:hash_final/1`. The output length is chosen at initiali
 | KMAC, HopMAC | `{Algorithm, Length, Key}` or `{Algorithm, Length, Key, Customization}` |
 | KT | `Algorithm`, `{Algorithm, Length}`, or `{Algorithm, Length, Customization}` |
 | TurboSHAKE | `Algorithm`, `{Algorithm, Length}`, or `{Algorithm, Length, Domain}` |
-| TupleHash | `{Algorithm, Length}` or `{Algorithm, Length, Customization}` |
-| ParallelHash | `{Algorithm, Length, BlockSize}` or `{Algorithm, Length, BlockSize, Customization}` |
+| TupleHash128, TupleHash256 | `{Algorithm, Length}` or `{Algorithm, Length, Customization}` |
+| ParallelHash128, ParallelHash256 | `{Algorithm, Length, BlockSize}` or `{Algorithm, Length, BlockSize, Customization}` |
 
 Lengths and block sizes are in bytes. Message data, keys, function names, and
 customization strings accept iodata. Omitted customization and function names
@@ -36,7 +43,8 @@ Digest = libdecaf:hash(Parameters, <<"invoice-42">>).
 SHA-512, SHA-3, and fixed Keccak allow digest prefixes up to their full length.
 KMAC, TupleHash, and ParallelHash encode the chosen output length into their
 computation: request the desired length rather than truncating a longer result.
-Their XOF variants use different framing and produce different output.
+KMACXOF128, KMACXOF256, TupleHashXOF128, TupleHashXOF256, ParallelHashXOF128,
+and ParallelHashXOF256 use different framing and produce different output.
 
 ## XOF parameters
 
@@ -48,9 +56,9 @@ and read output with `libdecaf:xof_squeeze/2`.
 | `shake128`, `shake256`, `keccakxof_128`, `keccakxof_256` | `Algorithm` |
 | `cshake128`, `cshake256` | `Algorithm` or `{Algorithm, FunctionName, Customization}` |
 | `kmacxof128`, `kmacxof256`, `hopmac128`, `hopmac256` | `{Algorithm, Key}` or `{Algorithm, Key, Customization}` |
-| `kt128`, `kt256`, `tuplehashxof128`, `tuplehashxof256` | `Algorithm` or `{Algorithm, Customization}` |
+| KT128 (`kt128`), KT256 (`kt256`), TupleHashXOF128 (`tuplehashxof128`), TupleHashXOF256 (`tuplehashxof256`) | `Algorithm` or `{Algorithm, Customization}` |
 | `turboshake128`, `turboshake256` | `Algorithm` or `{Algorithm, Domain}` |
-| `parallelhashxof128`, `parallelhashxof256` | `{Algorithm, BlockSize}` or `{Algorithm, BlockSize, Customization}` |
+| ParallelHashXOF128 (`parallelhashxof128`), ParallelHashXOF256 (`parallelhashxof256`) | `{Algorithm, BlockSize}` or `{Algorithm, BlockSize, Customization}` |
 
 ```erlang
 Parameters = {cshake128, <<>>, <<"orders/v1">>},
@@ -71,7 +79,7 @@ SHAKE, cSHAKE, Keccak XOF, TurboSHAKE, KT, and HopMAC produce the same output
 prefix through the Hash and XOF interfaces. Empty function-name and customization
 strings make cSHAKE equivalent to SHAKE.
 
-## TupleHash and ParallelHash
+## TupleHash128, TupleHash256, TupleHashXOF128, and TupleHashXOF256
 
 TupleHash hashes a sequence of distinct elements. A one-shot call takes a list
 of elements; each streaming update or absorb adds one complete element:
@@ -86,14 +94,17 @@ Different = libdecaf:hash({tuplehash128, 32}, [<<"ab">>, <<"c">>]),
 true = Digest =/= Different.
 ```
 
+## ParallelHash128, ParallelHash256, ParallelHashXOF128, and ParallelHashXOF256
+
 ParallelHash splits message bytes into fixed-size blocks. Its block size is
 part of the algorithm parameters and changes the result; update boundaries do
 not. The ordinary Hash/XOF APIs process blocks serially with bounded memory.
 
 ## Parallel hashing
 
-KT128/KT256, HopMAC128/HopMAC256, and ParallelHash128/ParallelHash256 support
-parallel hashing. Use the corresponding ParallelHashXOF selectors for XOFs.
+KT128, KT256, HopMAC128, HopMAC256, ParallelHash128, and ParallelHash256 support
+parallel hashing. For parallel XOFs, use KT128, KT256, HopMAC128, HopMAC256,
+ParallelHashXOF128, or ParallelHashXOF256.
 Start the application to enable its worker pool:
 
 ```erlang

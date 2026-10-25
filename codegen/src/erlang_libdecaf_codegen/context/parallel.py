@@ -20,7 +20,8 @@ def types(schema):
             (
                 f"parallel_{mode}_parameters",
                 " | ".join(forms) or "none()",
-                "Initialization parameters for KT, HopMAC, and ParallelHash constructions supporting parallel leaves.",
+                "Initialization parameters for KT128, KT256, HopMAC128, HopMAC256, "
+                + ("ParallelHash128, and ParallelHash256." if mode == "hash" else "ParallelHashXOF128, and ParallelHashXOF256."),
             ),
             (
                 f"parallel_{mode}_state",
@@ -46,8 +47,8 @@ def functions(schema, public=False):
         docs = {
             "init": f"""Initialize a parallel {title} state.
 
-Accepts the same parameter forms as `{mode}_init/1` for KT128/KT256,
-HopMAC128/HopMAC256, and {'ParallelHash128/ParallelHash256' if mode == 'hash' else 'ParallelHashXOF128/ParallelHashXOF256'}.
+Accepts the same parameter forms as `{mode}_init/1` for KT128, KT256,
+HopMAC128, HopMAC256, and {'ParallelHash128, ParallelHash256' if mode == 'hash' else 'ParallelHashXOF128, ParallelHashXOF256'}.
 Other algorithms raise `badarg`. KT and HopMAC use 8192-byte leaves;
 ParallelHash uses its configured block size. States remain immutable.
 

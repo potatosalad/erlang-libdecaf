@@ -74,6 +74,7 @@ On Linux with an ASan-enabled OTP installation, use `just sanitizers-native`.
 
 ```sh
 elixir bench/hash.exs
+elixir bench/hash_highlights.exs
 elixir bench/xof.exs
 elixir bench/parallel_hash_stress.exs
 elixir bench/parallel_xof_stress.exs

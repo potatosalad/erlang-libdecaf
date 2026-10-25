@@ -303,8 +303,8 @@ Parameter forms (`L` is output bytes, `S` is customization, and `B` is block byt
 | KMAC, HopMAC | `{Algorithm, L, Key}` or `{Algorithm, L, Key, S}` |
 | KT | `Algorithm`, `{Algorithm, L}`, or `{Algorithm, L, S}` |
 | TurboSHAKE | `Algorithm`, `{Algorithm, L}`, or `{Algorithm, L, Domain}` |
-| TupleHash | `{Algorithm, L}` or `{Algorithm, L, S}` |
-| ParallelHash | `{Algorithm, L, B}` or `{Algorithm, L, B, S}` |
+| TupleHash128, TupleHash256 | `{Algorithm, L}` or `{Algorithm, L, S}` |
+| ParallelHash128, ParallelHash256 | `{Algorithm, L, B}` or `{Algorithm, L, B, S}` |
 
 SHA-2, SHA-3, and fixed Keccak permit prefixes up to the full digest size.
 KT and TurboSHAKE default to 32 bytes at strength 128 and 64 at strength 256.
@@ -344,18 +344,22 @@ Tuple fields put the algorithm first, followed by its construction-specific opti
 Choose customization, keys, block sizes, or domain separation here; output length
 is chosen later with `xof_squeeze/2`.
 
+The SHA-3 derived functions follow the streaming definitions in
+[SP 800-185r1](https://csrc.nist.gov/pubs/sp/800/185/r1/ipd).
+
 | Algorithms | Parameters |
 | --- | --- |
 | SHAKE, Keccak XOF | `Algorithm` |
 | cSHAKE | `Algorithm` or `{Algorithm, FunctionName, Customization}` |
-| KMACXOF, HopMAC | `{Algorithm, Key}` or `{Algorithm, Key, Customization}` |
-| KT, TupleHashXOF | `Algorithm` or `{Algorithm, Customization}` |
+| KMACXOF128, KMACXOF256, HopMAC128, HopMAC256 | `{Algorithm, Key}` or `{Algorithm, Key, Customization}` |
+| KT128, KT256, TupleHashXOF128, TupleHashXOF256 | `Algorithm` or `{Algorithm, Customization}` |
 | TurboSHAKE | `Algorithm` or `{Algorithm, Domain}` |
-| ParallelHashXOF | `{Algorithm, BlockSize}` or `{Algorithm, BlockSize, Customization}` |
+| ParallelHashXOF128, ParallelHashXOF256 | `{Algorithm, BlockSize}` or `{Algorithm, BlockSize, Customization}` |
 
-Use `kmacxof128`, `kmacxof256`, `tuplehashxof128`, `tuplehashxof256`,
-`parallelhashxof128`, and `parallelhashxof256` selectors for these XOF variants. They produce different output from their
-length-bound hash variants. Other XOF families are SHAKE, cSHAKE, Keccak XOF,
+KMACXOF128, KMACXOF256, TupleHashXOF128, TupleHashXOF256, ParallelHashXOF128,
+and ParallelHashXOF256 use the matching lowercase algorithm selectors. They produce
+different output from KMAC128, KMAC256, TupleHash128, TupleHash256, ParallelHash128,
+and ParallelHash256. Other XOF families are SHAKE, cSHAKE, Keccak XOF,
 KT, TurboSHAKE, and HopMAC, each at strength 128 or 256.
 Function names, keys, and customization accept iodata; empty cSHAKE strings yield
 SHAKE output. TurboSHAKE uses an integer domain in `1..127`, default `16#1F`.

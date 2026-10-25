@@ -22,9 +22,14 @@ For streaming XOFs, use `xof_init/1`, `xof_absorb/2`, and `xof_squeeze/2`.
 All states are immutable: keep the state returned by each update. Lengths are
 in bytes, and message input accepts iodata.
 
-`parallel_hash/2` and `parallel_xof/3` process KT, HopMAC, and ParallelHash
-across worker processes. Call `start/0` to enable the worker pool. The ordinary
-and parallel APIs produce identical output.
+cSHAKE, KMAC, KMACXOF, TupleHash, TupleHashXOF, ParallelHash, and ParallelHashXOF
+follow [SP 800-185r1](https://csrc.nist.gov/pubs/sp/800/185/r1/ipd),
+including its initialization, absorption, and squeezing interfaces.
+
+`parallel_hash/2` supports KT128, KT256, HopMAC128, HopMAC256, ParallelHash128,
+and ParallelHash256. `parallel_xof/3` supports KT128, KT256, HopMAC128, HopMAC256,
+ParallelHashXOF128, and ParallelHashXOF256. Call `start/0` to enable the worker
+pool. The ordinary and parallel APIs produce identical output.
 
 See the [Hash and XOF guide](guides/hash-and-xof.md) for algorithm parameters
 and the [migration guide](guides/migrating-to-3.0.md) for deprecated APIs.
