@@ -13,10 +13,11 @@ defmodule LibdecafBench.OneShot do
 
     :ok = :application.set_env(:libdecaf, :parallel_absorb_rounds, rounds)
     message = :binary.copy(<<0>>, bytes)
+    crypto_hashes = :crypto.supports(:hashs)
 
     jobs =
-      Map.new(LibdecafBench.StreamStress.cases(api), fn
-        {name, implementation, parameters, output_bytes} ->
+      Enum.reduce(LibdecafBench.StreamStress.cases(api), %{}, fn
+        {name, implementation, parameters, output_bytes}, jobs ->
           [algorithm, _api] = String.split(name, " / ")
           input = if String.starts_with?(algorithm, "tuplehash"), do: [message], else: message
           function = job(implementation, parameters, input, output_bytes)
@@ -30,12 +31,28 @@ defmodule LibdecafBench.OneShot do
             ^expected = output
           end
 
-          {"#{algorithm} / one-shot / #{implementation}", function}
+          jobs = Map.put(jobs, "#{algorithm} / one-shot / libdecaf:#{implementation}", function)
+
+          # Add each crypto baseline once, alongside the regular libdecaf case.
+          if implementation == api do
+            case crypto_job(parameters, input, output_bytes, crypto_hashes) do
+              nil ->
+                jobs
+
+              {label, crypto_function} ->
+                ^output = crypto_function.()
+                Map.put(jobs, "#{algorithm} / one-shot / #{label}", crypto_function)
+            end
+          else
+            jobs
+          end
       end)
 
     IO.puts("One-shot #{api}: #{map_size(jobs)} cases, #{bytes}-byte messages, one caller.")
     IO.puts("Message allocation is outside timing; TupleHash receives one tuple element.")
+    IO.puts("Available crypto equivalents are included and checked for identical output.")
     IO.puts("Parallel worker budget: #{rounds} leaves (0 drains until idle).")
+    IO.inspect(:crypto.info_lib(), label: "crypto backend")
 
     Benchee.run(jobs,
       time: time,
@@ -57,6 +74,36 @@ defmodule LibdecafBench.OneShot do
 
   defp job(:parallel_xof, parameters, input, length),
     do: fn -> :libdecaf.parallel_xof(parameters, input, length) end
+
+  defp crypto_job(parameters, input, output_bytes, supported) do
+    algorithm =
+      case parameters do
+        :sha2_512 ->
+          :sha512
+
+        {shake, _length} when shake in [:shake128, :shake256] ->
+          shake
+
+        algorithm
+        when algorithm in [:sha3_224, :sha3_256, :sha3_384, :sha3_512, :shake128, :shake256] ->
+          algorithm
+
+        _ ->
+          nil
+      end
+
+    if algorithm in supported do
+      if algorithm in [:shake128, :shake256] do
+        if function_exported?(:crypto, :hash_xof, 3) do
+          # crypto uses bits, while libdecaf uses bytes.
+          bits = output_bytes * 8
+          {"crypto:hash_xof", fn -> :crypto.hash_xof(algorithm, input, bits) end}
+        end
+      else
+        {"crypto:hash", fn -> :crypto.hash(algorithm, input) end}
+      end
+    end
+  end
 
   defp report(suite, bytes) do
     suite.scenarios
