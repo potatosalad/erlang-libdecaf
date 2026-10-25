@@ -19,7 +19,7 @@ typedef struct {
     size_t (*prefix)(const void *context);
     libdecaf_nif_parallel_leaf_t (*leaf)(const void *context);
     void (*update)(void *context, const uint8_t *input, size_t length);
-    bool (*join)(void *context, const uint8_t *chaining_value);
+    bool (*join)(void *context, const uint8_t *chaining_values, size_t count);
 } libdecaf_nif_parallel_algorithm_t;
 
 #ifdef __cplusplus

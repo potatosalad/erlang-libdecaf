@@ -30,10 +30,10 @@ void
 
 
 bool
-{{ p }}_raw_join({{ p }}_raw_ctx_t *ctx, const uint8_t *chaining_value)
+{{ p }}_raw_join({{ p }}_raw_ctx_t *ctx, const uint8_t *chaining_values, size_t count)
 {
     assert(!ctx->finalized && ctx->root_len == 8192 && ctx->leaf_len == 0);
-    if (ctx->chaining_count == SIZE_MAX)
+    if (count > SIZE_MAX - ctx->chaining_count)
         return false;
     if (!ctx->tree) {
         static const uint8_t divider[8] = {0x03, 0, 0, 0, 0, 0, 0, 0};
@@ -41,8 +41,8 @@ bool
         ctx->root.params->pad = 0x06;
         ctx->tree = true;
     }
-    libdecaf_nif_turboshake_absorb(&ctx->root, chaining_value, ctx->chaining_len);
-    ctx->chaining_count++;
+    libdecaf_nif_turboshake_absorb(&ctx->root, chaining_values, count * ctx->chaining_len);
+    ctx->chaining_count += count;
     return true;
 }
 

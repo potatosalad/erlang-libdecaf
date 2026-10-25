@@ -64,12 +64,15 @@ libdecaf_nif_parallel_operation_create(ErlNifEnv *env, ErlNifResourceType *type,
         enif_free_env(work_env);
         return NULL;
     }
-    decaf_bzero(operation, allocation);
+    /* Results are unreadable until their ready flag is published. Initialize
+     * metadata here; workers fully overwrite chaining values before publishing. */
+    decaf_bzero(operation, offsetof(libdecaf_nif_parallel_operation_t, results));
     atomic_init(&operation->cancelled, false);
     atomic_init(&operation->notified, false);
     atomic_init(&operation->completed, 0);
     for (size_t i = 0; i < capacity; i++) {
         atomic_init(&operation->results[i].ready, false);
+        operation->results[i].node.next = NULL;
         operation->results[i].node.operation = operation;
         operation->results[i].node.index = i;
     }
@@ -138,14 +141,17 @@ libdecaf_nif_parallel_dispatch(ErlNifEnv *env, libdecaf_nif_parallel_operation_t
     libdecaf_nif_parallel_node_t *heads[LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT];
     libdecaf_nif_parallel_node_t *tails[LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT];
     size_t counts[LIBDECAF_NIF_PARALLEL_ROUTER_LIMIT];
-    decaf_bzero(heads, sizeof(heads));
-    decaf_bzero(tails, sizeof(tails));
-    decaf_bzero(counts, sizeof(counts));
     libdecaf_nif_parallel_pool_t *pool = operation->pool;
+    decaf_bzero(heads, pool->count * sizeof(heads[0]));
+    decaf_bzero(tails, pool->count * sizeof(tails[0]));
+    decaf_bzero(counts, pool->count * sizeof(counts[0]));
     size_t first = atomic_fetch_add_explicit(&pool->next_router, 1, memory_order_relaxed) % pool->count;
     /* Small fan-outs amortize worker wakeups and dirty scheduler transitions.
      * Assign contiguous leaves so workers do not share adjacent result lines. */
-    size_t target_bytes = 128 * 1024;
+    /* Fast KT kernels amortize fewer wakeups on larger updates. Small updates
+     * still need enough simultaneous workers to keep their latency down. */
+    size_t input_bytes = operation->count * operation->block_size;
+    size_t target_bytes = operation->leaf.turbo && input_bytes >= 2 * 1024 * 1024 ? 512 * 1024 : 128 * 1024;
     size_t workers = 1 + (operation->count * operation->block_size - 1) / target_bytes;
     if (workers > pool->count)
         workers = pool->count;
@@ -208,13 +214,28 @@ libdecaf_nif_parallel_operation_step(ErlNifEnv *env, libdecaf_nif_parallel_opera
         if (atomic_load_explicit(&operation->cancelled, memory_order_acquire))
             return -1;
         if (operation->count != 0) {
-            while (operation->joined < operation->count &&
-                   atomic_load_explicit(&operation->results[operation->joined].ready, memory_order_acquire)) {
-                if (!algorithm->join(context, operation->results[operation->joined].chaining))
+            /* Join a contiguous run in one sponge update so the root can use
+             * its register-resident absorb loop, rather than crossing vtables
+             * and copying sponge state for every 32/64-byte chaining value. */
+            const size_t chaining_length = 200 - operation->leaf.rate;
+            uint8_t chaining[128 * 64];
+            while (operation->joined < operation->count) {
+                size_t count = 0;
+                while (count < 128 && operation->joined + count < operation->count &&
+                       atomic_load_explicit(&operation->results[operation->joined + count].ready, memory_order_acquire)) {
+                    memcpy(chaining + count * chaining_length, operation->results[operation->joined + count].chaining,
+                           chaining_length);
+                    decaf_bzero(operation->results[operation->joined + count].chaining, 64);
+                    ++count;
+                }
+                if (count == 0)
+                    break;
+                bool valid = algorithm->join(context, chaining, count);
+                decaf_bzero(chaining, count * chaining_length);
+                if (!valid)
                     return -1;
-                decaf_bzero(operation->results[operation->joined].chaining, 64);
-                operation->joined++;
-                if (normal && operation->joined % 128 == 0 && enif_monotonic_time(ERL_NIF_USEC) - started >= 100)
+                operation->joined += count;
+                if (normal && enif_monotonic_time(ERL_NIF_USEC) - started >= 100)
                     return 2;
             }
             if (operation->joined != operation->count || !atomic_load_explicit(&operation->notified, memory_order_acquire)) {

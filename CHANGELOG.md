@@ -31,6 +31,7 @@
   * Add parallel Hash and XOF APIs for KT, HopMAC, and ParallelHash with retained input slices, bulk native queues, ordered chaining-value assembly, and caller cancellation.
     * Configure worker budgets through `parallel_absorb(RouterNumber, MaxRounds)` or the `parallel_absorb_rounds` application option; zero drains until empty.
     * Batch leaves with runtime-selected two-, four-, or eight-state XKCP/K12 kernels, coalesce completion notifications, and size worker fan-outs to amortize scheduling costs.
+    * Keep full leaf absorb loops in SIMD registers, batch ordered chaining values into root updates, and reduce KT worker wakeups for larger inputs while preserving small-update fan-out.
     * Reuse registered absorb workers, steal queued work in short batches, and grow dispatch storage with input up to 4096 leaves. The calling dirty scheduler computes a share of the leaves; bounded root collection runs on normal schedulers.
     * Queue spans of 16 leaves to reduce resource references and completion atomics; retain exact worker leaf budgets when splitting jobs and safely retire legacy queues on NIF upgrades.
   * Use pinned XKCP and K12 backends in ed448goldilocks for shared Keccak acceleration, with runtime ARM SHA3 and x86 SSSE3/AVX2/AVX-512 selection and portable fallback.

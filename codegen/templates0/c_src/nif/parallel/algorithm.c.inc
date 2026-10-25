@@ -34,19 +34,19 @@ static libdecaf_nif_parallel_leaf_t
 }
 
 static bool
-{{ p }}_parallel_join(void *context, const uint8_t *chaining_value)
+{{ p }}_parallel_join(void *context, const uint8_t *chaining_values, size_t count)
 {
     {{ p }}_ctx_t *state = context;
 {% if f.name == 'parallelhash' %}
-    if (state->raw.block_count == SIZE_MAX) {
+    if (count > SIZE_MAX - state->raw.block_count) {
         state->raw.overflow = true;
         return false;
     }
-    decaf_sha3_update(&state->raw.root, chaining_value, state->raw.chaining_len);
-    state->raw.block_count++;
+    decaf_sha3_update(&state->raw.root, chaining_values, count * state->raw.chaining_len);
+    state->raw.block_count += count;
     return true;
 {% else %}
-    return libdecaf_nif_kt_raw_join(&state->raw, chaining_value);
+    return libdecaf_nif_kt_raw_join(&state->raw, chaining_values, count);
 {% endif %}
 }
 
